@@ -1,12 +1,12 @@
-import json
+import json, csv
 import os
 from dotenv import load_dotenv
 from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
-from routes import register_routes
+from models import db, Recipe
+# from routes import register_routes
 
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +26,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 # Register routes
-register_routes(app)
+# register_routes(app)
 
 # Function to initialize database, change this to your own database initialization logic
 def init_db():
@@ -34,28 +34,36 @@ def init_db():
         # Create all tables
         db.create_all()
         
-        # Initialize database with data from init.json if empty
-        if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
+        if Recipe.query.count() > 0:
+            print("Database already initialized with", Recipe.query.count(), 'recipes')
+            return
+        
+        file_path = 'data/RAW_recipes.csv'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            csv_reader = csv.reader(file)
+
+            recipe_data = list(csv_reader)
+            headers = recipe_data[0]
+            rows = recipe_data[1:]
+            for i, row in enumerate(rows):
+                try:
+                    recipe = Recipe(
+                        id=i,
+                        name=row[0],
+                        minutes=row[2],
+                        tags=row[5],
+                        n_steps=row[7],
+                        steps=row[8],
+                        description=row[9],
+                        n_ingredients=row[11],
+                        ingredients=row[10]
                     )
-                    db.session.add(episode)
-                
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
-            
-            db.session.commit()
-            print("Database initialized with episodes and reviews data")
+                    db.session.add(recipe)
+                except:
+                    print('Error in adding recipe', i)
+        
+        db.session.commit()
+        print("Database initialized with recipe data")
 
 init_db()
 
