@@ -1,7 +1,14 @@
 import os
 from flask import send_from_directory, request, jsonify
 from models import Startup
-import easyocr
+
+try:
+    import easyocr
+    EASYOCR_AVAILABLE = True
+except ImportError:
+    easyocr = None
+    EASYOCR_AVAILABLE = False
+
 from werkzeug.utils import secure_filename
 
 USE_LLM = False
@@ -19,7 +26,26 @@ KNOWN_SKILLS = {
     "typescript", "java", "r", "matlab"
 }
 
-reader = easyocr.Reader(["en"])
+reader = None
+
+
+def get_easyocr_reader():
+    global reader
+
+    if not EASYOCR_AVAILABLE:
+        raise RuntimeError("easyocr module not installed. Install with 'pip install easyocr'.")
+
+    if reader is None:
+        try:
+            reader = easyocr.Reader(["en"])
+        except Exception as e:
+            raise RuntimeError(
+                "Failed to initialize easyocr: {}. "
+                "On macOS run /Applications/Python\ x.x/Install\ Certificates.command or configure CI certificates."
+                .format(e)
+            ) from e
+
+    return reader
 
 
 def allowed_file(filename):
@@ -51,6 +77,7 @@ def extract_skills_from_text(text):
 
 
 def extract_text_from_image(image_path):
+    reader = get_easyocr_reader()
     results = reader.readtext(image_path, detail=0)
     return " ".join(results)
 
@@ -157,6 +184,8 @@ def register_routes(app):
                 "skills": skills,
                 "raw_text": extracted_text
             })
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 503
         except Exception as e:
             return jsonify({"error": f"Failed to parse image: {str(e)}"}), 500
 
