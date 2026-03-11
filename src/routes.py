@@ -6,28 +6,25 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 import json
 import os
 from flask import send_from_directory, request, jsonify
-from models import db, Episode, Review
+from models import db, Recipe
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def json_search(query):
     if not query or not query.strip():
-        query = "Kardashian"
-    results = db.session.query(Episode, Review).join(
-        Review, Episode.id == Review.id
-    ).filter(
-        Episode.title.ilike(f'%{query}%')
+        query = "food"
+    results = db.session.query(Recipe).filter(
+        Recipe.name.ilike(f'%{query}%')
     ).all()
     matches = []
-    for episode, review in results:
+    for recipe in results:
         matches.append({
-            'title': episode.title,
-            'descr': episode.descr,
-            'imdb_rating': review.imdb_rating
+            'name': recipe.name,
+            'description': recipe.description,
+            'minutes': recipe.minutes
         })
     return matches
 
@@ -45,9 +42,9 @@ def register_routes(app):
     def config():
         return jsonify({"use_llm": USE_LLM})
 
-    @app.route("/api/episodes")
+    @app.route("/api/recipes")
     def episodes_search():
-        text = request.args.get("title", "")
+        text = request.args.get("name", "")
         return jsonify(json_search(text))
 
     if USE_LLM:

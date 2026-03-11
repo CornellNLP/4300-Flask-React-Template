@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
+import { Recipe } from './types'
 import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [recipes, setRecipes] = useState<Recipe[]>([])
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -15,10 +15,10 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     setSearchTerm(value)
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    if (value.trim() === '') { setRecipes([]); return }
+    const response = await fetch(`/api/recipes?name=${encodeURIComponent(value)}`)
+    const data: Recipe[] = await response.json()
+    setRecipes(data)
   }
 
   if (useLlm === null) return <></>
@@ -37,7 +37,7 @@ function App(): JSX.Element {
           <img src={SearchIcon} alt="search" />
           <input
             id="search-input"
-            placeholder="Search for a Keeping up with the Kardashians episode"
+            placeholder="Search for a recipe"
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
           />
@@ -46,11 +46,11 @@ function App(): JSX.Element {
 
       {/* Search results (always shown) */}
       <div id="answer-box">
-        {episodes.map((episode, index) => (
-          <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
+        {recipes.map((recipe, index) => (
+          <div key={index} className="recipe-item">
+            <h3 className="recipe-name">{recipe.name}</h3>
+            <p className="recipe-desc">{recipe.description}</p>
+            <p className="recipe-time">Minutes: {String(recipe.minutes)}</p>
           </div>
         ))}
       </div>

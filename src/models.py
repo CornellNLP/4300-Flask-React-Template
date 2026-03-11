@@ -2,22 +2,18 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# Define Episode model
-class Episode(db.Model):
-    __tablename__ = 'episodes'
+# Define Recipe model
+class Recipe(db.Model):
+    __tablename__ = 'recipes'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
-    
-    def __repr__(self):
-        return f'Episode {self.id}: {self.title}'
+    name = db.Column(db.String(64), nullable=False)
+    minutes = db.Column(db.Integer, nullable=False)
+    tags = db.Column(db.String(1024), nullable=False)
+    n_steps = db.Column(db.Integer, nullable=False)
+    steps = db.Column(db.String(1024), nullable=False)
+    description = db.Column(db.String(1024), nullable=False)
+    n_ingredients = db.Column(db.Integer, nullable=False)
+    ingredients = db.Column(db.String(1024), nullable=False)
 
-# Define Review model
-class Review(db.Model):
-    __tablename__ = 'reviews'
-    id = db.Column(db.Integer, primary_key=True)
-    imdb_rating = db.Column(db.Float, nullable=False)
-    
     def __repr__(self):
-        return f'Review {self.id}: {self.imdb_rating}'
-
+        return f'Recipe {self.id}: {self.name}'
