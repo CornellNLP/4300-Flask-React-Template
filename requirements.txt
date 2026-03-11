@@ -6,3 +6,4 @@ Werkzeug==2.2.2
 gunicorn
 python-dotenv
 git+https://github.com/MrPeterss/infosci-spark-client.git
+easyocr
