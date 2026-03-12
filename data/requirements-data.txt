@@ -1,0 +1,12 @@
+#To create conda environment, run the following command in terminal:
+#conda create -n 4300-project-data python=3.11 -y'
+#conda activate 4300-project-data
+#pip install -r data/requirements-data.txt
+#For Jupyter Notebook, run the following command in terminal (Windows):
+#python -m ipykernel install --user --name=4300-project-data --display-name="Python (4300-project-data)"
+
+pandas
+numpy
+matplotlib
+jupyter
+ipykernel
