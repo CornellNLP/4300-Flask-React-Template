@@ -8,17 +8,41 @@ function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [players, setPlayers] = useState<PlayerStats[]>([])
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
   }, [])
 
-  const handleSearch = async (value: string): Promise<void> => {
+  // Debounce keystrokes so we don't hit the backend on every character.
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 350)
+    return () => window.clearTimeout(id)
+  }, [searchTerm])
+
+  // Fetch when the debounced value changes. Abort in-flight requests on new input.
+  useEffect(() => {
+    const term = debouncedSearchTerm.trim()
+    if (term === '') {
+      setPlayers([])
+      return
+    }
+
+    const controller = new AbortController()
+    ;(async () => {
+      const response = await fetch(`/api/player?name=${encodeURIComponent(term)}`, { signal: controller.signal })
+      const data: PlayerStats[] = await response.json()
+      setPlayers(data)
+    })().catch((err: unknown) => {
+      // Ignore aborts; rethrowing would be noisy in the console.
+      if (err instanceof DOMException && err.name === 'AbortError') return
+    })
+
+    return () => controller.abort()
+  }, [debouncedSearchTerm])
+
+  const handleSearch = (value: string): void => {
     setSearchTerm(value)
-    if (value.trim() === '') { setPlayers([]); return }
-    const response = await fetch(`/api/player?name=${encodeURIComponent(value)}`)
-    const data: PlayerStats[] = await response.json()
-    setPlayers(data)
   }
 
   if (useLlm === null) return <></>
