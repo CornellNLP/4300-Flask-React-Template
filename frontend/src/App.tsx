@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
+import { PlayerStats } from './types'
 import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [players, setPlayers] = useState<PlayerStats[]>([])
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -15,10 +15,10 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     setSearchTerm(value)
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    if (value.trim() === '') { setPlayers([]); return }
+    const response = await fetch(`/api/player?name=${encodeURIComponent(value)}`)
+    const data: PlayerStats[] = await response.json()
+    setPlayers(data)
   }
 
   if (useLlm === null) return <></>
@@ -28,29 +28,59 @@ function App(): JSX.Element {
       {/* Search bar (always shown) */}
       <div className="top-text">
         <div className="google-colors">
-          <h1 id="google-4">4</h1>
-          <h1 id="google-3">3</h1>
-          <h1 id="google-0-1">0</h1>
-          <h1 id="google-0-2">0</h1>
+          <h1 id="google-4">F</h1>
+          <h1 id="google-3">O</h1>
+          <h1 id="google-0-1">O</h1>
+          <h1 id="google-0-2">T</h1>
+          <h1 id="google-4">Y</h1>
+          <h1 id="google-3">S</h1>
+          <h1 id="google-0-1">E</h1>
+          <h1 id="google-0-2">A</h1>
+          <h1 id="google-4">R</h1>
+          <h1 id="google-3">C</h1>
+          <h1 id="google-0-1">H</h1>
+          <h1 id="google-0-2">!</h1>
         </div>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input
             id="search-input"
-            placeholder="Search for a Keeping up with the Kardashians episode"
+            placeholder="Search for a famous soccer player"
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Search results (always shown) */}
+      {/* Player stats results (always shown) */}
       <div id="answer-box">
-        {episodes.map((episode, index) => (
+        {players.length === 0 && searchTerm.trim() !== '' && (
+          <p className="no-results">No players found. Try another name.</p>
+        )}
+        {players.map((player, index) => (
           <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
+            <div className="player-header">
+              {player.image && (
+                <img
+                  className="player-image"
+                  src={player.image}
+                  alt={player.name}
+                  loading="lazy"
+                />
+              )}
+              <h3 className="episode-title">
+                {player.name} <span className="league-tag">({player.league})</span>
+              </h3>
+            </div>
+            <p className="episode-desc">
+              {player.position || 'Unknown position'} &mdash; {player.team || 'Unknown team'}
+            </p>
+            <p className="episode-rating">
+              Games: {player.games ?? 'N/A'} | Minutes: {player.minutes ?? 'N/A'} | Goals: {player.goals ?? 'N/A'} | Assists: {player.assists ?? 'N/A'}
+            </p>
+            <p className="episode-rating">
+              Shots: {player.shots ?? 'N/A'} | On target: {player.shots_on_target ?? 'N/A'} | Touches in box: {player.touches_in_box ?? 'N/A'}
+            </p>
           </div>
         ))}
       </div>
