@@ -12,8 +12,14 @@ const numericTraits = [
   "Shedding Level",
   "Coat Grooming Frequency",
   "Drooling Level",
+  "Openness To Strangers",
   "Playfulness Level",
+  "Watchdog/Protective Nature",
+  "Adaptability Level",
+  "Trainability Level",
   "Energy Level",
+  "Barking Level",
+  "Mental Stimulation Needs"
 ]
 
 const coatTypes = ["Corded", "Curly", "Double", "Hairless", "Rough", "Silky", "Smooth", "Wavy", "Wiry"]
