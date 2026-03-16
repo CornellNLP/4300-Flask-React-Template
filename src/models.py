@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+# Delete and change once we add a database
 # Define Episode model
 class Episode(db.Model):
     __tablename__ = 'episodes'
