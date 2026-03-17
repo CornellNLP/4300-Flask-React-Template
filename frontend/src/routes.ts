@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router";
-import { InputPage } from "./pages/Input";
+import { InputPage } from "./pages/InputPage";
 import { LoadingPage } from "./pages/LoadingPage";
 import { OutputPage } from "./pages/OutputPage";
 
