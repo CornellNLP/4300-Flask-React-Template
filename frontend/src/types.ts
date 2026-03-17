@@ -8,3 +8,9 @@ export interface Recipe {
     n_ingredients: Number,
     ingredients: String[]
 }
+
+export interface Playlist {
+    name: String,
+    songs: String[],
+    artists: String[]
+}
