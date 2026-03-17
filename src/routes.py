@@ -22,9 +22,11 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 LALIGA_CSV = os.path.join(DATA_DIR, "laliga_all_players.csv")
 PREM_CSV = os.path.join(DATA_DIR, "prem_all_players.csv")
+SERIEA_CSV = os.path.join(DATA_DIR, "seriea_all_players.csv")
 
 laliga_players_cache: List[Dict[str, Any]] | None = None
 prem_players_cache: List[Dict[str, Any]] | None = None
+seriea_players_cache: List[Dict[str, Any]] | None = None
 
 
 def safe_int(value: str | None) -> int | None:
@@ -78,6 +80,21 @@ def load_prem_players() -> List[Dict[str, Any]]:
     return players
 
 
+def load_seriea_players() -> List[Dict[str, Any]]:
+    global seriea_players_cache
+    if seriea_players_cache is not None:
+        return seriea_players_cache
+
+    players: List[Dict[str, Any]] = []
+    if os.path.exists(SERIEA_CSV):
+        with open(SERIEA_CSV, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                players.append(row)
+    seriea_players_cache = players
+    return players
+
+
 def player_search(query: str) -> List[Dict[str, Any]]:
     """
     Look up players by name across La Liga and Premier League CSVs.
@@ -107,13 +124,16 @@ def player_search(query: str) -> List[Dict[str, Any]]:
             if player is not None:
                 player[field] = current + v
 
+        row_image = row.get("player_image") or ""
+        real_img = None if "placeholder" in row_image else (row_image or None)
+
         if player is None:
             player = {
                 "league": "La Liga",
                 "name": name_raw,
                 "team": row.get("team_name"),
                 "position": row.get("position"),
-                "image": row.get("player_image"),
+                "image": real_img,
                 "games": 0,
                 "minutes": 0,
                 "goals": 0,
@@ -123,6 +143,8 @@ def player_search(query: str) -> List[Dict[str, Any]]:
                 "touches_in_box": 0,
             }
             laliga_agg[key] = player
+        elif not player.get("image") and real_img:
+            player["image"] = real_img
 
         add_stat("games", row.get("total_games"))
         add_stat("minutes", row.get("total_mins_played"))
@@ -183,8 +205,57 @@ def player_search(query: str) -> List[Dict[str, Any]]:
         add_stat_p("shots_on_target", row.get("shotsOnTargetIncGoals"))
         add_stat_p("touches_in_box", row.get("totalTouchesInOppositionBox"))
 
-    # Combine results from both leagues
-    results: List[Dict[str, Any]] = list(laliga_agg.values()) + list(prem_agg.values())
+    # ── Aggregate Serie A rows by first+last name ─────────────────────────────
+    seriea_agg: Dict[str, Dict[str, Any]] = {}
+    for row in load_seriea_players():
+        name_raw = row.get("short_name") or ""
+        if q not in norm_text(name_raw):
+            continue
+
+        first = (row.get("first_name") or "").strip()
+        last = (row.get("last_name") or "").strip()
+        if first or last:
+            key = norm_text(f"{first} {last}".strip())
+        else:
+            key = norm_text(name_raw)
+
+        player = seriea_agg.get(key)
+
+        def add_stat_s(field: str, value: str | None) -> None:
+            v = safe_int(value)
+            if v is None:
+                return
+            current = player.get(field, 0) if player is not None else 0
+            if player is not None:
+                player[field] = current + v
+
+        if player is None:
+            player = {
+                "league": "Serie A",
+                "name": name_raw,
+                "team": row.get("team_name"),
+                "position": row.get("role_label"),
+                "image": row.get("player_image"),
+                "games": 0,
+                "minutes": 0,
+                "goals": 0,
+                "assists": 0,
+                "shots": 0,
+                "shots_on_target": 0,
+                "touches_in_box": 0,
+            }
+            seriea_agg[key] = player
+
+        add_stat_s("games", row.get("Games Played") or row.get("games-played"))
+        add_stat_s("minutes", row.get("Time Played") or row.get("minutes-played"))
+        add_stat_s("goals", row.get("Goals") or row.get("goals"))
+        add_stat_s("assists", row.get("Goal Assists") or row.get("assists"))
+        add_stat_s("shots", row.get("Total Shots") or row.get("total-scoring-attempts"))
+        add_stat_s("shots_on_target", row.get("Shots On Target ( inc goals )") or row.get("on-target-scoring-attempts"))
+        add_stat_s("touches_in_box", row.get("Total Touches In Opposition Box"))
+
+    # Combine results from all leagues
+    results: List[Dict[str, Any]] = list(laliga_agg.values()) + list(prem_agg.values()) + list(seriea_agg.values())
     return results
 
 
