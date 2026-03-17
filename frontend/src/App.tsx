@@ -84,14 +84,15 @@ function App(): JSX.Element {
         {players.map((player, index) => (
           <div key={index} className="episode-item">
             <div className="player-header">
-              {player.image && (
-                <img
-                  className="player-image"
-                  src={player.image}
-                  alt={player.name}
-                  loading="lazy"
-                />
-              )}
+              <img
+                className="player-image"
+                src={player.image || "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png"}
+                alt={player.name}
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png";
+                }}
+              />
               <h3 className="episode-title">
                 {player.name} <span className="league-tag">({player.league})</span>
               </h3>
