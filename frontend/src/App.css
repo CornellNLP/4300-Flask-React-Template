@@ -88,10 +88,32 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.player-image {
+.player-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.player-image-frame {
   width: 110px;
+  min-width: 110px;
+  max-width: 110px;
   height: 140px;
-  object-fit: contain;
+  min-height: 140px;
+  max-height: 140px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background-color: #eceff1;
+}
+
+.player-image {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover;
+  display: block;
 }
 
 .episode-title {

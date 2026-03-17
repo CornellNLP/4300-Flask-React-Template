@@ -84,11 +84,13 @@ function App(): JSX.Element {
         {players.map((player, index) => (
           <div key={index} className="episode-item">
             <div className="player-header">
-              <div style={{ width: 110, height: 140, overflow: 'hidden', flexShrink: 0 }}>
+              <div className="player-image-frame">
                 <img
+                  className="player-image"
                   src={player.image || "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png"}
                   alt={player.name}
-                  style={{ width: '110px', height: '140px', objectFit: 'cover', display: 'block' }}
+                  width={110}
+                  height={140}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png";
                   }}

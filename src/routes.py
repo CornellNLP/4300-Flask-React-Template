@@ -182,7 +182,7 @@ def player_search(query: str) -> List[Dict[str, Any]]:
             player = {
                 "league": "Premier League",
                 "name": name_raw,
-                "team": row.get("team_name"),
+                "team": row.get("current_team_name"),
                 "position": row.get("position"),
                 "image": row.get("player_image"),
                 "games": 0,
