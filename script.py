@@ -1,31 +1,33 @@
-import pandas as pd
+import json
 import re
 
-def count_keywords_in_csv(input_csv, output_csv):
-    """
-    Reads a CSV, counts occurrences of specific words in the 'body' column,
-    and saves the counts into 4 new columns in a new CSV file.
-    """
-    # 1. Load the dataset
-    df = pd.read_csv(input_csv)
+def add_counts_to_json(input_file, output_file):
+    # 1. Load the original JSON data
+    with open(input_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
     
-    # Define the keywords we are looking for
-    keywords = ["boyfriend", "girlfriend", "cheat", "abuse"]
+    # Define the keywords to search for
+    keywords = ["abusive", "time", "talking", "school"]
     
-    # 2. Pre-process the 'body' column to handle missing values
-    df['body'] = df['body'].fillna('').astype(str)
-    
-    # 3. Create a new column for each keyword
-    for word in keywords:
-        # We use regex \b word \b to ensure we match whole words only.
-        # re.IGNORECASE ensures 'Cheat' and 'cheat' are both counted.
-        df[word] = df['body'].apply(
-            lambda x: len(re.findall(rf'\b{word}\b', x, flags=re.IGNORECASE))
-        )
-    
-    # 4. Save to a new CSV file
-    df.to_csv(output_csv, index=False)
-    print(f"Process complete. New file saved as: {output_csv}")
+    # 2. Iterate through each episode
+    for episode in data.get('episodes', []):
+        # Get the description text (handling potential nulls)
+        text = episode.get('descr', '') or ''
+        
+        for word in keywords:
+            # Use regex with \b (word boundaries) for accurate counting
+            # flags=re.IGNORECASE ensures 'Cheat' and 'cheat' are both counted
+            count = len(re.findall(rf'\b{word}\b', text, flags=re.IGNORECASE))
+            
+            # Append the count as a new key in the dictionary
+            episode[word] = count
+            
+    # 3. Save the modified data to a new JSON file
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+        
+    print(f"Success! New JSON file created: {output_file}")
 
-# Example Usage:
-count_keywords_in_csv('relationship_advice_posts.csv', 'updated_with_counts.csv')
+# Usage
+# Make sure your input file name matches 'episodes.json'
+add_counts_to_json('reddit_posts.json', 'episodes_vectorized.json')
