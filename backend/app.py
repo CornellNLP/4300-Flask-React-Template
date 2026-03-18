@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from geopy.distance import geodesic
 from ranker import rank_destinations, df as _df
-from data_loader import load_cities
+from data_loader import load_cities 
 import numpy as np
 
 app = Flask(__name__)
@@ -29,28 +29,23 @@ def search():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
     top_n = request.args.get("top_n", default=10, type=int)
-    top_n = max(1, min(top_n, 50))  # clamp between 1-50
-    results = rank_destinations(query, user_lat=user_lat, user_lon=user_lon,
-                                user_baseline_temp=baseline_temp, top_n=top_n)
-
+    top_n = max(1, min(top_n, 50))
 
     if not query:
         return jsonify({"error": "no query provided"}), 400
 
-    baseline_temp = None
-    nearest_city = None
+    baseline_temp = None      # 👈 must be here
+    nearest_city = None       # 👈 must be here
 
     if user_lat is not None and user_lon is not None:
-        if not (-90 <= user_lat <= 90) or not (-180 <= user_lon <= 180):
-            return jsonify({"error": "invalid lat/lon values"}), 400
         baseline_temp, nearest_city = get_nearest_city_baseline(user_lat, user_lon)
-
 
     results = rank_destinations(
         query,
         user_lat=user_lat,
         user_lon=user_lon,
-        user_baseline_temp=baseline_temp
+        user_baseline_temp=baseline_temp,
+        top_n=top_n
     )
 
     response = {
