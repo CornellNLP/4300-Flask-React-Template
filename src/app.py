@@ -5,7 +5,7 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Episode, Review, Podcast
 from routes import register_routes
 
 # src/ directory and project root (one level up)
@@ -29,30 +29,37 @@ db.init_app(app)
 register_routes(app)
 
 # Function to initialize database, change this to your own database initialization logic
+# TODO: change from init.json to like podcast.csv, and create Podcast Objects instead
 def init_db():
     with app.app_context():
         # Create all tables
         db.create_all()
         
-        # Initialize database with data from init.json if empty
+        # Initialize database with data from podcasts.csv if empty
         if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
+            csv_file_path = os.path.join(current_directory, '../data/podcasts.csv')
+            with open(csv_file_path, 'r') as file:
                 data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
+                for podcast_data in data['podcasts']:
+                    podcast = Podcast(
+                        id=podcast_data['id'],
+                        title=podcast_data['name'],
+                        descr=podcast_data['description'],
+                        category=podcast_data['category'],
+                        explicit=podcast_data['explicit'],
+                        image_url=podcast_data['image_url'],
+                        feed_url=podcast_data['feed_url'],
+                        author=podcast_data['author']
                     )
-                    db.session.add(episode)
+                    db.session.add(podcast)
                 
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
+                # TODO: add reddit reviews for social component
+                # for review_data in data['reviews']:
+                #     review = Review(
+                #         id=review_data['id'],
+                #         imdb_rating=review_data['imdb_rating']
+                #     )
+                #     db.session.add(review)
             
             db.session.commit()
             print("Database initialized with episodes and reviews data")
