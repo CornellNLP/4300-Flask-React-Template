@@ -1,3 +1,9 @@
+<img width="300" height="150" alt="main_logo" src="https://github.com/user-attachments/assets/ecc6cb82-9e97-4474-93bc-f24467682784" />
+
+# 2 Peas in a Podcast
+presented by Lychee Labs :)
+
+
 # 4300 Flask React Template
 
 ## Contents
