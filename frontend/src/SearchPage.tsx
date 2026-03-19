@@ -127,7 +127,7 @@ function SearchPage({ onBack }: Props): JSX.Element {
                 <div className="card-meta">
                   <span className="tag budget-tag">{dest.budget}</span>
                   <span className="tag score-tag">
-                    {(dest.score * 100).toFixed(0)}% match
+                    {(dest.text_similarity * 100).toFixed(0)}% text match
                   </span>
                 </div>
                 <div className="score-bars">

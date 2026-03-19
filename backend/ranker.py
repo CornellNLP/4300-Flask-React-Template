@@ -9,7 +9,12 @@ import pandas as pd
 df = load_cities()
 
 vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english")
-tfidf_matrix = vectorizer.fit_transform(df["final_document"])
+tfidf_corpus = (
+    df["short_description"].fillna("") + " " +
+    df["experience_tags"].fillna("") + " " +
+    df["weather_text"].fillna("")
+)
+tfidf_matrix = vectorizer.fit_transform(tfidf_corpus)
 
 MONTHS = ["january","february","march","april","may","june",
           "july","august","september","october","november","december"]
@@ -140,22 +145,22 @@ def rank_destinations(query, user_lat=None, user_lon=None,
         )
 
         results.append({
-            "city":            row["city"],
-            "country":         row["country"],
-            "region":          row["region"],
-            "budget_level":    row["budget_level"],
-            "climate_profile": row["climate_profile"],
-            "experience_tags": row["experience_tags"],
-            "description":     row["short_description"],
-            "score":           round(final_score, 4),
-            "score_breakdown": {
-                "tfidf":    round(tfidf, 4),
-                "climate":  round(climate, 4),
-                "activity": round(activity, 4),
-                "budget":   round(budget, 4),
-                "distance": round(distance, 4),
-            }
-        })
+        "city":            row["city"],
+        "country":         row["country"],
+        "region":          row["region"],
+        "budget":          row["budget_level"],
+        "score":           round(final_score, 4),
+        "text_similarity": round(tfidf, 4), 
+        "scores": {
+            "text_score":           round(tfidf, 4),
+            "climate_score":        round(climate, 4),
+            "relative_temp_score":  round(rel_temp, 4),
+            "activity_score":       round(activity, 4),
+            "budget_score":         round(budget, 4),
+            "distance_score":       round(distance, 4)
+        },
+        "short_description": row["short_description"][:200] + "..." 
+    })
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:top_n]
