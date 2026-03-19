@@ -60,6 +60,7 @@ class Product(db.Model):
 
     currency = db.Column(db.String)
     label = db.Column(db.String)
+    score = 0.0
 
 ## All CSV Column Names
 # product_name,brand_name,price,description, product_id, 

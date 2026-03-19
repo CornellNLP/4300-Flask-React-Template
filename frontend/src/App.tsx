@@ -23,6 +23,8 @@ function App(): JSX.Element {
     setProducts(data)
   }
 
+
+
   if (useLlm === null) return <></>
 
   return (
@@ -48,6 +50,11 @@ function App(): JSX.Element {
             <h3 className="product-name">{product.name}</h3>
             <p className="product-brand">{product.brand}</p>
             <p className="product-rating">Rating: {product.rating}</p>
+            <p className="product-price">Price: ${product.price}</p>
+            <p className="product-category">Category: {product.category}</p>
+            <p className="product-description">{product.description}</p>
+            <p className="product-ingredients">Ingredients: {product.ingredients}</p>
+            <p className="match-score">Match Score: {product.score}</p>
           </div>
         ))}
       </div>

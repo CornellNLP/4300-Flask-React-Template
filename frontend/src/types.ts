@@ -7,4 +7,5 @@ export interface Product {
   category: string;
   ingredients: string;
   description: string;
+  score: number;
 }
