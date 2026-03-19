@@ -16,9 +16,13 @@ function App(): JSX.Element {
   const [submittedQuery, setSubmittedQuery] = useState<Record<string, Array<number | string>>>({})
   const [submittedWriteIn, setSubmittedWriteIn] = useState<string>('')
   const [matches, setMatches] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string>('')
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
+    fetch('/api/config')
+      .then(r => r.json())
+      .then(data => setUseLlm(data.use_llm))
   }, [])
 
   const handleSearch = async (value: string): Promise<void> => {
@@ -27,6 +31,7 @@ function App(): JSX.Element {
       setEpisodes([])
       return
     }
+
     const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
     const data: Episode[] = await response.json()
     setEpisodes(data)
@@ -51,24 +56,45 @@ function App(): JSX.Element {
   }
 
   const handleSubmitPreferences = async () => {
-  setSubmittedQuery(traitInput)
-  setSubmittedWriteIn(writeIn)
+    setSubmittedQuery(traitInput)
+    setSubmittedWriteIn(writeIn)
+    setMatches([])
+    setError('')
+    setIsLoading(true)
 
-  const response = await fetch('/api/match', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(traitInput),
-  })
+    try {
+      const response = await fetch('/api/match', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          traitInput,
+          writeIn,
+        }),
+      })
 
-  const data = await response.json()
-  setMatches(data)
-}
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches')
+      }
+
+      const data = await response.json()
+      setMatches(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error(err)
+      setError('Something went wrong while finding matches.')
+      setMatches([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const selectedTraitEntries = Object.entries(submittedQuery).filter(
     ([_, values]) => values.length > 0
   )
+
+  const hasSubmittedInput =
+    selectedTraitEntries.length > 0 || submittedWriteIn.trim() !== ''
 
   if (useLlm === null) return <></>
 
@@ -76,13 +102,12 @@ function App(): JSX.Element {
     <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
       <div className="dog-border"></div>
 
-      {/* Title */}
       <div className="top-text">
         <img src={TitleImg} className="title-image" alt="PawMatch" />
         <img src={PawImg} className="paw-image" alt="Paw Print" />
       </div>
 
-        <TraitPanel
+      <TraitPanel
         traitInput={traitInput}
         setTraitInput={setTraitInput}
         toggleTraitValue={toggleTraitValue}
@@ -92,9 +117,9 @@ function App(): JSX.Element {
       />
 
       <div id="answer-box">
-        {selectedTraitEntries.length === 0 && submittedWriteIn.trim() === '' ? (
+        {!hasSubmittedInput ? (
           <div className="query-preview-card">
-            <h3 className="query-preview-title">Current Prototype Output</h3>
+            <h3 className="query-preview-title">Current</h3>
             <p className="query-preview-text">
               No preferences submitted yet. Select traits and click Find Matches.
             </p>
@@ -117,16 +142,30 @@ function App(): JSX.Element {
           </div>
         )}
 
-        {selectedTraitEntries.length > 0 && matches.length === 0 && (
-        <div className="query-preview-card">
-          <h3 className="query-preview-title">No Matches Found 🐾</h3>
-          <p className="query-preview-text">
-            Try selecting fewer traits or more general options.
-          </p>
-        </div>
-      )}
+        {isLoading && (
+          <div className="query-preview-card">
+            <h3 className="query-preview-title">Finding Matches...</h3>
+            <p className="query-preview-text">Please wait while we rank the dogs.</p>
+          </div>
+        )}
 
-        {matches.length > 0 && (
+        {error && (
+          <div className="query-preview-card">
+            <h3 className="query-preview-title">Error</h3>
+            <p className="query-preview-text">{error}</p>
+          </div>
+        )}
+
+        {!isLoading && hasSubmittedInput && matches.length === 0 && !error && (
+          <div className="query-preview-card">
+            <h3 className="query-preview-title">No Matches Found 🐾</h3>
+            <p className="query-preview-text">
+              Try selecting fewer traits, changing your text input, or using more general options.
+            </p>
+          </div>
+        )}
+
+        {!isLoading && matches.length > 0 && (
           <div className="results-section">
             <div className="match-text">
               <img src={MatchImg} className="match-title-image" alt="Top Dog Matches" />
@@ -134,7 +173,7 @@ function App(): JSX.Element {
             </div>
 
             {matches.map((dog, index) => (
-              <div className="dog-card">
+              <div className="dog-card" key={`${dog.breed}-${index}`}>
                 <h4>{dog.breed}</h4>
 
                 <p className="match-score">Match: {dog.score}</p>
@@ -153,10 +192,11 @@ function App(): JSX.Element {
 
                 <p className="dog-description">{dog.description}</p>
               </div>
-            ))} 
-          </div>  
+            ))}
+          </div>
         )}
       </div>
+
       {useLlm && <Chat onSearchTerm={handleSearch} />}
     </div>
   )

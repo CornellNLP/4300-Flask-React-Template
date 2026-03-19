@@ -8,6 +8,8 @@ import os
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -32,6 +34,112 @@ def json_search(query):
         })
     return matches
 
+current_directory = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_directory)
+DATA_PATH = os.path.join(project_root, 'data', 'breed_data.csv')
+
+RANGE_COLUMN_MAP = {
+    "Height": "avg_height",
+    "Weight": "avg_weight",
+    "Life Expectancy": "avg_expectancy",
+}
+
+CATEGORY_COLUMN_MAP = {
+    "Group": "group",
+    "Grooming Frequency": "grooming_frequency_category",
+    "Shedding": "shedding_category",
+    "Energy Level": "energy_level_category",
+    "Trainability": "trainability_category",
+    "Demeanor": "demeanor_category",
+}
+
+
+def as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def parse_range(range_str):
+    try:
+        low, high = str(range_str).split("-")
+        return float(low), float(high)
+    except Exception:
+        return None
+
+
+def compute_structured_jaccard(row, trait_input):
+    user_tokens = set()
+    breed_tokens = set()
+
+    for trait, col in RANGE_COLUMN_MAP.items():
+        selected_values = as_list(trait_input.get(trait, []))
+        if not selected_values:
+            continue
+
+        row_value = row.get(col, None)
+        if pd.notna(row_value):
+            row_value = float(row_value)
+
+        for selected in selected_values:
+            token = f"{trait}::{selected}"
+            user_tokens.add(token)
+
+            parsed = parse_range(selected)
+            if parsed is None or pd.isna(row_value):
+                continue
+
+            low, high = parsed
+            if low <= row_value <= high:
+                breed_tokens.add(token)
+
+    for trait, col in CATEGORY_COLUMN_MAP.items():
+        selected_values = as_list(trait_input.get(trait, []))
+        if not selected_values:
+            continue
+
+        row_value = "" if pd.isna(row.get(col, None)) else str(row[col]).strip()
+
+        for selected in selected_values:
+            token = f"{trait}::{selected}"
+            user_tokens.add(token)
+
+            if row_value == str(selected).strip():
+                breed_tokens.add(token)
+
+    if not user_tokens:
+        return None
+
+    intersection = len(user_tokens & breed_tokens)
+    union = len(user_tokens | breed_tokens)
+
+    return intersection / union if union != 0 else 0
+
+
+def compute_text_scores(df, query):
+    query = (query or "").strip()
+    if query == "":
+        return None
+
+    documents = (
+        df["description"].fillna("") + " " +
+        df["temperament"].fillna("") + " " +
+        df["group"].fillna("") + " " +
+        df["grooming_frequency_category"].fillna("") + " " +
+        df["shedding_category"].fillna("") + " " +
+        df["energy_level_category"].fillna("") + " " +
+        df["trainability_category"].fillna("") + " " +
+        df["demeanor_category"].fillna("")
+    )
+
+    vectorizer = TfidfVectorizer(stop_words="english")
+    tfidf_matrix = vectorizer.fit_transform(documents)
+    query_vector = vectorizer.transform([query])
+
+    scores = cosine_similarity(query_vector, tfidf_matrix).flatten()
+    return scores
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -53,57 +161,51 @@ def register_routes(app):
     
     @app.route('/api/match', methods=['POST'])
     def match_dogs():
-        user_traits = request.json  # dict: {trait: [values]}
+        payload = request.get_json(silent=True) or {}
 
-        df = pd.read_csv('data/breed_data.csv')
+        trait_input = payload.get("traitInput", {})
+        write_in = payload.get("writeIn", "").strip()
+
+        has_structured = any(len(as_list(v)) > 0 for v in trait_input.values())
+        has_text = write_in != ""
+
+        if not has_structured and not has_text:
+            return jsonify([])
+
+        df = pd.read_csv(DATA_PATH)
+
+        text_scores = compute_text_scores(df, write_in)
 
         results = []
 
-        for _, row in df.iterrows():
-            breed_traits = set()
+        for idx, row in df.iterrows():
+            filter_score = compute_structured_jaccard(row, trait_input)
+            text_score = float(text_scores[idx]) if text_scores is not None else None
 
-            if pd.notna(row['group']):
-                breed_traits.add(row['group'])
-
-            if pd.notna(row['grooming_frequency_category']):
-                breed_traits.add(row['grooming_frequency_category'])
-
-            if pd.notna(row['shedding_category']):
-                breed_traits.add(row['shedding_category'])
-
-            if pd.notna(row['energy_level_category']):
-                breed_traits.add(row['energy_level_category'])
-
-            if pd.notna(row['trainability_category']):
-                breed_traits.add(row['trainability_category'])
-
-            if pd.notna(row['demeanor_category']):
-                breed_traits.add(row['demeanor_category'])
-
-            user_set = set()
-            for values in user_traits.values():
-                user_set.update(values)
-
-            intersection = len(breed_traits & user_set)
-            union = len(breed_traits | user_set)
-
-            score = intersection / union if union != 0 else 0
+            if has_structured and has_text:
+                final_score = 0.6 * text_score + 0.4 * filter_score
+            elif has_text:
+                final_score = text_score
+            else:
+                final_score = filter_score
 
             results.append({
-                "breed": row['breed'],
-                "score": round(score, 3),
-                "description": row['description'],
-                "temperament": row['temperament'],
-                "group": row['group'],
-                "energy": row['energy_level_category'],
-                "shedding": row['shedding_category'],
-                "trainability": row['trainability_category'],
-                "demeanor": row['demeanor_category']
+                "breed": row["breed"],
+                "score": round(float(final_score), 3),
+                "text_score": round(float(text_score), 3) if text_score is not None else None,
+                "filter_score": round(float(filter_score), 3) if filter_score is not None else None,
+                "description": row["description"],
+                "temperament": row["temperament"],
+                "group": row["group"],
+                "energy": row["energy_level_category"],
+                "shedding": row["shedding_category"],
+                "trainability": row["trainability_category"],
+                "demeanor": row["demeanor_category"]
             })
 
-        results = sorted(results, key=lambda x: x['score'], reverse=True)
+        results.sort(key=lambda x: x["score"], reverse=True)
 
-        filtered = [r for r in results if r['score'] > 0]
+        filtered = [r for r in results if r["score"] > 0]
 
         return jsonify(filtered[:10])
 
