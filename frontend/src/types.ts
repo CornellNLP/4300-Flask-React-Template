@@ -1,5 +1,7 @@
-export interface Episode {
+export interface Song {
   title: string;
-  descr: string;
-  imdb_rating: number;
+  artist: string;
+  chords: Set<string>;
+  guitar_difficulty: number;
+  piano_difficulty: number;
 }
