@@ -39,12 +39,6 @@ def json_search(query):
         })
     return matches
 
-# # Use absolute path to find the CSV file
-# current_directory = os.path.dirname(os.path.abspath(__file__))
-# csv_path = os.path.join(current_directory, 'final_merged_dataset.csv')
-# merged_df = pd.read_csv(csv_path)
-
-# score = np.zeros(merged_df.shape[0])
 score_name = []
 
 def ranked_product_search(query):
@@ -88,7 +82,6 @@ def ranked_product_search(query):
         loves_boost = min((p.loves_count or 0) / 10000, 1)
 
         final_score = base_score + 0.3 * rating_boost + 0.3 * loves_boost
-        score[p.id] = final_score
 
         results.append((final_score, p))
 
@@ -106,7 +99,7 @@ def ranked_product_search(query):
         "rating": p.rating,
         "description": p.description,
         "ingredients": p.ingredients,
-        "score": p.score
+        "score": score
     } for score, p in results[:15]]
 
 
