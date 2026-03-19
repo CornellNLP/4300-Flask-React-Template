@@ -13,6 +13,10 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
+# words we don't care about in the descriptions of companies
+STOPWORDS = {
+    "the", "and", "or", "of", "in", "to", "for", "a", "an", "with", "that"
+}
 
 def json_search(query):
     if not query or not query.strip():
@@ -62,8 +66,71 @@ def recommend_stocks(portfolio, top_n=5):
     
     # normalize tickers
     portfolio = [ticker.upper().strip() for ticker in portfolio if ticker.strip()]
+
+    # portfolio_companies = Company.query.filter(Company.ticker.in_(portfolio)).all()
     # TODO: Finish
     raise NotImplementedError
+
+def recommend_from_text_query(query, top_n=10):
+    """
+    Returns companies whose descriptions best match the query.
+
+    Parameters
+    ----------
+    query : str
+        A text query provided by the user.
+        Example: "AI semiconductor companies"
+        
+    top_n : int
+        Number of recommendations to return.
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        A list of dictionaries representing the top recommended 
+        companies ranked by relevance to the user's query.
+    """
+    if not query or not query.strip():
+        return []
+    
+    query_words = [w for w in query.lower().split if w not in STOPWORDS]
+
+    companies = Company.query.all()
+    scored_results = []
+
+    for company in companies:
+        description = (company.description or "").lower()
+        sector = (company.sector or "").lower()
+        industry = (company.industry or "").lower()
+        name = (company.name or "").lower()
+
+        score = 0
+
+        for word in query_words:
+            if word in description:
+                score += 1
+            if word in sector:
+                score += 2
+            if word in industry:
+                score += 2
+            if word in name:
+                score += 1
+
+        if score > 0:
+            scored_results.append({
+                "ticker": company.ticker,
+                "name": company.name,
+                "sector": company.sector,
+                "industry": company.industry,
+                "market_cap": company.market_cap,
+                "dividend_yield": company.dividend_yield,
+                "description": company.description,
+                "website": company.website,
+                "score": score
+            })
+
+    scored_results.sort(key = lambda x: x["score"], reverse=True)
+    return scored_results[:top_n]
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -85,8 +152,26 @@ def register_routes(app):
     
     @app.route("/api/recommend", methods=["POST"])
     def recommend():
-        data = request.get_json()
+        """
+        Baseline recommendation endpoint.
+
+        Supports:
+        - text queries like {"query": "AI semicondoctor companies"}
+        - portfolio queries like {"portfolio": ["NVDA", "AMD"]}
+        """
+        data = request.get_json() or {}
+
+        query = data.get("query", "")
         portfolio = data.get("portfolio", [])
+
+        if query:
+            results = recommend_from_text_query(query)
+            return jsonify(results)
+        
+        if portfolio:
+            results = recommend_stocks(portfolio)
+            return jsonify(results)
+
 
         # TODO: replace placeholder results with ranking based on Company data
         results = [
