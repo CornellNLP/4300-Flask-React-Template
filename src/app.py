@@ -3,7 +3,7 @@ import os
 import csv
 from dotenv import load_dotenv
 from flask import Flask
-
+from fastapi import FastAPI
 
 load_dotenv()
 from flask_cors import CORS
@@ -17,6 +17,14 @@ from routes import register_routes
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_directory)
+
+app = FastAPI()
+
+score_name = "My Score"
+
+@app.get("/score")
+def get_score_name():
+    return {"Similarity Score": score_name}
 
 # Serve React build files from <project_root>/frontend/dist
 app = Flask(__name__,
@@ -129,6 +137,7 @@ def init_db():
 
                         currency=row.get('currency'),
                         label=row.get('label'),
+                        score=0.0
                     )
 
                     db.session.add(product)

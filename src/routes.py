@@ -5,6 +5,8 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
 import json
 import os
+import pandas as pd
+import numpy as np
 from flask import send_from_directory, request, jsonify
 from models import db, Product, Review
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -14,6 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 
 def json_search(query):
@@ -36,7 +39,9 @@ def json_search(query):
         })
     return matches
 
-
+merged_df = pd.read_csv('final_merged_dataset.csv')
+score = np.zeros(merged_df.shape[0])
+score_name = []
 
 def ranked_product_search(query):
     if not query or not query.strip():
@@ -79,20 +84,26 @@ def ranked_product_search(query):
         loves_boost = min((p.loves_count or 0) / 10000, 1)
 
         final_score = base_score + 0.3 * rating_boost + 0.3 * loves_boost
+        score[p.id] = final_score
 
         results.append((final_score, p))
 
     # ---- Sort by score ----
     results.sort(key=lambda x: x[0], reverse=True)
+    score_name = [(score, p.product_name) for score, p in results]
 
     # ---- Return top results ----
     return [{
         "id": p.id,
         "name": p.product_name,
+        "category": p.category,
         "brand": p.brand_name,
         "price": p.price,
-        "rating": p.rating
-    } for score, p in results[:20]]
+        "rating": p.rating,
+        "description": p.description,
+        "ingredients": p.ingredients,
+        "score": p.score
+    } for score, p in results[:15]]
 
 
 
@@ -114,6 +125,10 @@ def register_routes(app):
         q = request.args.get("q", "")
         return jsonify(ranked_product_search(q))
     
+    @app.get('/score')
+    def get_score_name():
+        return {'Similarity Score': score_name}
+    
 
     # @app.route("/api/products")
     # def products():
@@ -122,7 +137,7 @@ def register_routes(app):
 
     @app.route("/api/products")
     def get_products():
-        products = Product.query.limit(20).all()
+        products = Product.query.limit(15).all()
 
         return jsonify([{
             "id": p.id,
