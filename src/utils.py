@@ -48,7 +48,9 @@ def load_data():
     try:
         with open(doc_path, "r") as f:
             DOC_MAP = json.load(f)
-            REVERSE_DOC_MAP = {v : k for k,v in DOC_MAP.items()}
+            # REVERSE_DOC_MAP = {idx: title for idx, title in enumerate(DOC_MAP.keys())}
+            REVERSE_DOC_MAP = {wiki_id: title for title, wiki_id in DOC_MAP.items()}
+
     except FileNotFoundError:
         print("Error: boi pls put doc_map.json in <root>/data")
 
@@ -131,9 +133,11 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     # 3. Format output
     res = []
     for doc_id in pathway:
+        title = REVERSE_DOC_MAP.get(doc_id, f"Unknown ID {doc_id}")
         res.append({
-            "id": doc_id,
-            "title": REVERSE_DOC_MAP.get(doc_id, f"Article ID {doc_id}"),
+            "id": doc_id,        # already IS the wiki ID
+            "title": title,
             "score": round(doc_scores[doc_id], 2)
         })
+
     return res
