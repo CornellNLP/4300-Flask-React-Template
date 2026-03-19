@@ -21,3 +21,15 @@ class Review(db.Model):
     def __repr__(self):
         return f'Review {self.id}: {self.imdb_rating}'
 
+# Define Product model
+class Product(db.Model):
+    __tablename__ = 'products'
+    product_id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String)
+    brand_name = db.Column(db.String)
+    price = db.Column(db.Float)
+    description = db.Column(db.Text)
+    ingredients = db.Column(db.Text)
+    primary_category = db.Column(db.String)
+    secondary_category = db.Column(db.String)
+    tertiary_category = db.Column(db.String)
