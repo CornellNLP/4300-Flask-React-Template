@@ -23,8 +23,6 @@ function App(): JSX.Element {
     setProducts(data)
   }
 
-
-
   if (useLlm === null) return <></>
 
   return (
