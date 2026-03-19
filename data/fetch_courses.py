@@ -67,9 +67,16 @@ def get_all_as_courses():
                 ]
 
                 if as_dist:
+                    enroll_groups = cls.get("enrollGroups", [])
+                    units_min = 0
+                    units_max = 0
+                    if enroll_groups:
+                        units_min = enroll_groups[0].get("unitsMinimum", 0)
+                        units_max = enroll_groups[0].get("unitsMaximum", 0)
+
                     sections_list = []
 
-                    for group in cls.get("enrollGroups", []):
+                    for group in enroll_groups:
                         for sec in group.get("classSections", []):
 
                             processed_meetings = []
@@ -110,6 +117,8 @@ def get_all_as_courses():
                         {
                             "course_id": f"{cls.get('subject')} {cls.get('catalogNbr')}",
                             "title": cls.get("titleLong", "No Title"),
+                            "credits_min": units_min,
+                            "credits_max": units_max,
                             "description": cls.get(
                                 "description", "No description available."
                             ),
