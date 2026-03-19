@@ -36,7 +36,7 @@ def json_search(query):
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_directory)
-DATA_PATH = os.path.join(project_root, 'data', 'breed_data.csv')
+DATA_PATH = os.path.join(project_root, 'src', 'data', 'breed_data.csv')
 
 RANGE_COLUMN_MAP = {
     "Height": "avg_height",
