@@ -25,6 +25,7 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     if (value.trim() === '') { setEpisodes([]); return }
+    if (value.trim() === '') { setEpisodes([]); return }
     const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
     const data: Episode[] = await response.json()
     setEpisodes(data)
