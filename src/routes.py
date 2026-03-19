@@ -108,6 +108,7 @@ def ranked_product_search(query):
                     deduction = (freq / max_chem_freq) * 10
                     safety_score -= deduction
         
+        p.flagged_ingredients = list(set(p.flagged_ingredients))
         p.safety_score = max(0.0, safety_score)
 
         final_score = base_score + 0.3 * rating_boost + 0.3 * loves_boost + 0.5 * (p.safety_score / 100.0)
