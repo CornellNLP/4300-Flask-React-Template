@@ -47,11 +47,10 @@ function App(): JSX.Element {
       <div id="answer-box">
         {songs.map((song, index) => (
           <div key={index} className="song-item">
-            <h3 className="song-title">{song.title}</h3>
+            <h3 className="song-title" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{song.title}</span> <span>Similarity: {song.similarity}</span></h3>
             <h4 className="song-artist">by {song.artist}</h4>
             <p className="song-artist">Chords: {song.chords}</p>
-            <p className="song-guitar">Guitar difficulty: {song.guitar_difficulty}</p>
-            <p className="song-piano">Piano difficulty: {song.piano_difficulty}</p>
+            <p className="song-difficulty" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Guitar difficulty: {song.guitar_difficulty}</span> <span>Piano difficulty: {song.piano_difficulty}</span></p>
           </div>
         ))}
       </div>

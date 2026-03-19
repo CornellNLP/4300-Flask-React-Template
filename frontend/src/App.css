@@ -1,7 +1,9 @@
-
 .full-body-container {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 150%;
   display: flex;
@@ -34,7 +36,7 @@
   background-color: #ffffff;
   opacity: 0.7;
   border-radius: 10px;
-padding: 10px;
+  padding: 10px;
 }
 
 .title h1 {
@@ -42,7 +44,7 @@ padding: 10px;
   margin-left: 3px;
 }
 
-.title img{
+.title img {
   height: 96px;
   width: 68px;
   opacity: 1;
@@ -127,12 +129,7 @@ padding: 10px;
   font-family: 'Montserrat', sans-serif;
 }
 
-.song-guitar {
-  font-size: 0.9rem;
-  color: #5f6368;
-  font-weight: 600;
-}
-.song-piano {
+.song-difficulty {
   font-size: 0.9rem;
   color: #5f6368;
   font-weight: 600;
@@ -157,7 +154,9 @@ padding: 10px;
   padding: 0 16px 8px;
 }
 
-.message { margin-bottom: 1em; }
+.message {
+  margin-bottom: 1em;
+}
 
 .message p {
   margin: 0;
@@ -182,7 +181,9 @@ padding: 10px;
   margin-bottom: 1em;
 }
 
-.loading-indicator.visible { display: flex; }
+.loading-indicator.visible {
+  display: flex;
+}
 
 .loading-dot {
   width: 10px;
@@ -192,13 +193,28 @@ padding: 10px;
   animation: loading-bounce 0.6s ease-in-out infinite;
 }
 
-.loading-dot:nth-child(1) { animation-delay: 0s; }
-.loading-dot:nth-child(2) { animation-delay: 0.15s; }
-.loading-dot:nth-child(3) { animation-delay: 0.3s; }
+.loading-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.loading-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes loading-bounce {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 /* ── Chat input bar ────────────────────────────────────────────────────────── */
@@ -259,8 +275,19 @@ padding: 10px;
 }
 
 @media (max-width: 768px) {
-  .google-colors h1 { font-size: 3rem; }
-  .input-box { width: 90%; }
-  #answer-box { padding: 0 1rem; }
-  #messages { padding: 0 8px 8px; }
+  .google-colors h1 {
+    font-size: 3rem;
+  }
+
+  .input-box {
+    width: 90%;
+  }
+
+  #answer-box {
+    padding: 0 1rem;
+  }
+
+  #messages {
+    padding: 0 8px 8px;
+  }
 }
