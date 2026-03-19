@@ -88,6 +88,40 @@
 }
 
 /* ── Trait form (checkbox spacing) ───────────────────────────────────────────── */
+.trait-panel {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  width: 100%;
+}
+
+.trait-columns {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  width: 100%;
+
+  align-items: center;
+}
+
+.trait-column-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.trait-column-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.trait-column-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .trait-form {
   width: 700px;
   max-width: 100%;
@@ -95,6 +129,7 @@
   flex-direction: column;
   gap: 1.5rem;
   margin-top: 2rem;
+  align-items: center;
 }
 
 .trait-section-text {
@@ -102,6 +137,9 @@
   padding: 14px 18px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+
+  width: 100%;
+  max-width: 900px;
 }
 
 .trait-section-range {
@@ -539,6 +577,7 @@ label span,
   font-family: 'Open Sans', sans-serif;
   color: black;
 }
+
 
 .write-in-input::placeholder {
   font-family: 'Open Sans', sans-serif;

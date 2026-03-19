@@ -68,11 +68,13 @@ def parse_range(range_str):
         return float(low), float(high)
     except Exception:
         return None
-
+    
+def safe(val):
+    return None if pd.isna(val) else val
 
 def compute_structured_jaccard(row, trait_input):
-    user_tokens = set()
-    breed_tokens = set()
+    range_score_total = 0
+    range_count = 0
 
     for trait, col in RANGE_COLUMN_MAP.items():
         selected_values = as_list(trait_input.get(trait, []))
@@ -80,42 +82,61 @@ def compute_structured_jaccard(row, trait_input):
             continue
 
         row_value = row.get(col, None)
-        if pd.notna(row_value):
-            row_value = float(row_value)
+        if pd.isna(row_value):
+            continue
+
+        row_value = float(row_value)
 
         for selected in selected_values:
-            token = f"{trait}::{selected}"
-            user_tokens.add(token)
-
             parsed = parse_range(selected)
-            if parsed is None or pd.isna(row_value):
+            if parsed is None:
                 continue
 
             low, high = parsed
-            if low <= row_value <= high:
-                breed_tokens.add(token)
+            mid = (low + high) / 2
+
+            range_width = (high - low) if (high - low) != 0 else 1
+
+            distance = abs(row_value - mid)
+            similarity = max(0, 1 - (distance / range_width))
+
+            range_score_total += similarity
+            range_count += 1
+
+    cat_user_tokens = set()
+    cat_breed_tokens = set()
 
     for trait, col in CATEGORY_COLUMN_MAP.items():
         selected_values = as_list(trait_input.get(trait, []))
         if not selected_values:
             continue
 
-        row_value = "" if pd.isna(row.get(col, None)) else str(row[col]).strip()
+        row_value = "" if pd.isna(row.get(col)) else str(row[col]).lower()
 
         for selected in selected_values:
-            token = f"{trait}::{selected}"
-            user_tokens.add(token)
+            selected_clean = str(selected).strip().lower()
+            token = f"{trait}::{selected_clean}"
 
-            if row_value == str(selected).strip():
-                breed_tokens.add(token)
+            cat_user_tokens.add(token)
 
-    if not user_tokens:
-        return None
+            if selected_clean in row_value:
+                cat_breed_tokens.add(token)
 
-    intersection = len(user_tokens & breed_tokens)
-    union = len(user_tokens | breed_tokens)
+    if cat_user_tokens:
+        intersection = len(cat_user_tokens & cat_breed_tokens)
+        union = len(cat_user_tokens | cat_breed_tokens)
+        cat_score = intersection / union if union != 0 else 0
+    else:
+        cat_score = 0
 
-    return intersection / union if union != 0 else 0
+    range_score = (range_score_total / range_count) if range_count > 0 else 0
+
+    if range_count > 0 and cat_user_tokens:
+        return 0.5 * range_score + 0.5 * cat_score
+    elif range_count > 0:
+        return range_score
+    else:
+        return cat_score
 
 
 def compute_text_scores(df, query):
@@ -194,13 +215,22 @@ def register_routes(app):
                 "score": round(float(final_score), 3),
                 "text_score": round(float(text_score), 3) if text_score is not None else None,
                 "filter_score": round(float(filter_score), 3) if filter_score is not None else None,
-                "description": row["description"],
-                "temperament": row["temperament"],
-                "group": row["group"],
-                "energy": row["energy_level_category"],
-                "shedding": row["shedding_category"],
-                "trainability": row["trainability_category"],
-                "demeanor": row["demeanor_category"]
+                "description": safe(row["description"]),
+                "min_height": safe(row["min_height"]),
+                "max_height": safe(row["max_height"]),
+                "avg_height": safe(row["avg_height"]),
+                "min_weight": safe(row["min_weight"]),
+                "max_weight": safe(row["max_weight"]),
+                "avg_weight": safe(row["avg_weight"]),
+                "min_expectancy": safe(row["min_expectancy"]),
+                "max_expectancy": safe(row["max_expectancy"]),
+                "avg_expectancy": safe(row["avg_expectancy"]),
+                "temperament": safe(row["temperament"]),
+                "group": safe(row["group"]),
+                "energy": safe(row["energy_level_category"]),
+                "shedding": safe(row["shedding_category"]),
+                "trainability": safe(row["trainability_category"]),
+                "demeanor": safe(row["demeanor_category"])
             })
 
         results.sort(key=lambda x: x["score"], reverse=True)
@@ -208,7 +238,6 @@ def register_routes(app):
         filtered = [r for r in results if r["score"] > 0]
 
         return jsonify(filtered[:10])
-
 
     if USE_LLM:
         from llm_routes import register_chat_route

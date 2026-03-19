@@ -7,6 +7,30 @@ import TitleImg from './pictures/title.png'
 import PawImg from './pictures/paw.png'
 import MatchImg from './pictures/match_title.png'
 
+type DogMatch = {
+  breed: string
+  score: number
+  description: string
+  temperament: string
+  group: string
+  energy: string
+  shedding: string
+  trainability: string
+  demeanor: string
+
+  min_height: number | null
+  max_height: number | null
+  avg_height: number | null
+
+  min_weight: number | null
+  max_weight: number | null
+  avg_weight: number | null
+
+  min_expectancy: number | null
+  max_expectancy: number | null
+  avg_expectancy: number | null
+}
+
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   // const [searchTerm, setSearchTerm] = useState<string>('')
@@ -15,7 +39,7 @@ function App(): JSX.Element {
   const [writeIn, setWriteIn] = useState<string>('')
   const [submittedQuery, setSubmittedQuery] = useState<Record<string, Array<number | string>>>({})
   const [submittedWriteIn, setSubmittedWriteIn] = useState<string>('')
-  const [matches, setMatches] = useState<any[]>([])
+  const [matches, setMatches] = useState<DogMatch[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
 
@@ -179,6 +203,18 @@ function App(): JSX.Element {
                 <p className="match-score">Match: {dog.score}</p>
 
                 <div className="traits">
+                  <span className="trait-pill">
+                    <strong>Height:</strong> {dog.avg_height != null ? Math.round(dog.avg_height) : "N/A"} cm
+                  </span>
+
+                  <span className="trait-pill">
+                    <strong>Weight:</strong> {dog.avg_weight != null ? Math.round(dog.avg_weight) : "N/A"} kg
+                  </span>
+
+                  <span className="trait-pill">
+                    <strong>Life Expectancy:</strong> {dog.avg_expectancy ?? "N/A"} yrs
+                  </span>
+
                   <span className="trait-pill">{dog.group}</span>
                   <span className="trait-pill">{dog.energy}</span>
                   <span className="trait-pill">{dog.shedding}</span>
