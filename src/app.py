@@ -1,11 +1,12 @@
 import json
 import os
+import csv
 from dotenv import load_dotenv
 from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Episode, Review, Product
 from routes import register_routes
 
 # src/ directory and project root (one level up)
@@ -32,29 +33,28 @@ register_routes(app)
 def init_db():
     with app.app_context():
         db.create_all()
-        
-        # Initialize database with data from init.json if empty
-        if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
-                    )
-                    db.session.add(episode)
-                
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
-            
+
+        # Check if the products table is empty
+        if Product.query.count() == 0:
+            csv_path = os.path.join(os.path.dirname(__file__), 'final_merged_clean_skincare.csv')
+            df = pd.read_csv(csv_path)
+
+            for _, row in df.iterrows():
+                product = Product(
+                    product_id=int(row['product_id']),
+                    product_name=row['product_name'],
+                    brand_name=row['brand_name'],
+                    price=float(row['price']) if not pd.isna(row['price']) else None,
+                    description=row.get('description', None),
+                    ingredients=row.get('ingredients', None),
+                    primary_category=row.get('primary_category', None),
+                    secondary_category=row.get('secondary_category', None),
+                    tertiary_category=row.get('tertiary_category', None)
+                )
+                db.session.add(product)
+
             db.session.commit()
-            print("Database initialized with episodes and reviews data")
+            print("Database initialized with skincare products data")
 
 init_db()
 
