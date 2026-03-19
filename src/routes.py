@@ -7,7 +7,7 @@ import json
 import os
 from flask import send_from_directory, request, jsonify
 from models import db, Postings
-
+from utils import generate_rabbit_hole, load_data
 
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
@@ -15,9 +15,10 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
+load_data()
+
 def json_search(query):
     return
-
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -37,6 +38,24 @@ def register_routes(app):
         text = request.args.get("title", "")
         return jsonify(json_search(text))
 
+    @app.route('/api/rabbithole', methods=['GET'])
+    def rabbithole():
+        start_article = request.args.get('article', '')
+        keywords = request.args.get('keywords', '')
+        if not start_article and not keywords:
+            return jsonify([])
+        
+        pathway = generate_rabbit_hole(
+            start_article=start_article,
+            additional_keywords=keywords,
+            postings_model=Postings,
+            path_length=5,
+            diversity_lambda=0.5
+        )
+        return jsonify(pathway)
+    
     if USE_LLM:
         from llm_routes import register_chat_route
         register_chat_route(app, json_search)
+
+    
