@@ -49,7 +49,7 @@ function App(): JSX.Element {
           <div key={index} className="song-item">
             <h3 className="song-title" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{song.title}</span> <span>Similarity: {song.similarity}%</span></h3>
             <h4 className="song-artist">by {song.artist}</h4>
-            <p className="song-artist">Chords: {song.chords}</p>
+            <p className="song-chords">Chords: {song.chords}</p>
             <p className="song-difficulty" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Guitar difficulty: {song.guitar_difficulty}/10</span> <span>Piano difficulty: {song.piano_difficulty}/10</span></p>
           </div>
         ))}

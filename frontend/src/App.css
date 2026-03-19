@@ -31,7 +31,7 @@
   display: flex;
   font-size: 48px;
   color: #000000;
-  font-family: 'Palatino', sans-serif;
+  font-family: 'Palatino', serif;
   align-items: center;
   background-color: #ffffff;
   opacity: 0.7;
@@ -86,7 +86,7 @@
   border: none;
   outline: 0;
   background-color: transparent;
-  font-family: 'Palatino', sans-serif;
+  font-family: 'Palatino', serif;
 }
 
 /* ── Search results ────────────────────────────────────────────────────────── */
@@ -109,30 +109,31 @@
 }
 
 .song-title {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: #000000;
-  font-family: 'Palatino', sans-serif;
+  font-family: 'Palatino', serif;
 }
 
 .song-artist {
   font-size: 1.00rem;
   color: #000000;
   margin-bottom: 0.75rem;
-  font-family: 'Palatino', sans-serif;
+  font-family: 'Palatino', serif;
 }
 
 .song-chords {
-  font-size: 1rem;
+  font-size: 1.25rem;
   color: #3c4043;
   line-height: 1.6;
   margin-bottom: 0.5rem;
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Georgia', serif;
 }
 
 .song-difficulty {
   font-size: 0.9rem;
   color: #5f6368;
   font-weight: 600;
+  font-family: 'Times New Roman', serif;
 }
 
 /* ── LLM mode: constrain answer-box so chat gets space ────────────────────── */
@@ -162,13 +163,13 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Montserrat', serif;
   font-size: 1rem;
   line-height: 1.6;
 }
 
 .message.user p {
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Kanit', serif;
   color: #1a73e8;
 }
 
@@ -250,7 +251,7 @@
   font-size: 16px;
   border: none;
   outline: 0;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Open Sans', serif;
 }
 
 .chat-bar .input-row button {
@@ -262,7 +263,7 @@
   background: #f4b400;
   color: #000;
   cursor: pointer;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Open Sans', serif;
 }
 
 .chat-bar .input-row button:hover:not(:disabled) {
