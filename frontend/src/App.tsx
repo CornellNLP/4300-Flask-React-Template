@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import MainLogo from './assets/main_logo.png'
+import Pea1 from './assets/pea1.png'
+import Pea2 from './assets/pea2.png'
 import { Podcast } from './types'
 import Chat from './Chat'
 import QueryComponent from './QueryComponent'
@@ -74,26 +76,35 @@ function App(): JSX.Element {
         )}
 
         {view === 'query' && listeningMode === 'solo' && (
-          <QueryComponent
-            title="Query Component"
-            idPrefix="solo"
-            onSearch={handleSearch}
-            initialQuery={chatSeedTerm}
-          />
+          <div className="query-card-shell">
+            <img src={Pea2} alt="" className="query-decor query-decor-left" aria-hidden="true" />
+            <QueryComponent
+              title="Query Component"
+              idPrefix="solo"
+              onSearch={handleSearch}
+              initialQuery={chatSeedTerm}
+            />
+          </div>
         )}
 
         {view === 'query' && listeningMode === 'collab' && (
           <div className="collab-grid">
-            <QueryComponent
-              title="Query Component - User 1"
-              idPrefix="collab-user-1"
-              onSearch={handleSearch}
-            />
-            <QueryComponent
-              title="Query Component - User 2"
-              idPrefix="collab-user-2"
-              onSearch={handleSearch}
-            />
+            <div className="query-card-shell">
+              <img src={Pea2} alt="" className="query-decor query-decor-left" aria-hidden="true" />
+              <QueryComponent
+                title="Query Component - User 1"
+                idPrefix="collab-user-1"
+                onSearch={handleSearch}
+              />
+            </div>
+            <div className="query-card-shell">
+              <img src={Pea1} alt="" className="query-decor query-decor-right" aria-hidden="true" />
+              <QueryComponent
+                title="Query Component - User 2"
+                idPrefix="collab-user-2"
+                onSearch={handleSearch}
+              />
+            </div>
           </div>
         )}
       </div>
