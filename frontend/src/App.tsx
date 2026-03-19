@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import MainLogo from './assets/main_logo.png'
-import { Episode } from './types'
+import { Podcast } from './types'
 import Chat from './Chat'
 import QueryComponent from './QueryComponent'
+import ResultComponent from './ResultComponent'
 type ListeningMode = 'solo' | 'collab'
+type AppView = 'query' | 'results'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [listeningMode, setListeningMode] = useState<ListeningMode>('solo')
+  const [view, setView] = useState<AppView>('query')
   const [chatSeedTerm, setChatSeedTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  // const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [podcasts, setPodcasts] = useState<Podcast[]>([])
 
   useEffect(() => {
     // Right now should be False until implemented
@@ -18,10 +22,16 @@ function App(): JSX.Element {
   }, [])
 
   const handleSearch = async (value: string): Promise<void> => {
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    if (value.trim() === '') {
+      setPodcasts([])
+      setView('query')
+      return
+    }
+    const response = await fetch(`/api/podcasts?query=${encodeURIComponent(value)}`)
+    const data: Podcast[] = await response.json()
+    console.log('Search results:', data)
+    setPodcasts(data)
+    setView('results')
   }
 
   /* TODO: Skeleton code for chat search */
@@ -29,6 +39,10 @@ function App(): JSX.Element {
     setListeningMode('solo')
     setChatSeedTerm(value)
     await handleSearch(value)
+  }
+
+  const handleBackToQuery = (): void => {
+    setView('query')
   }
 
   if (useLlm === null) return <></>
@@ -40,24 +54,26 @@ function App(): JSX.Element {
           <img src={MainLogo} alt="main logo" />
         </div>
 
-        <div className="mode-tabs" role="tablist" aria-label="Listening mode">
-          <button
-            type="button"
-            className={`mode-tab ${listeningMode === 'solo' ? 'active' : ''}`}
-            onClick={() => setListeningMode('solo')}
-          >
-            Just Myself
-          </button>
-          <button
-            type="button"
-            className={`mode-tab ${listeningMode === 'collab' ? 'active' : ''}`}
-            onClick={() => setListeningMode('collab')}
-          >
-            Collaborative Listening
-          </button>
-        </div>
+        {view === 'query' && (
+          <div className="mode-tabs" role="tablist" aria-label="Listening mode">
+            <button
+              type="button"
+              className={`mode-tab ${listeningMode === 'solo' ? 'active' : ''}`}
+              onClick={() => setListeningMode('solo')}
+            >
+              Just Myself
+            </button>
+            <button
+              type="button"
+              className={`mode-tab ${listeningMode === 'collab' ? 'active' : ''}`}
+              onClick={() => setListeningMode('collab')}
+            >
+              Collaborative Listening
+            </button>
+          </div>
+        )}
 
-        {listeningMode === 'solo' && (
+        {view === 'query' && listeningMode === 'solo' && (
           <QueryComponent
             title="Query Component"
             idPrefix="solo"
@@ -66,7 +82,7 @@ function App(): JSX.Element {
           />
         )}
 
-        {listeningMode === 'collab' && (
+        {view === 'query' && listeningMode === 'collab' && (
           <div className="collab-grid">
             <QueryComponent
               title="Query Component - User 1"
@@ -82,15 +98,23 @@ function App(): JSX.Element {
         )}
       </div>
 
-      <div id="answer-box">
-        {episodes.map((episode, index) => (
-          <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
+      {view === 'results' && (
+        <>
+          <div className="results-toolbar">
+            <button type="button" className="back-button" onClick={handleBackToQuery}>
+              Back to Search
+            </button>
           </div>
-        ))}
-      </div>
+
+          <div id="answer-box">
+            {podcasts.length > 0 ? (
+              <ResultComponent podcasts={podcasts} />
+            ) : (
+              <p className="no-results">No podcasts found for this search.</p>
+            )}
+          </div>
+        </>
+      )}
 
       {useLlm && <Chat onSearchTerm={handleChatSearch} />}
     </div>

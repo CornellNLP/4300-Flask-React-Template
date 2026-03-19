@@ -225,6 +225,38 @@
   margin-top: 2rem;
 }
 
+.results-toolbar {
+  width: 700px;
+  max-width: calc(100% - 2rem);
+  margin-top: 1rem;
+  display: flex;
+}
+
+.back-button {
+  border: 1px solid #c8d0db;
+  border-radius: 8px;
+  background: #f7f8fa;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.back-button:hover {
+  background: #e9edf3;
+}
+
+.no-results {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #d9dde2;
+  border-radius: 10px;
+  background: #fbfcfd;
+  font-family: 'Open Sans', sans-serif;
+  color: #2c3138;
+}
+
 .episode-item {
   padding: 1.5rem;
   background-color: #f8f9fa;
@@ -394,6 +426,9 @@
   }
   .collab-grid {
     grid-template-columns: 1fr;
+  }
+  .results-toolbar {
+    width: calc(100% - 2rem);
   }
   #answer-box { padding: 0 1rem; }
   #messages { padding: 0 8px 8px; }
