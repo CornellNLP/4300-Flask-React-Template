@@ -1,62 +1,92 @@
-import { useState, useEffect } from 'react'
+import { FormEvent, useState } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
-import Chat from './Chat'
+import { SongRecommendation } from './types'
 
 function App(): JSX.Element {
-  const [useLlm, setUseLlm] = useState<boolean | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [emotionInput, setEmotionInput] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+  const [songs, setSongs] = useState<SongRecommendation[]>([])
+  const [error, setError] = useState<string>('')
 
-  useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
-  }, [])
+  const fetchRecommendations = async (e: FormEvent): Promise<void> => {
+    e.preventDefault()
+    const query = emotionInput.trim()
+    if (!query) {
+      setSongs([])
+      setError('Please describe how you are feeling.')
+      return
+    }
 
-  const handleSearch = async (value: string): Promise<void> => {
-    setSearchTerm(value)
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/recommendations?query=${encodeURIComponent(query)}&top_k=10`)
+      if (!response.ok) {
+        setError(`Request failed (${response.status})`)
+        setSongs([])
+        return
+      }
+      const data: SongRecommendation[] = await response.json()
+      setSongs(data)
+      if (data.length === 0) {
+        setError('No TF-IDF matches found. Try adding more emotional keywords.')
+      }
+    } catch {
+      setError('Unable to load recommendations right now.')
+      setSongs([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (useLlm === null) return <></>
-
   return (
-    <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
-      {/* Search bar (always shown) */}
-      <div className="top-text">
-        <div className="google-colors">
-          <h1 id="google-4">4</h1>
-          <h1 id="google-3">3</h1>
-          <h1 id="google-0-1">0</h1>
-          <h1 id="google-0-2">0</h1>
-        </div>
-        <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
-          <img src={SearchIcon} alt="search" />
-          <input
-            id="search-input"
-            placeholder="Search for a Keeping up with the Kardashians episode"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-        </div>
-      </div>
+    <div className="full-body-container">
+      <header className="hero">
+        <h1>Lyra: Emotion-to-Song Prototype</h1>
+        <p>
+          Iteration 1 uses lyrics-only TF-IDF text matching on your emotion input.
+        </p>
+      </header>
 
-      {/* Search results (always shown) */}
+      <form className="input-box" onSubmit={fetchRecommendations}>
+        <img src={SearchIcon} alt="search icon" />
+        <input
+          placeholder='Try: "I feel sad and need calm comfort songs"'
+          value={emotionInput}
+          onChange={(e) => setEmotionInput(e.target.value)}
+          disabled={loading}
+          aria-label="Emotion input"
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? 'Matching...' : 'Get Recommendations'}
+        </button>
+      </form>
+
+      {error && <p className="error-text">{error}</p>}
+
       <div id="answer-box">
-        {episodes.map((episode, index) => (
-          <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
+        {songs.map((song) => (
+          <div key={song.id} className="song-item">
+            <h3 className="song-title">{song.title}</h3>
+            <p className="song-meta">
+              {song.artist} · {song.album}
+            </p>
+            <a className="song-link" href={song.spotify_url} target="_blank" rel="noreferrer">
+              Open in Spotify
+            </a>
+            <p className="song-score">TF-IDF similarity: {song.tfidf_score.toFixed(5)}</p>
+            <p className="song-features">
+              Danceability {song.danceability} · Energy {song.energy} · Valence {song.valence} · Tempo {song.tempo} BPM
+            </p>
+            <p className="song-lyrics">{song.lyrics_preview}</p>
+            <details className="lyrics-details">
+              <summary>Show full lyrics</summary>
+              <p className="song-lyrics full">{song.lyrics_full}</p>
+            </details>
           </div>
         ))}
       </div>
-
-      {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
     </div>
   )
 }

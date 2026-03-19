@@ -1,35 +1,9 @@
 """
-Routes: React app serving and episode search API.
-
-To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
+Routes for the first-iteration song recommendation prototype.
 """
-import json
 import os
 from flask import send_from_directory, request, jsonify
-from models import db, Episode, Review
-
-# ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def json_search(query):
-    if not query or not query.strip():
-        query = "Kardashian"
-    results = db.session.query(Episode, Review).join(
-        Review, Episode.id == Review.id
-    ).filter(
-        Episode.title.ilike(f'%{query}%')
-    ).all()
-    matches = []
-    for episode, review in results:
-        matches.append({
-            'title': episode.title,
-            'descr': episode.descr,
-            'imdb_rating': review.imdb_rating
-        })
-    return matches
+from recommender import get_recommender
 
 
 def register_routes(app):
@@ -43,13 +17,20 @@ def register_routes(app):
 
     @app.route("/api/config")
     def config():
-        return jsonify({"use_llm": USE_LLM})
+        return jsonify({"prototype": "tfidf-v1"})
 
-    @app.route("/api/episodes")
-    def episodes_search():
-        text = request.args.get("title", "")
-        return jsonify(json_search(text))
+    @app.route("/api/recommendations")
+    def recommendations():
+        query = request.args.get("query", "")
+        if not query.strip():
+            return jsonify([])
 
-    if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
+        try:
+            top_k = int(request.args.get("top_k", "10"))
+        except ValueError:
+            top_k = 10
+        top_k = max(1, min(top_k, 25))
+
+        recommender = get_recommender()
+        matches = recommender.recommend(query=query, top_k=top_k)
+        return jsonify(matches)
