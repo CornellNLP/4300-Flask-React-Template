@@ -18,22 +18,25 @@
   align-items: center;
 }
 
-.google-colors {
-  display: flex;
-  align-items: center;
-  font-size: 48px;
+.tagline {
   font-family: 'Open Sans', sans-serif;
+  font-size: 0.95rem;
+  color: #6b7280;
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+  text-align: center;
+  max-width: 620px;
+  white-space: nowrap;
 }
 
-.google-colors h1 {
+.brain-rot-title {
+  font-family: 'Londrina Solid', cursive;
+  font-size: 96px;
+  letter-spacing: 6px;
   margin-bottom: 0;
-  margin-right: 3px;
+  color: white;
+  -webkit-text-stroke: 4px black;
 }
-
-#google-4   { color: #F4B400; }
-#google-3   { color: #4285F4; }
-#google-0-1 { color: #0F9D58; }
-#google-0-2 { color: #DB4437; }
 
 /* ── Search bar ────────────────────────────────────────────────────────────── */
 
