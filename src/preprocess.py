@@ -2,7 +2,7 @@ import json
 import re
 
 """
-Each entry in src/init.json looks like:
+Each entry in src/init.json now looks like:
 {
   "business": {
     "business_id": "...",
@@ -19,22 +19,6 @@ Each entry in src/init.json looks like:
     "categories": "...",
     "hours": {...}
   },
-  //Can get rid of this later
-  "reviews": [
-    {
-      "review_id": "...",
-      "user_id": "...",
-      "business_id": "...",
-      "stars": 4.0,
-      "useful": 0,
-      "funny": 0,
-      "cool": 0,
-      "text": "original raw review text",
-      "date": "...",
-      "clean_text": "processed review text"
-    }
-  ],
-  //Cleaned, processed field of combines reviews for this business
   "combined_reviews": "all cleaned reviews joined together"
 }
 """
@@ -45,6 +29,8 @@ REVIEW_PATH = "data/sampled_reviews.json"
 
 # cleaned output file for the template
 OUTPUT_PATH = "src/init.json"
+
+MAX_REVIEWS_PER_BUSINESS = 25
 
 # simple stop word list
 STOP_WORDS = {
@@ -171,7 +157,9 @@ def filter_reviews_by_business_ids(reviews, business_ids):
 
 def build_processed_restaurant_data(businesses, reviews):
     business_lookup = {}
+    review_text_lookup = {}
     output = []
+
     # keep full business info
     for business in businesses:
         if not is_restaurant_business(business):
@@ -180,29 +168,29 @@ def build_processed_restaurant_data(businesses, reviews):
         if not business_id:
             continue
         item = {
-            "business": business.copy(),   # full original business info
-            "reviews": [],                 # full original reviews + clean_text
+            "business": business.copy(),
             "combined_reviews": ""
         }
         business_lookup[business_id] = item
+        review_text_lookup[business_id] = []
         output.append(item)
 
-    # attach full review info
+    # collect only cleaned review text
     for review in reviews:
         business_id = review.get("business_id")
         if business_id not in business_lookup:
             continue
-        review_copy = review.copy()
-        review_copy["clean_text"] = preprocess_text(review.get("text", ""))
-        business_lookup[business_id]["reviews"].append(review_copy)
+        if len(review_text_lookup[business_id]) >= MAX_REVIEWS_PER_BUSINESS:
+            continue
+        clean_text = preprocess_text(review.get("text", ""))
+        if clean_text:
+            review_text_lookup[business_id].append(clean_text)
 
     # build joined cleaned review text
     final_output = []
     for item in output:
-        clean_reviews = []
-        for review in item["reviews"]:
-            if review["clean_text"]:
-                clean_reviews.append(review["clean_text"])
+        business_id = item["business"]["business_id"]
+        clean_reviews = review_text_lookup[business_id]
         if not clean_reviews:
             continue
         item["combined_reviews"] = " ".join(clean_reviews)
@@ -292,4 +280,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -6,7 +6,7 @@ venv/
 
 #data files
 data/
-src/init.json
+# src/init.json
 
 *.pyc
 __pycache__/
