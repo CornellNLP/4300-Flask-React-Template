@@ -1,7 +1,9 @@
-import json
 import heapq
+import json
+
 from preprocess import preprocess_query
 from similarity import get_similarity_scores
+
 
 def load_processed_data():
     with open("src/init.json", "r", encoding="utf-8") as f:
