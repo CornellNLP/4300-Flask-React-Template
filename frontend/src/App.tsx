@@ -24,11 +24,13 @@ function App(): JSX.Element {
   }, [])
 
   const handleSearch = async (value: string): Promise<void> => {
-    if (value.trim() === '') { setEpisodes([]); return }
-    if (value.trim() === '') { setExercises([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    if (value.trim() === '') { setEpisodes([]); setExercises([]); return }
+    const [episodeRes, exerciseRes] = await Promise.all([
+      fetch(`/api/episodes?title=${encodeURIComponent(value)}`),
+      fetch(`/api/exercises?q=${encodeURIComponent(value)}`),
+    ])
+    setEpisodes(await episodeRes.json())
+    setExercises(await exerciseRes.json())
   }
 
   if (useLlm === null) return <></>
@@ -56,8 +58,8 @@ function App(): JSX.Element {
         <button className="search-btn" onClick={() => handleSearch(searchTerm)}>Search</button>
       </div>
 
-      {/* Search results (always shown) */}
-      <div id="answer-box">
+      {/* Show Results for Kardashians, Not Needed Anymore */}
+      {/* <div id="answer-box">
         {episodes.map((episode, index) => (
           <div key={index} className="episode-item">
             <h3 className="episode-title">Name: {episode.title}</h3>
@@ -65,20 +67,20 @@ function App(): JSX.Element {
             <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
           </div>
         ))}
-      </div>
+      </div> */}
 
-      {/* IN PROGRESS BY DYLAN: I started the format for how we are going to display the exercises queried */}
+      {/* IN PROGRESS BY DYLAN: Made something decently usable for now, just need to add similarity measures and such */}
       <div id="workout-answers">
         {exercises.map((exercise, index) => (
           <div key={index} className="episode-item">
             <h3 className="exercise-title">{exercise.title}</h3>
-            <p className="exercise-desc">{exercise.desc}</p>
-            <p className="exercise-field"><strong>Type:</strong> {exercise.Type}</p>
-            <p className="exercise-field"><strong>Body Part:</strong> {exercise.BodyPart}</p>
-            <p className="exercise-field"><strong>Equipment:</strong> {exercise.Equipment}</p>
-            <p className="exercise-field"><strong>Level:</strong> {exercise.Level}</p>
-            <p className="exercise-field"><strong>Rating:</strong> {exercise.Rating}</p>
-            <p className="exercise-field"><strong>Rating Description:</strong> {exercise.RatingDesc}</p>
+            {exercise.desc && <p className="exercise-desc"><strong>Description:</strong> {exercise.desc}</p>}
+            {exercise.Type && <p className="exercise-field"><strong>Type:</strong> {exercise.Type}</p>}
+            {exercise.BodyPart && <p className="exercise-field"><strong>Body Part:</strong> {exercise.BodyPart}</p>}
+            {exercise.Equipment && <p className="exercise-field"><strong>Equipment:</strong> {exercise.Equipment}</p>}
+            {exercise.Level && <p className="exercise-field"><strong>Level:</strong> {exercise.Level}</p>}
+            {exercise.Rating && <p className="exercise-field"><strong>Rating:</strong> {exercise.Rating}</p>}
+            {exercise.RatingDesc && <p className="exercise-field"><strong>Rating Description:</strong> {exercise.RatingDesc}</p>}
           </div>
         ))}
       </div>

@@ -5,8 +5,31 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
 import json
 import os
+import csv
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
+
+EXERCISES_CSV = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'gym_exercises.csv')
+
+def search_exercises(query):
+    results = []
+    with open(EXERCISES_CSV, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if query.lower() in row['Title'].lower() or query.lower() in (row['Desc'] or '').lower():
+                results.append({
+                    'title': row['Title'],
+                    'desc': row['Desc'] or None,
+                    'Type': row['Type'] or None,
+                    'BodyPart': row['BodyPart'] or None,
+                    'Equipment': row['Equipment'] or None,
+                    'Level': row['Level'] or None,
+                    'Rating': row['Rating'] or None,
+                    'RatingDesc': row['RatingDesc'] or None,
+                })
+            if len(results) >= 5:
+                break
+    return results
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -49,6 +72,11 @@ def register_routes(app):
     def episodes_search():
         text = request.args.get("title", "")
         return jsonify(json_search(text))
+
+    @app.route("/api/exercises")
+    def exercises_search():
+        query = request.args.get("q", "")
+        return jsonify(search_exercises(query))
 
     if USE_LLM:
         from llm_routes import register_chat_route
