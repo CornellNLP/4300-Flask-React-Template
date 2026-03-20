@@ -23,3 +23,14 @@ export interface SearchResponse {
   user_baseline_temp_c?: number
   results: Destination[]
 }
+
+export interface Destination {
+  city: string
+  country: string
+  region: string
+  budget: string
+  score: number
+  text_similarity: number    // ← NEW
+  scores: ScoreBreakdown
+  short_description: string
+}
