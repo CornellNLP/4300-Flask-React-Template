@@ -2,22 +2,26 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# Define Episode model
-class Episode(db.Model):
-    __tablename__ = 'episodes'
+# Define Recipe model
+class Recipe(db.Model):
+    __tablename__ = 'recipes'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
-    
-    def __repr__(self):
-        return f'Episode {self.id}: {self.title}'
+    site_id = db.Column(db.Integer, nullable=False)
+    name = db.Column(db.String(64), nullable=False)
+    minutes = db.Column(db.Integer, nullable=False)
+    tags = db.Column(db.String(1024), nullable=False)
+    description = db.Column(db.String(1024), nullable=False)
+    ingredients = db.Column(db.String(1024), nullable=False)
 
-# Define Review model
-class Review(db.Model):
-    __tablename__ = 'reviews'
+    def __repr__(self):
+        return f'Recipe {self.id}: {self.name}'
+    
+class Playlist(db.Model):
+    __tablename__ = 'playlists'
     id = db.Column(db.Integer, primary_key=True)
-    imdb_rating = db.Column(db.Float, nullable=False)
-    
-    def __repr__(self):
-        return f'Review {self.id}: {self.imdb_rating}'
+    name = db.Column(db.String(64), nullable=False)
+    songs = db.Column(db.String(1028), nullable=False)
+    artists = db.Column(db.String(1028), nullable=False) # len(songs) == len(artists)
 
+    def __repr__(self):
+        return f'Playlist {self.id}: {self.name}'

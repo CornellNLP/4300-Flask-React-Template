@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 from dotenv import load_dotenv
@@ -5,7 +6,7 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Recipe, Playlist
 from routes import register_routes
 
 # src/ directory and project root (one level up)
@@ -28,35 +29,70 @@ db.init_app(app)
 # Register routes
 register_routes(app)
 
+def init_recipes():
+        if Recipe.query.count() > 0:
+            print("Database already initialized with", Recipe.query.count(), 'recipes')
+            return
+            
+        file_path = os.path.join(current_directory, 'recipes_sample.csv')
+        with open(file_path, 'r', encoding='utf-8') as file:
+            csv_reader = csv.reader(file)
+
+            recipe_data = list(csv_reader)
+            headers = recipe_data[0]
+            rows = recipe_data[1:]
+            for i, row in enumerate(rows):
+                try:
+                    cleaned_desc = " ".join(row[9].split())
+                    recipe = Recipe(
+                        id=i,
+                        site_id=row[1],
+                        name=row[0],
+                        minutes=row[2],
+                        tags=row[5],
+                        description=cleaned_desc,
+                        ingredients=row[10]
+                    )
+                    db.session.add(recipe)
+                except:
+                    print('Error in adding recipe', i)
+        
+        db.session.commit()
+        print("Database initialized with recipe data")
+
+def init_playlists():
+    if Playlist.query.count() > 0:
+        print("Database already initialized with", Playlist.query.count(), 'playlists')
+        return
+
+    file_path = os.path.join(current_directory, 'spotify_playlists.json')
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+
+    for name, tracks in data.items():
+        try:
+            songs = [track[0] for track in tracks]
+            artists = [track[1] for track in tracks]
+            playlist = Playlist(
+                name=name,
+                songs=','.join(songs),
+                artists=','.join(artists)
+            )
+            db.session.add(playlist)
+        except:
+            continue
+
+    db.session.commit()
+    print("Database initialized with playlist data")
+
 # Function to initialize database, change this to your own database initialization logic
 def init_db():
     with app.app_context():
         # Create all tables
         db.create_all()
+        init_recipes()
+        init_playlists()
         
-        # Initialize database with data from init.json if empty
-        if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
-                    )
-                    db.session.add(episode)
-                
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
-            
-            db.session.commit()
-            print("Database initialized with episodes and reviews data")
-
 init_db()
 
 if __name__ == '__main__':
