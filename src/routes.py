@@ -18,7 +18,8 @@ USE_LLM = False
 def json_search(query):
     if not query or not query.strip():
         query = "Love"
-        db.session.query(Song)
+        
+    songs = db.session.query(Song).all()
     results = recommend_by_lyrics(query, db.session.query(Song))
     matches = []
     for song in results:
@@ -33,20 +34,24 @@ def json_search(query):
     return matches
 
 def recommend_by_lyrics(user_input, data, top_n=5):
-    all_text = [];
+    all_text = []
     for song in data:
-        all_text.append(song.lyrics)
-
+        if isinstance(song.lyrics, list):
+            text = " ".join(song.lyrics)
+        else:
+            text = song.lyrics or ""
+        all_text.append(text)
     all_text.extend([user_input])
 
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform(all_text)
 
+
     user_vector = tfidf_matrix[-1]
     song_vectors = tfidf_matrix[:-1]
 
     similarities = cosine_similarity(user_vector, song_vectors).flatten()
-    indices = sorted(range(top_n), key=lambda k: similarities[k], reverse=True)
+    indices = sorted(range(len(similarities)), key=lambda k: similarities[k], reverse=True)[:top_n]
 
     results = []
     for idx in indices:
