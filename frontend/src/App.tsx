@@ -25,8 +25,7 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     if (value.trim() === '') { setExercises([]); return }
-    const [episodeRes, exerciseRes] = await Promise.all([
-      fetch(`/api/episodes?title=${encodeURIComponent(value)}`),
+    const [exerciseRes] = await Promise.all([
       fetch(`/api/exercises?q=${encodeURIComponent(value)}`),
     ])
     // setEpisodes(await episodeRes.json())
