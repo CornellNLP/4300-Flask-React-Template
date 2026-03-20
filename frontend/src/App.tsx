@@ -8,7 +8,7 @@ import bgImage from './assets/gym_background.png'
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  // const [episodes, setEpisodes] = useState<Episode[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
 
   useEffect(() => {
@@ -24,12 +24,12 @@ function App(): JSX.Element {
   }, [])
 
   const handleSearch = async (value: string): Promise<void> => {
-    if (value.trim() === '') { setEpisodes([]); setExercises([]); return }
+    if (value.trim() === '') { setExercises([]); return }
     const [episodeRes, exerciseRes] = await Promise.all([
       fetch(`/api/episodes?title=${encodeURIComponent(value)}`),
       fetch(`/api/exercises?q=${encodeURIComponent(value)}`),
     ])
-    setEpisodes(await episodeRes.json())
+    // setEpisodes(await episodeRes.json())
     setExercises(await exerciseRes.json())
   }
 
