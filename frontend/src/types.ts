@@ -14,7 +14,8 @@ export interface Stock {
   city?: string;
   state?: string;
   country?: string;
+  image?: string;
   sentiment?: number;
 }
 
-export type QueryMode = 'text' | 'portfolio';
+export type QueryMode = "text" | "portfolio";

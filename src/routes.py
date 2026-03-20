@@ -158,6 +158,7 @@ def recommend_from_text_query(query, top_n=10):
                 "dividend_yield": company.get("lastDividend"),
                 "description": company.get("description"),
                 "website": company.get("website"),
+                "image": company.get("image"),
                 "score": score
             })
 
