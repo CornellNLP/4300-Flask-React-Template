@@ -1,55 +1,51 @@
-import { useState, useEffect } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
 import { PlayerStats } from './types'
 import Chat from './Chat'
 
+interface SearchResponse {
+  results: PlayerStats[]
+}
+
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [players, setPlayers] = useState<PlayerStats[]>([])
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('')
+  const [hasSearched, setHasSearched] = useState<boolean>(false)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
   }, [])
 
-  // Debounce keystrokes so we don't hit the backend on every character.
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 350)
-    return () => window.clearTimeout(id)
-  }, [searchTerm])
-
-  // Fetch when the debounced value changes. Abort in-flight requests on new input.
-  useEffect(() => {
-    const term = debouncedSearchTerm.trim()
-    if (term === '') {
+  const runSearch = async (term: string): Promise<void> => {
+    const trimmed = term.trim()
+    if (trimmed === '') {
       setPlayers([])
+      setHasSearched(false)
       return
     }
 
-    const controller = new AbortController()
-    ;(async () => {
-      const response = await fetch(`/api/player?name=${encodeURIComponent(term)}`, { signal: controller.signal })
-      const data: PlayerStats[] = await response.json()
-      setPlayers(data)
-    })().catch((err: unknown) => {
-      // Ignore aborts; rethrowing would be noisy in the console.
-      if (err instanceof DOMException && err.name === 'AbortError') return
-    })
+    const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`)
+    const data: SearchResponse = await response.json()
+    setPlayers(data.results ?? [])
+    setHasSearched(true)
+  }
 
-    return () => controller.abort()
-  }, [debouncedSearchTerm])
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault()
+    void runSearch(searchTerm)
+  }
 
-  const handleSearch = (value: string): void => {
-    setSearchTerm(value)
+  const handleChatSearch = (term: string): void => {
+    setSearchTerm(term)
+    void runSearch(term)
   }
 
   if (useLlm === null) return <></>
 
   return (
     <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
-      {/* Search bar (always shown) */}
       <div className="top-text">
         <div className="google-colors">
           <h1 id="google-4">F</h1>
@@ -65,21 +61,27 @@ function App(): JSX.Element {
           <h1 id="google-0-1">H</h1>
           <h1 id="google-0-2">!</h1>
         </div>
-        <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
+        <form
+          className="input-box"
+          onSubmit={handleSubmit}
+          onClick={() => document.getElementById('search-input')?.focus()}
+        >
           <img src={SearchIcon} alt="search" />
           <input
             id="search-input"
-            placeholder="Search for a famous soccer player"
+            placeholder="Search for a soccer player or query like 'best striker from Spain'"
             value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setHasSearched(false)
+            }}
           />
-        </div>
+        </form>
       </div>
 
-      {/* Player stats results (always shown) */}
       <div id="answer-box">
-        {players.length === 0 && searchTerm.trim() !== '' && (
-          <p className="no-results">No players found. Try another name.</p>
+        {players.length === 0 && hasSearched && (
+          <p className="no-results">No results found.</p>
         )}
         {players.map((player, index) => (
           <div key={index} className="episode-item">
@@ -87,12 +89,12 @@ function App(): JSX.Element {
               <div className="player-image-frame">
                 <img
                   className="player-image"
-                  src={player.image || "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png"}
+                  src={player.image || 'https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png'}
                   alt={player.name}
                   width={110}
                   height={140}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png";
+                    (e.target as HTMLImageElement).src = 'https://resources.premierleague.com/premierleague25/photos/players/110x140/placeholder.png'
                   }}
                 />
               </div>
@@ -101,20 +103,19 @@ function App(): JSX.Element {
               </h3>
             </div>
             <p className="episode-desc">
-              {player.position || 'Unknown position'} &mdash; {player.team || 'Unknown team'}
+              {player.position || 'Unknown position'} - {player.nationality || 'Unknown nationality'}
             </p>
             <p className="episode-rating">
-              Games: {player.games ?? 'N/A'} | Minutes: {player.minutes ?? 'N/A'} | Goals: {player.goals ?? 'N/A'} | Assists: {player.assists ?? 'N/A'}
+              Goals: {player.goals ?? 'N/A'} | Assists: {player.assists ?? 'N/A'}
             </p>
             <p className="episode-rating">
-              Shots: {player.shots ?? 'N/A'} | On target: {player.shots_on_target ?? 'N/A'} | Touches in box: {player.touches_in_box ?? 'N/A'}
+              Appearances: {player.appearances ?? 'N/A'}
             </p>
           </div>
         ))}
       </div>
 
-      {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
+      {useLlm && <Chat onSearchTerm={handleChatSearch} />}
     </div>
   )
 }

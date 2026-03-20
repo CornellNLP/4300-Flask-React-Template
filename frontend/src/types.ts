@@ -5,16 +5,21 @@ export interface Episode {
 }
 
 export interface PlayerStats {
-  league: string
   name: string
-  team: string | null
+  nationality: string | null
   position: string | null
+  league: string
+  team: string | null
   image: string | null
-  games: number | null
-  minutes: number | null
   goals: number | null
   assists: number | null
-  shots: number | null
+  appearances: number | null
+  minutes: number | null
   shots_on_target: number | null
-  touches_in_box: number | null
+  dribbles_completed: number | null
+  season_years: number[]
+  seasons: string[]
+  goals_per_game: number | null
+  assists_per_game: number | null
+  shot_on_target_ratio: number | null
 }
