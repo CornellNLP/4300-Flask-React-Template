@@ -20,7 +20,21 @@ def build_tfidf_corpus(restaurants: list[dict]) -> dict:
         name       = biz.get("name", "")
         categories = biz.get("categories", "")
         reviews    = r.get("combined_reviews", "")
-        documents.append(f"{name} {categories} {reviews}")
+        
+        # Add ambiance tags in the business into this as well so its not jts pure table lookup, the ambiance factored into the representation
+        ambience_str = ""
+        attributes = biz.get("attributes", {})
+        ambience_raw = attributes.get("Ambience", {})
+        if isinstance(ambience_raw, str):
+            import ast
+            try:
+                ambience_raw = ast.literal_eval(ambience_raw)
+            except:
+                ambience_raw = {}
+        ambience_terms = [k for k, v in ambience_raw.items() if v is True]
+        ambience_str = " ".join(ambience_terms*3) #join 3 times to make ambiance more important? do we wanna do that since we wanna emphasize our ambiance aspect
+        
+        documents.append(f"{name} {categories} {reviews} {ambience_str}")
  
     vectorizer = TfidfVectorizer(
         stop_words="english",       # sklearn's built-in English stop list
