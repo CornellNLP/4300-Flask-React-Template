@@ -46,12 +46,53 @@ function App(): JSX.Element {
     setLoading(true)
     setHasSearched(true)
     try {
-      const res = await fetch(
-        `/api/search?query=${encodeURIComponent(value)}&mode=${queryMode}`
-      )
+      if (queryMode !== 'text') {
+        // Backend portfolio matching is currently not implemented.
+        setError('Portfolio matching is not implemented yet.')
+        setStocks([])
+        return
+      }
+
+      // Theme Search -> backend baseline endpoint
+      const res = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: value }),
+      })
+
       if (!res.ok) throw new Error(`Server returned ${res.status}`)
-      const data: Stock[] = await res.json()
-      setStocks(data)
+
+      const data = (await res.json()) as Array<{
+        ticker: string
+        name: string
+        score?: number
+        sector?: string
+        industry?: string
+        market_cap?: number | string
+        dividend_yield?: number
+        description?: string
+        website?: string
+      }>
+
+      const maxScore = Math.max(
+        1,
+        ...data.map(d => (typeof d.score === 'number' ? d.score : 0)),
+      )
+
+      const mapped: Stock[] = data.map(d => ({
+        ticker: d.ticker,
+        name: d.name,
+        similarity: (typeof d.score === 'number' ? d.score : 0) / maxScore,
+        sector: d.sector,
+        industry: d.industry,
+        description: d.description,
+        market_cap: d.market_cap,
+        dividend_yield: d.dividend_yield,
+        website: d.website,
+        // sentiment isn't provided by /api/recommend (yet)
+      }))
+
+      setStocks(mapped)
     } catch (err) {
       setStocks([])
       setError(err instanceof Error ? err.message : 'Something went wrong')
