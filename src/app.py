@@ -2,6 +2,7 @@ import csv
 import os
 from dotenv import load_dotenv
 from flask import Flask
+from sqlalchemy import JSON
 
 load_dotenv()
 from flask_cors import CORS
@@ -36,7 +37,7 @@ def init_db():
         
         # Initialize database with data from init.json if empty
         if Song.query.count() == 0:
-            csv_file_path = os.path.join(current_directory, 'music.csv')
+            csv_file_path = os.path.join(current_directory, 'music_with_difficulties.csv')
             with open(csv_file_path, 'r') as file:
                 data = csv.reader(file)
                 idx = 0
