@@ -15,9 +15,9 @@ def load_processed_data():
     return _PROCESSED_DATA
 
 
-# gets top 10 restaurants based on similarity scores, returns a list of dicts with business info and match score
+# gets top 10 restaurants by name, ensuring no duplicates, and returns them sorted by match score
 def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
-    scored_results = []
+    best_by_name = {}
 
     for restaurant, score in zip(processed_restaurants, similarity_scores):
         if score <= 0:
@@ -25,7 +25,7 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
 
         business = restaurant["business"]
 
-        scored_results.append({
+        entry = {
             "business_id": business["business_id"],
             "name": business["name"],
             "address": business.get("address"),
@@ -36,9 +36,17 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
             "review_count": business.get("review_count"),
             "categories": business.get("categories"),
             "matchScore": float(score)
-        })
+        }
 
-    top_k = heapq.nlargest(k, scored_results, key=lambda x: x["matchScore"])
+        name = business["name"]
+
+        if name not in best_by_name:
+            best_by_name[name] = entry
+        else:
+            if entry["matchScore"] > best_by_name[name]["matchScore"]:
+                best_by_name[name] = entry
+
+    top_k = heapq.nlargest(k, best_by_name.values(), key=lambda x: x["matchScore"])
     return top_k
 
 
