@@ -13,6 +13,10 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Resolve paths relative to this file so deployments work
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+COMPANY_DATA_PATH = os.path.join(SRC_DIR, "data", "company-data.json")
+
 # words we don't care about in the descriptions of companies
 STOPWORDS = {
     "the", "and", "or", "of", "in", "to", "for", "a", "an", "with", "that"
@@ -99,7 +103,7 @@ def recommend_from_text_query(query, top_n=10):
     # companies = Company.query.all()
 
     # json:
-    with open("src/data/company-data.json", "r") as f:
+    with open(COMPANY_DATA_PATH, "r", encoding="utf-8") as f:
         companies = json.load(f)
 
     scored_results = []
