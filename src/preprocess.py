@@ -267,6 +267,43 @@ def preprocess_for_query(query, businesses, reviews):
         "reviews": city_reviews
     }
 
+def test_queries():
+    businesses = load_jsonl(BUSINESS_PATH)
+    reviews = load_jsonl(REVIEW_PATH)
+
+    sample_queries = [
+    "pizza in philadelphia",
+    "best sushi in philadelphia",
+    "looking for tacos in philadelphia",
+    "good chinese food in philadelphia",
+    "burger places in philadelphia",
+    "restaurants in philadelphia",
+    "i want pasta in philadelphia",
+]
+
+    print("\n--- TESTING preprocess_query ---\n")
+    for query in sample_queries:
+        result = preprocess_query(query, businesses)
+        print("QUERY:", query)
+        print("RESULT:", json.dumps(result, indent=2))
+        print()
+
+    print("\n--- TESTING preprocess_for_query ---\n")
+    for query in sample_queries:
+        result = preprocess_for_query(query, businesses, reviews)
+        print("QUERY:", query)
+        print("CITY:", result["city"])
+        print("FOOD ITEM:", result["food_item"])
+        print("ERROR:", result["error"])
+        print("NUM BUSINESSES:", len(result["businesses"]))
+        print("NUM REVIEWS:", len(result["reviews"]))
+
+        if result["businesses"]:
+            print("FIRST 5 BUSINESSES:")
+            for business in result["businesses"][:5]:
+                print("-", business.get("name"), "|", business.get("city"))
+        print()
+
 def main():
     businesses = load_jsonl(BUSINESS_PATH)
     reviews = load_jsonl(REVIEW_PATH)
@@ -278,5 +315,7 @@ def main():
     print("Number of restaurants saved:", len(processed_data))
 
 
+
 if __name__ == "__main__":
     main()
+    # test_queries()

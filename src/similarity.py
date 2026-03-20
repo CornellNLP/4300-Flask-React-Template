@@ -1,10 +1,12 @@
+import ast
+import collections
+import json
 import math
 import re
-import collections
-import ast
-import json
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
+
 
 def build_tfidf_corpus(restaurants: list[dict]) -> dict:
     """
@@ -132,7 +134,7 @@ def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
 if __name__ == "__main__":
     import json
 
-    with open("init.json", "r", encoding="utf-8") as f:
+    with open("src/init.json", "r", encoding="utf-8") as f:
         all_restaurants = json.load(f)
     
     city = "Philadelphia"
