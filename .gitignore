@@ -4,6 +4,9 @@ Docker/__pycache__
 
 venv/
 
+#Cisco's venv folder name
+4300-IR/
+
 *.pyc
 __pycache__/
 

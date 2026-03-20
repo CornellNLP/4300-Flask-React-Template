@@ -5,12 +5,12 @@
 // }
 
 export interface Exercise {
-  title: string;
-  desc: string | null | undefined;
-  Type: string | null | undefined;
-  BodyPart: string | null | undefined;
-  Equipment: string | null | undefined;
-  Level: string | null | undefined;
-  Rating: string | null | undefined;
-  RatingDesc: string | null | undefined;
+  name: string;
+  score: number;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  level: string | null;
+  equipment: string | null;
+  category: string | null;
+  instructions: string[];
 }

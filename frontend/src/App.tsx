@@ -25,11 +25,13 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     if (value.trim() === '') { setExercises([]); return }
-    const [exerciseRes] = await Promise.all([
-      fetch(`/api/exercises?q=${encodeURIComponent(value)}`),
-    ])
-    // setEpisodes(await episodeRes.json())
-    setExercises(await exerciseRes.json())
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: value }),
+    })
+    const data = await res.json()
+    setExercises(data.results)
   }
 
   if (useLlm === null) return <></>
@@ -72,14 +74,21 @@ function App(): JSX.Element {
       <div id="workout-answers">
         {exercises.map((exercise, index) => (
           <div key={index} className="episode-item">
-            <h3 className="exercise-title">{exercise.title}</h3>
-            {exercise.desc && <p className="exercise-desc"><strong>Description:</strong> {exercise.desc}</p>}
-            {exercise.Type && <p className="exercise-field"><strong>Type:</strong> {exercise.Type}</p>}
-            {exercise.BodyPart && <p className="exercise-field"><strong>Body Part:</strong> {exercise.BodyPart}</p>}
-            {exercise.Equipment && <p className="exercise-field"><strong>Equipment:</strong> {exercise.Equipment}</p>}
-            {exercise.Level && <p className="exercise-field"><strong>Level:</strong> {exercise.Level}</p>}
-            {exercise.Rating && <p className="exercise-field"><strong>Rating:</strong> {exercise.Rating}</p>}
-            {exercise.RatingDesc && <p className="exercise-field"><strong>Rating Description:</strong> {exercise.RatingDesc}</p>}
+            <h3 className="exercise-title">{index + 1}. {exercise.name}</h3>
+            <p className="exercise-field"><strong>Score:</strong> {exercise.score.toFixed(4)}</p>
+            <p className="exercise-field"><strong>Primary Muscles:</strong> {exercise.primaryMuscles.join(', ')}</p>
+            {exercise.secondaryMuscles.length > 0 && <p className="exercise-field"><strong>Secondary Muscles:</strong> {exercise.secondaryMuscles.join(', ')}</p>}
+            {exercise.category && <p className="exercise-field"><strong>Category:</strong> {exercise.category}</p>}
+            {exercise.level && <p className="exercise-field"><strong>Level:</strong> {exercise.level}</p>}
+            {exercise.equipment && <p className="exercise-field"><strong>Equipment:</strong> {exercise.equipment}</p>}
+            {exercise.instructions.length > 0 && (
+              <details className="exercise-instructions">
+                <summary><strong>Instructions</strong></summary>
+                <ol>
+                  {exercise.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                </ol>
+              </details>
+            )}
           </div>
         ))}
       </div>
