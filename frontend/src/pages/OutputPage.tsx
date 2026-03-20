@@ -20,18 +20,18 @@ export function OutputPage() {
 
   const songList: string[] = playlist
     ? playlist.songs
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .slice(0, 10)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10)
     : [];
 
   const artistList: string[] = playlist
     ? playlist.artist
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .slice(0, 10)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10)
     : [];
 
   const handleRoundTwo = () => {
@@ -52,7 +52,11 @@ export function OutputPage() {
               recipes.map((recipe) => (
                 <div key={recipe.name} className="recipe-entry">
                   <div className="recipe-entry__header">
-                    <p className="recipe-entry__title">{recipe.name}</p>
+                    <p className="recipe-entry__title">
+                      <a href={recipe.link} target="_blank" rel="noopener noreferrer" className="underline">
+                        {recipe.name}
+                      </a>
+                    </p>
                     <span className="recipe-entry__dots" aria-hidden="true" />
                   </div>
                   <p className="recipe-entry__body">{recipe.description}</p>

@@ -36,10 +36,13 @@ def query_data(query, data, data_set_category, vectorizer, doc_by_vocab, name_we
         query_vec = vectorizer.transform([query])
         scores = cosine_similarity(query_vec, doc_by_vocab).flatten()
         for i, score in enumerate(scores):
+            link_suffix = data[i].name.lower().replace(' ', '-') + '-' + str(data[i].site_id)
+            reconstructed_link = "https://www.food.com/recipe/" + link_suffix
             matches.append(({
                 'name': data[i].name,
                 'description': data[i].description,
                 'minutes': data[i].minutes,
+                'link': reconstructed_link,
             }, float(score)))
 
     elif data_set_category == "playlist":
