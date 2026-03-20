@@ -13,10 +13,7 @@ def main():
 
     try:
         with open(input_file, "r", encoding="utf-8") as f:
-            for idx, line in enumerate(f):
-                if idx >= 500:
-                    break
-
+            for line in f:
                 record = json.loads(line)
 
                 comment = "No text provided."
