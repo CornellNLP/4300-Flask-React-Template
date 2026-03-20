@@ -2,22 +2,18 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# Define Episode model
-class Episode(db.Model):
-    __tablename__ = 'episodes'
+# Define Song model
+class Song(db.Model):
+    __tablename__ = 'songs'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
+    artist = db.Column(db.String(64), nullable=False)
+    lyrics = db.Column(db.ARRAY(db.String), nullable=False)
+    chords = db.Column(db.String, nullable=False)
+    genres = db.Column(db.ARRAY(db.String), nullable=False)
+    popularity = db.Column(db.Float, nullable=False)
+    guitar_difficulty = db.Column(db.Float, nullable=False)
+    piano_difficulty = db.Column(db.Float, nullable=False)
     
     def __repr__(self):
-        return f'Episode {self.id}: {self.title}'
-
-# Define Review model
-class Review(db.Model):
-    __tablename__ = 'reviews'
-    id = db.Column(db.Integer, primary_key=True)
-    imdb_rating = db.Column(db.Float, nullable=False)
-    
-    def __repr__(self):
-        return f'Review {self.id}: {self.imdb_rating}'
-
+        return f'Song {self.id}: {self.title}'

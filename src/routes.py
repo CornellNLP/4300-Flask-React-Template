@@ -3,10 +3,11 @@ Routes: React app serving and episode search API.
 
 To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
-import json
 import os
 from flask import send_from_directory, request, jsonify
-from models import db, Episode, Review
+from models import db, Song
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -16,21 +17,42 @@ USE_LLM = False
 
 def json_search(query):
     if not query or not query.strip():
-        query = "Kardashian"
-    results = db.session.query(Episode, Review).join(
-        Review, Episode.id == Review.id
-    ).filter(
-        Episode.title.ilike(f'%{query}%')
-    ).all()
+        query = "Love"
+        db.session.query(Song)
+    results = recommend_by_lyrics(query, db.session.query(Song))
     matches = []
-    for episode, review in results:
+    for song in results:
         matches.append({
-            'title': episode.title,
-            'descr': episode.descr,
-            'imdb_rating': review.imdb_rating
+            'title': song[0].title,
+            'artist' : song[0].artist,
+            'similarity': song[1],
+            'chords' : song[0].chords,
+            'guitar_difficulty' : song[0].guitar_difficulty,
+            'piano_difficulty' : song[0].piano_difficulty
         })
     return matches
 
+def recommend_by_lyrics(user_input, data, top_n=5):
+    all_text = [];
+    for song in data:
+        all_text.append(song.lyrics)
+
+    all_text.extend([user_input])
+
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(all_text)
+
+    user_vector = tfidf_matrix[-1]
+    song_vectors = tfidf_matrix[:-1]
+
+    similarities = cosine_similarity(user_vector, song_vectors).flatten()
+    indices = sorted(range(top_n), key=lambda k: similarities[k], reverse=True)
+
+    results = []
+    for idx in indices:
+        results.append([data[idx], similarities[idx]*100])
+        
+    return results
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})

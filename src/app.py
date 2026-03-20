@@ -1,11 +1,11 @@
-import json
+import csv
 import os
 from dotenv import load_dotenv
 from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Song
 from routes import register_routes
 
 # src/ directory and project root (one level up)
@@ -35,27 +35,30 @@ def init_db():
         db.create_all()
         
         # Initialize database with data from init.json if empty
-        if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
-                    )
-                    db.session.add(episode)
-                
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
+        if Song.query.count() == 0:
+            csv_file_path = os.path.join(current_directory, 'music.csv')
+            with open(csv_file_path, 'r') as file:
+                data = csv.reader(file)
+                idx = 0
+                for song_data in data:
+                    if (idx > 0): #ignore header
+                        song = Song(
+                            id = idx,
+                            title = song_data[1],
+                            artist = song_data[0],
+                            lyrics = song_data[2],
+                            chords = song_data[3],
+                            genres = song_data[5],
+                            popularity = song_data[6],
+                            guitar_difficulty = song_data[7],
+                            piano_difficulty = song_data[8]
+                        )
+                        db.session.add(song)
+                    idx += 1
+
             
             db.session.commit()
-            print("Database initialized with episodes and reviews data")
+            print("Database initialized with songs")
 
 init_db()
 
