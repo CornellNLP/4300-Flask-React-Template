@@ -15,6 +15,8 @@ const DIETARY_FILTERS = [
 
 const COURSE_FILTERS = ["appetizer", "entrée", "dessert", "beverage"];
 
+const GUIDED_PLACEHOLDERS = ["summery italian wedding", "red and white", "rustic", "two hours", "pasta and tomatoes"];
+
 function AutoInput({
   value,
   onChange,
@@ -62,9 +64,9 @@ function AutoInput({
 export function InputPage() {
   const navigate = useNavigate();
 
-  const [themeWords, setThemeWords] = useState("");
-  const [keyword1, setKeyword1] = useState("");
-  const [keyword2, setKeyword2] = useState("");
+  const [dinnerPartyKeyWord, setDinnerPartyKeyWord] = useState("");
+  const [themeKeyword, setThemeKeyword] = useState("");
+  const [decorKeyword, setDecorKeyword] = useState("");
   const [length, setLength] = useState("");
   const [ingredients, setIngredients] = useState("");
 
@@ -89,7 +91,7 @@ export function InputPage() {
   const query =
     mode === "freeform"
       ? freeform.trim()
-      : [themeWords, keyword1, keyword2, ingredients].filter(Boolean).join(" ");
+      : [dinnerPartyKeyWord || GUIDED_PLACEHOLDERS[0], themeKeyword || GUIDED_PLACEHOLDERS[1], decorKeyword || GUIDED_PLACEHOLDERS[2], ingredients || GUIDED_PLACEHOLDERS[4]].filter(Boolean).join(" ");
 
   const toggleFilter = (
     value: string,
@@ -184,37 +186,37 @@ export function InputPage() {
           <span className="prompt-quote">&ldquo;</span>
           i&apos;m looking to host a{" "}
           <AutoInput
-            value={themeWords}
-            onChange={setThemeWords}
-            placeholder="summery italian wedding"
-            aria-label="theme words"
+            value={dinnerPartyKeyWord}
+            onChange={setDinnerPartyKeyWord}
+            placeholder={GUIDED_PLACEHOLDERS[0]}
+            aria-label="dinner party keyword"
           />{" "}
           dinner party. i want the party to follow a{" "}
           <AutoInput
-            value={keyword1}
-            onChange={setKeyword1}
-            placeholder="red and white"
-            aria-label="first keyword"
+            value={themeKeyword}
+            onChange={setThemeKeyword}
+            placeholder={GUIDED_PLACEHOLDERS[1]}
+            aria-label="theme keyword"
           />{" "}
           theme and use{" "}
           <AutoInput
-            value={keyword2}
-            onChange={setKeyword2}
-            placeholder="rustic"
-            aria-label="second keyword"
+            value={decorKeyword}
+            onChange={setDecorKeyword}
+            placeholder={GUIDED_PLACEHOLDERS[2]}
+            aria-label="decor keyword"
           />{" "}
           decor. i want my menu to take{" "}
           <AutoInput
             value={length}
             onChange={setLength}
-            placeholder="two hours"
+            placeholder={GUIDED_PLACEHOLDERS[3]}
             aria-label="cook time"
           />{" "}
           to cook. i want to use{" "}
           <AutoInput
             value={ingredients}
             onChange={setIngredients}
-            placeholder="pasta and tomatoes"
+            placeholder={GUIDED_PLACEHOLDERS[4]}
             aria-label="ingredients"
           />{" "}
           in my recipe.
