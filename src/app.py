@@ -5,7 +5,7 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Episode
 from routes import register_routes
 
 # src/ directory and project root (one level up)
@@ -43,7 +43,12 @@ def init_db():
                     episode = Episode(
                         id=episode_data['id'],
                         title=episode_data['title'],
-                        descr=episode_data['descr']
+                        descr=episode_data['descr'],
+                        abusive=episode_data.get('abusive', 0),
+                        time=episode_data.get('time', 0),
+                        talking=episode_data.get('talking', 0),
+                        school=episode_data.get('school', 0),
+    
                     )
                     db.session.add(episode)
                 

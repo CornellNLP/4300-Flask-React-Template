@@ -1,23 +1,17 @@
 from flask_sqlalchemy import SQLAlchemy
-
+ 
 db = SQLAlchemy()
-
-# Define Episode model
+ 
 class Episode(db.Model):
     __tablename__ = 'episodes'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
-    
+    title = db.Column(db.String(256), nullable=False)
+    descr = db.Column(db.Text, nullable=False)
+    abusive = db.Column(db.Integer, default=0)   # 0 or 1
+    time = db.Column(db.Integer, default=0)       # numeric metadata
+    talking = db.Column(db.Integer, default=0)    # numeric metadata
+    school = db.Column(db.Integer, default=0)     # 0 or 1
+ 
     def __repr__(self):
         return f'Episode {self.id}: {self.title}'
-
-# Define Review model
-class Review(db.Model):
-    __tablename__ = 'reviews'
-    id = db.Column(db.Integer, primary_key=True)
-    imdb_rating = db.Column(db.Float, nullable=False)
-    
-    def __repr__(self):
-        return f'Review {self.id}: {self.imdb_rating}'
-
+ 
