@@ -106,6 +106,7 @@
     align-items: flex-end;
     justify-content: flex-end;
     padding-top: 10vw;
+    
   }
 }
 
@@ -184,11 +185,21 @@
   flex-shrink: 0;
 }
 
-.food-img {
+.bread-img {
   position: absolute;
-  top: 200%;
-  left: 40px;
+  top: 210vh;
+  left: 60px;
   width: clamp(10.5rem, 5vw, 4rem);
+  height: auto;
+  object-fit: contain;
+  rotate: -30deg;
+}
+
+.cheese-img {
+  position: absolute;
+  top: 205vh;
+  left: 50px;
+  width: clamp(4.5rem, 5vw, 4rem);
   height: auto;
   object-fit: contain;
 }

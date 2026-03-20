@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router";
 import imgCandles from "../assets/table3.png";
-import imgFood from "../assets/bread.png";
+import imgBread from "../assets/bread.png";
+import imgCheese from "../assets/cheese.png";
 import { Recipe, Playlist } from "../types";
 import "./OutputPage.css";
 
@@ -18,7 +19,19 @@ export function OutputPage() {
   const playlist: Playlist | null = state.playlist ?? null;
 
   const songList: string[] = playlist
-    ? playlist.songs.split(",").map((s) => s.trim()).filter(Boolean)
+    ? playlist.songs
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 10)
+    : [];
+
+  const artistList: string[] = playlist
+    ? playlist.artist
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 10)
     : [];
 
   const handleRoundTwo = () => {
@@ -69,7 +82,8 @@ export function OutputPage() {
             <button onClick={handleRoundTwo} className="round-two-btn">
               ← round two
             </button>
-            <img alt="" className="food-img food-img--straight" src={imgFood} />
+            <img alt="" className="bread-img" src={imgBread} />
+            <img alt="" className="cheese-img" src={imgCheese} />
           </div>
         </div>
 
@@ -85,6 +99,8 @@ export function OutputPage() {
                   songList.map((song, i) => (
                     <p key={i} className="playlist-row">
                       <span className="song-name">{song}</span>
+                      <span className="recipe-entry__dots" aria-hidden="true" />
+                      <span className="artist-name">{artistList[i] || ""}</span>
                     </p>
                   ))
                 )}
@@ -95,7 +111,6 @@ export function OutputPage() {
           </div>
         </div>
       </section>
-
     </div>
   );
 }

@@ -58,6 +58,7 @@ def query_data(query, data, data_set_category, vectorizer, doc_by_vocab, name_we
             matches.append(({
                 'name': data[i].name,
                 'songs': data[i].songs,
+                'artist': data[i].artists,
             }, float(score)))
 
     matches.sort(key=lambda x: x[1], reverse=True)

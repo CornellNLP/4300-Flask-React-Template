@@ -84,6 +84,7 @@ export function LoadingPage() {
       </div>
 
       <p className="font-source-serif font-normal italic leading-[38px] text-center text-[#d43c00] text-[24px] sm:text-[30px] px-4">
+        &nbsp;
         {displayText}
         {dots}
       </p>
