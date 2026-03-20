@@ -5,6 +5,8 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
 import json
 import os
+import re
+import unicodedata
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
 import pandas as pd
@@ -34,9 +36,11 @@ def json_search(query):
         })
     return matches
 
+
 current_directory = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_directory)
 DATA_PATH = os.path.join(project_root, 'src', 'data', 'breed_data.csv')
+PICTURE_DATA_PATH = os.path.join(project_root, 'src', 'data', 'breed_pictures.csv')
 
 RANGE_COLUMN_MAP = {
     "Height": "avg_height",
@@ -54,6 +58,35 @@ CATEGORY_COLUMN_MAP = {
 }
 
 
+def normalize_breed_name(name):
+    if pd.isna(name):
+        return ""
+
+    text = unicodedata.normalize("NFKD", str(name))
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def load_picture_map():
+    if not os.path.exists(PICTURE_DATA_PATH):
+        return {}
+
+    picture_df = pd.read_csv(PICTURE_DATA_PATH)
+    picture_map = {}
+
+    for _, row in picture_df.iterrows():
+        breed = row.get("breed")
+        picture_name = row.get("picture_name")
+
+        if pd.notna(breed) and pd.notna(picture_name):
+            picture_map[normalize_breed_name(breed)] = str(picture_name)
+
+    return picture_map
+
+
 def as_list(value):
     if value is None:
         return []
@@ -68,9 +101,11 @@ def parse_range(range_str):
         return float(low), float(high)
     except Exception:
         return None
-    
+
+
 def safe(val):
     return None if pd.isna(val) else val
+
 
 def compute_structured_jaccard(row, trait_input):
     range_score_total = 0
@@ -162,6 +197,7 @@ def compute_text_scores(df, query):
     scores = cosine_similarity(query_vector, tfidf_matrix).flatten()
     return scores
 
+
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
@@ -179,7 +215,7 @@ def register_routes(app):
     def episodes_search():
         text = request.args.get("title", "")
         return jsonify(json_search(text))
-    
+
     @app.route('/api/match', methods=['POST'])
     def match_dogs():
         payload = request.get_json(silent=True) or {}
@@ -194,6 +230,7 @@ def register_routes(app):
             return jsonify([])
 
         df = pd.read_csv(DATA_PATH)
+        picture_map = load_picture_map()
 
         text_scores = compute_text_scores(df, write_in)
 
@@ -210,8 +247,11 @@ def register_routes(app):
             else:
                 final_score = filter_score
 
+            breed_name = row["breed"]
+            picture_name = picture_map.get(normalize_breed_name(breed_name), "")
+
             results.append({
-                "breed": row["breed"],
+                "breed": breed_name,
                 "score": round(float(final_score), 3),
                 "text_score": round(float(text_score), 3) if text_score is not None else None,
                 "filter_score": round(float(filter_score), 3) if filter_score is not None else None,
@@ -230,7 +270,8 @@ def register_routes(app):
                 "energy": safe(row["energy_level_category"]),
                 "shedding": safe(row["shedding_category"]),
                 "trainability": safe(row["trainability_category"]),
-                "demeanor": safe(row["demeanor_category"])
+                "demeanor": safe(row["demeanor_category"]),
+                "picture_name": picture_name
             })
 
         results.sort(key=lambda x: x["score"], reverse=True)

@@ -17,6 +17,7 @@ type DogMatch = {
   shedding: string
   trainability: string
   demeanor: string
+  picture_name: string
 
   min_height: number | null
   max_height: number | null
@@ -30,7 +31,6 @@ type DogMatch = {
   max_expectancy: number | null
   avg_expectancy: number | null
 }
-
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   // const [searchTerm, setSearchTerm] = useState<string>('')
@@ -198,35 +198,50 @@ function App(): JSX.Element {
 
             {matches.map((dog, index) => (
               <div className="dog-card" key={`${dog.breed}-${index}`}>
-                <h4>{dog.breed}</h4>
+                <div className="dog-card-layout">
+                  <div className="dog-image-wrap">
+                    <img
+                      src={dog.picture_name ? `/images/${dog.picture_name}` : PawImg}
+                      alt={dog.breed}
+                      className="dog-image"
+                      onError={(e) => {
+                        e.currentTarget.src = PawImg
+                      }}
+                    />
+                  </div>
 
-                <p className="match-score">Match: {dog.score}</p>
+                  <div className="dog-card-content">
+                    <h4>{dog.breed}</h4>
 
-                <div className="traits">
-                  <span className="trait-pill">
-                    <strong>Height:</strong> {dog.avg_height != null ? Math.round(dog.avg_height) : "N/A"} cm
-                  </span>
+                    <p className="match-score">Match: {dog.score}</p>
 
-                  <span className="trait-pill">
-                    <strong>Weight:</strong> {dog.avg_weight != null ? Math.round(dog.avg_weight) : "N/A"} kg
-                  </span>
+                    <div className="traits">
+                      <span className="trait-pill">
+                        <strong>Height:</strong> {dog.avg_height != null ? Math.round(dog.avg_height) : "N/A"} cm
+                      </span>
 
-                  <span className="trait-pill">
-                    <strong>Life Expectancy:</strong> {dog.avg_expectancy ?? "N/A"} yrs
-                  </span>
+                      <span className="trait-pill">
+                        <strong>Weight:</strong> {dog.avg_weight != null ? Math.round(dog.avg_weight) : "N/A"} kg
+                      </span>
 
-                  <span className="trait-pill">{dog.group}</span>
-                  <span className="trait-pill">{dog.energy}</span>
-                  <span className="trait-pill">{dog.shedding}</span>
-                  <span className="trait-pill">{dog.trainability}</span>
-                  <span className="trait-pill">{dog.demeanor}</span>
+                      <span className="trait-pill">
+                        <strong>Life Expectancy:</strong> {dog.avg_expectancy ?? "N/A"} yrs
+                      </span>
+
+                      <span className="trait-pill">{dog.group}</span>
+                      <span className="trait-pill">{dog.energy}</span>
+                      <span className="trait-pill">{dog.shedding}</span>
+                      <span className="trait-pill">{dog.trainability}</span>
+                      <span className="trait-pill">{dog.demeanor}</span>
+                    </div>
+
+                    <p className="dog-temperament">
+                      <strong>{dog.temperament}</strong>
+                    </p>
+
+                    <p className="dog-description">{dog.description}</p>
+                  </div>
                 </div>
-
-                <p className="dog-temperament">
-                  <strong>{dog.temperament}</strong>
-                </p>
-
-                <p className="dog-description">{dog.description}</p>
               </div>
             ))}
           </div>

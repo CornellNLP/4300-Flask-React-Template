@@ -323,6 +323,49 @@ label span,
   gap: 10px;
 }
 
+.dog-card-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.dog-image-wrap {
+  flex-shrink: 0;
+}
+
+.dog-image {
+  width: 180px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  background: white;
+  border: 2px solid #d6e4ff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.dog-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .dog-card-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dog-card-content {
+    width: 100%;
+  }
+
+  .dog-image {
+    width: 220px;
+    height: 220px;
+  }
+}
+
 .dog-card h4 {
   font-size: 1.5rem;
   font-weight: 700;
