@@ -1,6 +1,8 @@
 import math
 import re
-import collections 
+import collections
+import ast
+import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
 
@@ -26,11 +28,14 @@ def build_tfidf_corpus(restaurants: list[dict]) -> dict:
         attributes = biz.get("attributes", {})
         ambience_raw = attributes.get("Ambience", {})
         if isinstance(ambience_raw, str):
-            import ast
             try:
                 ambience_raw = ast.literal_eval(ambience_raw)
             except:
                 ambience_raw = {}
+
+        if not ambience_raw:  # ← handles None, empty string, empty dict
+            ambience_raw = {}
+
         ambience_terms = [k for k, v in ambience_raw.items() if v is True]
         ambience_str = " ".join(ambience_terms*3) #join 3 times to make ambiance more important? do we wanna do that since we wanna emphasize our ambiance aspect
         
@@ -94,8 +99,8 @@ def rank_restaurants(query: str, corpus: dict) -> list[dict]:
             results.append({
                 "score": round(float(score), 6),
                 "business": restaurant["business"],
-                "reviews": restaurant["reviews"],
-                "combined_reviews": restaurant["combined_reviews"],
+                "reviews": restaurant.get("reviews", []),
+                "combined_reviews": restaurant.get("combined_reviews", ""),
             })
  
     results.sort(key=lambda x: x["score"], reverse=True)
@@ -125,40 +130,35 @@ def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
  
  
 if __name__ == "__main__":
-    sample_restaurants = [
-        {
-            "business": {"business_id": "1", "name": "Tokyo Ramen House",
-                         "categories": "Restaurants, Ramen, Japanese"},
-            "reviews": [],
-            "combined_reviews": "rich broth noodles pork belly soft boiled egg tonkotsu ramen amazing"
-        },
-        {
-            "business": {"business_id": "2", "name": "Philly Cheesesteak Co",
-                         "categories": "Restaurants, Cheesesteaks, American"},
-            "reviews": [],
-            "combined_reviews": "classic cheesesteak whiz onions fresh roll best philly cheese steak ever"
-        },
-        {
-            "business": {"business_id": "3", "name": "Sushi Garden",
-                         "categories": "Restaurants, Sushi, Japanese"},
-            "reviews": [],
-            "combined_reviews": "fresh fish nigiri sashimi rolls rice vinegar soy wasabi miso soup"
-        },
-        {
-            "business": {"business_id": "4", "name": "Ramen Republic",
-                         "categories": "Restaurants, Ramen, Noodles"},
-            "reviews": [],
-            "combined_reviews": "spicy miso ramen thick noodles corn butter rich pork broth chashu"
-        },
+    import json
+
+    with open("init.json", "r", encoding="utf-8") as f:
+        all_restaurants = json.load(f)
+    
+    city = "Philadelphia"
+    city_restaurants = [
+        r for r in all_restaurants
+        if r["business"].get("city", "").lower().strip() == city.lower()
     ]
- 
-    corpus = build_tfidf_corpus(sample_restaurants)
- 
-    for q in ["ramen", "cheesesteak philly", "japanese sushi"]:
+
+    print(f"Loaded {len(city_restaurants)} restaurants in {city}\n")
+
+    corpus = build_tfidf_corpus(city_restaurants)
+
+    test_queries = [
+        "casual sushi",        
+        "casual indian",       
+        "romantic dinner",     
+        "authentic vietnamese", 
+        "quiet cheap lunch",   
+    ]
+    
+    for q in test_queries:
         ranked = rank_restaurants(q, corpus)
-        print(f"\nQuery: '{q}'")
-        for r in ranked:
-            print(f"  {r['score']:.4f}  {r['business']['name']}")
-
-
- 
+        print(f"Query: '{q}'")
+        if not ranked:
+            print("  (no matches)")
+        for r in ranked[:5]:  # show top 5
+            biz = r["business"]
+            print(f"  {r['score']:.4f}  {biz['name']} | {biz.get('categories', '')[:40]}")
+        print()
