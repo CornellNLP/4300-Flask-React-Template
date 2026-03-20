@@ -144,31 +144,39 @@ export function InputPage() {
       <div className="heading-row">
         <h1 className="input-heading">BRING THE PARTY</h1>
         {/* Mode toggle */}
-        <button
-          className="mode-toggle"
-          onClick={() => setMode(mode === "madlibs" ? "freeform" : "madlibs")}
-          aria-label={`Switch to ${mode === "madlibs" ? "free form" : "guided"} input`}
-        >
-          <div
-            style={
-              mode === "freeform"
-                ? { color: " #d43c00", textDecorationLine: "underline" }
-                : { color: " #8d6350", textDecorationLine: "none" }
-            }
+        <div className="mode-toggle-group" role="group" aria-label="input mode">
+          <button
+            className="mode-toggle"
+            onClick={() => setMode("freeform")}
+            aria-label={`Switch to freeform input`}
           >
-            freeform
-          </div>
-          |
-          <div
-            style={
-              mode === "madlibs"
-                ? { color: " #d43c00", textDecorationLine: "underline" }
-                : { color: " #8d6350", textDecorationLine: "none" }
-            }
+            <div
+              style={
+                mode === "freeform"
+                  ? { color: " #d43c00", textDecorationLine: "underline" }
+                  : { color: " #8d6350", textDecorationLine: "none" }
+              }
+            >
+              freeform
+            </div>
+          </button>
+          <span className="mode-toggle-separator"> | </span>
+          <button
+            className="mode-toggle"
+            onClick={() => setMode("madlibs")}
+            aria-label="Switch to guided input"
           >
-            guided
-          </div>
-        </button>
+            <div
+              style={
+                mode === "madlibs"
+                  ? { color: " #d43c00", textDecorationLine: "underline" }
+                  : { color: " #8d6350", textDecorationLine: "none" }
+              }
+            >
+              guided
+            </div>
+          </button>
+        </div>
       </div>
 
       {mode === "madlibs" ? (

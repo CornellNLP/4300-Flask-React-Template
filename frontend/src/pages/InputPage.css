@@ -13,8 +13,7 @@
 
   background-color: var(--color-bg);
   min-height: 100svh;
-  padding: clamp(3rem, 7vw, 6rem) var(--space-page-right) clamp(2rem, 4vw, 3rem)
-    var(--space-page-left);
+  padding: clamp(3rem, 7vw, 6rem) var(--space-page-right) clamp(2rem, 4vw, 3rem) var(--space-page-left);
   font-family: var(--font-body);
   display: flex;
   flex-direction: column;
@@ -41,7 +40,7 @@
   line-height: 1.1;
 }
 
-.mode-toggle {
+.mode-toggle-group {
   font-family: var(--font-body);
   font-size: clamp(1rem, 1.1vw, 1rem);
   font-style: italic;
@@ -49,10 +48,6 @@
   color: var(--color-text-dark);
   background: transparent;
   border: none;
-  cursor: pointer;
-  padding: 0;
-  opacity: 0.65;
-  transition: opacity 0.15s ease;
   white-space: nowrap;
 
   display: inline-flex;
@@ -61,8 +56,19 @@
   position: relative;
 }
 
+.mode-toggle {
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
 .mode-toggle:hover {
   opacity: 1;
+}
+
+.mode-toggle-separator {
+  opacity: 0.7;
 }
 
 .mode-option {
