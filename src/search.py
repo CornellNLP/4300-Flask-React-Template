@@ -4,16 +4,25 @@ import json
 from preprocess import preprocess_query
 from similarity import get_similarity_scores
 
+_PROCESSED_DATA = None
+
 
 def load_processed_data():
-    with open("src/init.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+    global _PROCESSED_DATA
+    if _PROCESSED_DATA is None:
+        with open("src/init.json", "r", encoding="utf-8") as f:
+            _PROCESSED_DATA = json.load(f)
+    return _PROCESSED_DATA
+
 
 # gets top 10 restaurants based on similarity scores, returns a list of dicts with business info and match score
-def get_top_restaurants(processed_restaurants, similarity_scores, k = 10):
+def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
     scored_results = []
 
     for restaurant, score in zip(processed_restaurants, similarity_scores):
+        if score <= 0:
+            continue
+
         business = restaurant["business"]
 
         scored_results.append({
@@ -30,8 +39,8 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k = 10):
         })
 
     top_k = heapq.nlargest(k, scored_results, key=lambda x: x["matchScore"])
-
     return top_k
+
 
 def restaurant_search(query):
     if not query or not query.strip():
@@ -55,7 +64,7 @@ def restaurant_search(query):
         }
 
     city = query_info["city"]
-    food_item = query_info["food_item"]  # for later similarity use
+    food_item = query_info["food_item"]
 
     # filter restaurants by city
     city_restaurants = []
@@ -65,11 +74,17 @@ def restaurant_search(query):
         if business_city == city:
             city_restaurants.append(restaurant)
 
-    # temporary fake similarity scores (replace later)
-    similarity_scores = get_similarity_scores(food_item, city_restaurants)
+    scoring_query = food_item.strip() if food_item and food_item.strip() else query
+    similarity_scores = get_similarity_scores(scoring_query, city_restaurants)
 
     # get top results using get_top_restaurants function
     top_results = get_top_restaurants(city_restaurants, similarity_scores, k=10)
+
+    if not top_results:
+        return {
+            "error": "No matching restaurants found",
+            "results": []
+        }
 
     return {
         "error": None,
