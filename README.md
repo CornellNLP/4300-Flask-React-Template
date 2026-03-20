@@ -25,6 +25,26 @@ You will use this template to directly deploy your Flask + React + TypeScript co
 After you follow the steps below, you should have set up a public address dedicated to your team's project at (for the moment) a template app will be running. In future milestones you will be updating the code to replace that template with your very own app.
 
 
+## Forkcast Setup (required before running)
+
+After cloning, each teammate must build the search index locally **once**:
+
+```bash
+# 1. Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Build the TF-IDF index from the data files
+python src/preprocess.py --sample
+```
+
+This produces `data/forkcast_index.pkl`. It is gitignored because it is tied to your local scikit-learn version — everyone must generate their own copy.
+
+---
+
 ## Quick Start
 
 For the fastest way to get started with development:

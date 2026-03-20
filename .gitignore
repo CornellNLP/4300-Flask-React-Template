@@ -30,3 +30,6 @@ package-lock.json
 
 # Large raw data file — too big for git
 data/restaurant-menus.csv
+
+# Prebuilt index — version-specific, each teammate must run preprocess.py locally
+data/forkcast_index.pkl
