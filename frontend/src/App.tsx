@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode, Exercise } from './types'
+import { Exercise } from './types'
 import Chat from './Chat'
 import bgImage from './assets/gym_background.png'
 
