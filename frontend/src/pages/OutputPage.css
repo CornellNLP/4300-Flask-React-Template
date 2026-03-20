@@ -1,4 +1,3 @@
-/* ── Design tokens ── */
 .output-page {
   --color-bg: #fffef9;
   --color-accent: #d43c00;
@@ -8,7 +7,7 @@
   --space-page-x: clamp(1rem, 5vw, 10.625rem);
   --space-section-gap: clamp(2rem, 5vw, 4rem);
   --text-heading: 70px;
-  --text-body: 24px;
+  --text-body: 20px;
   --line-body: 1.6;
 
   padding: 7vw 12vw;
@@ -18,7 +17,6 @@
   color: var(--color-text);
 }
 
-/* ── Shared heading ── */
 .section-heading {
   font-family: var(--font-display);
   font-size: var(--text-heading);
@@ -28,7 +26,6 @@
   font-weight: 400;
 }
 
-/* ── Menu ── */
 .section-menu {
   margin-bottom: var(--space-section-gap);
 }
@@ -36,8 +33,7 @@
 .menu-body {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
-  align-items: start;
+  gap: 1rem;
 }
 
 @media (min-width: 900px) {
@@ -60,7 +56,6 @@
   gap: 0.15rem;
 }
 
-/* title + dotted line on one row */
 .recipe-entry__header {
   display: flex;
   align-items: baseline;
@@ -95,7 +90,13 @@
   margin: 0;
 }
 
-/* ── Candles image ── */
+.recipe-entry__meta {
+  font-family: var(--font-body);
+  font-size: 0.8em;
+  opacity: 0.6;
+  margin: 0;
+}
+
 .candles-aside {
   display: none;
 }
@@ -105,16 +106,15 @@
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
-    padding-top: 10vw;
-    
+    align-self: end;
   }
 }
 
 .candles-img {
-  width: 400px;
-  max-width: 30rem;
+  width: clamp(17rem, 22vw, 26rem);
   height: auto;
   object-fit: contain;
+  display: block;
 }
 
 .section-bottom {
@@ -128,6 +128,7 @@
   .section-bottom {
     grid-template-columns: 1fr 1fr;
     gap: clamp(2rem, 5vw, 4rem);
+    align-items: stretch;
   }
 }
 
@@ -138,7 +139,37 @@
   margin: 0;
 }
 
-/* ── Playlist ── */
+.left-col {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  align-self: stretch;
+  min-height: 16rem;
+}
+
+.food-images {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.bread-img {
+  width: clamp(5rem, 8vw, 9rem);
+  height: auto;
+  object-fit: contain;
+  rotate: -30deg;
+  transform-origin: bottom center;
+}
+
+.cheese-img {
+  width: clamp(2.5rem, 4vw, 4.5rem);
+  height: auto;
+  object-fit: contain;
+}
+
+/* Playlist  */
 .playlist {
   display: flex;
   flex-direction: column;
@@ -154,11 +185,11 @@
 .playlist-row {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.25rem;
   font-size: var(--text-body);
   line-height: var(--line-body);
   margin: 0;
-  overflow: hidden;
 }
 
 .song-name {
@@ -173,39 +204,16 @@
   min-width: 1rem;
 }
 
+.artist-name {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.78em;
+  opacity: 0.72;
+}
+
 .artist {
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.food-decor {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.4rem;
-  flex-shrink: 0;
-}
-
-.bread-img {
-  position: absolute;
-  top: 210vh;
-  left: 60px;
-  width: clamp(10.5rem, 5vw, 4rem);
-  height: auto;
-  object-fit: contain;
-  rotate: -30deg;
-}
-
-.cheese-img {
-  position: absolute;
-  top: 205vh;
-  left: 50px;
-  width: clamp(4.5rem, 5vw, 4rem);
-  height: auto;
-  object-fit: contain;
-}
-
-.food-img--straight {
-  transform: rotate(-2deg);
 }
 
 .round-two-btn {
@@ -226,11 +234,4 @@
 .round-two-btn:hover {
   text-decoration: underline;
   transform: translateX(-0.4rem);
-}
-
-.left-col {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: start;
 }

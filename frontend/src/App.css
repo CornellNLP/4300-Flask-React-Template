@@ -1,13 +1,15 @@
 .full-body-container {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   display: flex;
   justify-content: start;
   align-items: center;
   flex-direction: column;
-
 }
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
@@ -15,7 +17,7 @@
 .top-text {
   margin-bottom: 10px;
   font-size: 70px;
-  color: #D43C00;
+  color: #d43c00;
   font-weight: 200;
 }
 
@@ -23,7 +25,7 @@
   display: flex;
   align-items: center;
   font-size: 48px;
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
 }
 
 .google-colors h1 {
@@ -31,10 +33,18 @@
   margin-right: 3px;
 }
 
-#google-4   { color: #F4B400; }
-#google-3   { color: #4285F4; }
-#google-0-1 { color: #0F9D58; }
-#google-0-2 { color: #DB4437; }
+#google-4 {
+  color: #f4b400;
+}
+#google-3 {
+  color: #4285f4;
+}
+#google-0-1 {
+  color: #0f9d58;
+}
+#google-0-2 {
+  color: #db4437;
+}
 
 /* ── Search bar ────────────────────────────────────────────────────────────── */
 
@@ -68,7 +78,7 @@
   font-size: 16px;
   border: none;
   outline: 0;
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
 }
 
 /* ── Search results ────────────────────────────────────────────────────────── */
@@ -93,7 +103,7 @@
   font-size: 1.25rem;
   color: #1a73e8;
   margin-bottom: 0.5rem;
-  font-family: 'Kanit', sans-serif;
+  font-family: "Kanit", sans-serif;
 }
 
 .recipe-desc {
@@ -101,7 +111,7 @@
   color: #3c4043;
   line-height: 1.6;
   margin-bottom: 0.5rem;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
 }
 
 .recipe-time {
@@ -129,19 +139,21 @@
   padding: 0 16px 8px;
 }
 
-.message { margin-bottom: 1em; }
+.message {
+  margin-bottom: 1em;
+}
 
 .message p {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1rem;
   line-height: 1.6;
 }
 
 .message.user p {
-  font-family: 'Kanit', sans-serif;
+  font-family: "Kanit", sans-serif;
   color: #1a73e8;
 }
 
@@ -154,7 +166,9 @@
   margin-bottom: 1em;
 }
 
-.loading-indicator.visible { display: flex; }
+.loading-indicator.visible {
+  display: flex;
+}
 
 .loading-dot {
   width: 10px;
@@ -164,13 +178,24 @@
   animation: loading-bounce 0.6s ease-in-out infinite;
 }
 
-.loading-dot:nth-child(1) { animation-delay: 0s; }
-.loading-dot:nth-child(2) { animation-delay: 0.15s; }
-.loading-dot:nth-child(3) { animation-delay: 0.3s; }
+.loading-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+.loading-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.loading-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes loading-bounce {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 /* ── Chat input bar ────────────────────────────────────────────────────────── */
@@ -206,7 +231,7 @@
   font-size: 16px;
   border: none;
   outline: 0;
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
 }
 
 .chat-bar .input-row button {
@@ -218,7 +243,7 @@
   background: #f4b400;
   color: #000;
   cursor: pointer;
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
 }
 
 .chat-bar .input-row button:hover:not(:disabled) {
@@ -231,8 +256,16 @@
 }
 
 @media (max-width: 768px) {
-  .google-colors h1 { font-size: 3rem; }
-  .input-box { width: 90%; }
-  #answer-box { padding: 0 1rem; }
-  #messages { padding: 0 8px 8px; }
+  .google-colors h1 {
+    font-size: 3rem;
+  }
+  .input-box {
+    width: 90%;
+  }
+  #answer-box {
+    padding: 0 1rem;
+  }
+  #messages {
+    padding: 0 8px 8px;
+  }
 }

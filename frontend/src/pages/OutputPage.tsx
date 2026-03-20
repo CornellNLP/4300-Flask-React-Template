@@ -78,7 +78,7 @@ export function OutputPage() {
           <div className="decor-col">
             <h2 className="section-heading">DECOR</h2>
           </div>
-          <div>
+          <div className="food-images">
             <button onClick={handleRoundTwo} className="round-two-btn">
               ← round two
             </button>

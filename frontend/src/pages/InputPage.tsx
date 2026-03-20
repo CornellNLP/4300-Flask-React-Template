@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import imgFood from "../assets/tomato.png";
 import Chat from "../Chat";
@@ -15,13 +15,63 @@ const DIETARY_FILTERS = [
 
 const COURSE_FILTERS = ["appetizer", "entrée", "dessert", "beverage"];
 
+function AutoInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  const sizerRef = useRef<HTMLSpanElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (sizerRef.current && inputRef.current) {
+      sizerRef.current.textContent = value || placeholder;
+      const w = sizerRef.current.offsetWidth;
+      inputRef.current.style.width = `${w + 4}px`;
+    }
+  }, [value, placeholder]);
+
+  return (
+    <>
+      <span
+        ref={sizerRef}
+        className={`prompt-input-sizer ${className ?? ""}`}
+        aria-hidden="true"
+      />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`prompt-input ${className ?? ""}`}
+        aria-label={ariaLabel}
+      />
+    </>
+  );
+}
+
 export function InputPage() {
   const navigate = useNavigate();
+
   const [themeWords, setThemeWords] = useState("");
   const [keyword1, setKeyword1] = useState("");
   const [keyword2, setKeyword2] = useState("");
   const [length, setLength] = useState("");
   const [ingredients, setIngredients] = useState("");
+
+  const [freeform, setFreeform] = useState("");
+
+  const [mode, setMode] = useState<"madlibs" | "freeform">("madlibs");
+
   const [dietary, setDietary] = useState<string[]>([]);
   const [courses, setCourses] = useState<string[]>([]);
   const [useLlm, setUseLlm] = useState<boolean | null>(null);
@@ -35,9 +85,11 @@ export function InputPage() {
       .catch(() => setUseLlm(false));
   }, []);
 
-  const query = [themeWords, keyword1, keyword2, ingredients]
-    .filter(Boolean)
-    .join(" ");
+  // Build the search query regardless of mode
+  const query =
+    mode === "freeform"
+      ? freeform.trim()
+      : [themeWords, keyword1, keyword2, ingredients].filter(Boolean).join(" ");
 
   const toggleFilter = (
     value: string,
@@ -89,60 +141,92 @@ export function InputPage() {
 
   return (
     <div className="input-page">
-      <h1 className="input-heading">BRING THE PARTY</h1>
+      <div className="heading-row">
+        <h1 className="input-heading">BRING THE PARTY</h1>
+        {/* Mode toggle */}
+        <button
+          className="mode-toggle"
+          onClick={() => setMode(mode === "madlibs" ? "freeform" : "madlibs")}
+          aria-label={`Switch to ${mode === "madlibs" ? "free form" : "guided"} input`}
+        >
+          <div
+            style={
+              mode === "freeform"
+                ? { color: " #d43c00", textDecorationLine: "underline" }
+                : { color: " #8d6350", textDecorationLine: "none" }
+            }
+          >
+            freeform
+          </div>
+          |
+          <div
+            style={
+              mode === "madlibs"
+                ? { color: " #d43c00", textDecorationLine: "underline" }
+                : { color: " #8d6350", textDecorationLine: "none" }
+            }
+          >
+            guided
+          </div>
+        </button>
+      </div>
 
-      <p className="prompt-wrap">
-        <span className="prompt-quote">"</span>
-        i'm looking to host a{" "}
-        <input
-          type="text"
-          value={themeWords}
-          onChange={(e) => setThemeWords(e.target.value)}
-          placeholder="theme words"
-          className="prompt-input prompt-input--lg"
-          aria-label="theme words"
-        />{" "}
-        dinner party. i want the party to follow a{" "}
-        <input
-          type="text"
-          value={keyword1}
-          onChange={(e) => setKeyword1(e.target.value)}
-          placeholder="keyword"
-          className="prompt-input prompt-input--md"
-          aria-label="first keyword"
-        />{" "}
-        theme and use{" "}
-        <input
-          type="text"
-          value={keyword2}
-          onChange={(e) => setKeyword2(e.target.value)}
-          placeholder="keyword"
-          className="prompt-input prompt-input--md"
-          aria-label="second keyword"
-        />{" "}
-        decor. i want my menu to take{" "}
-        <input
-          type="text"
-          value={length}
-          onChange={(e) => setLength(e.target.value)}
-          placeholder="length"
-          className="prompt-input prompt-input--sm"
-          aria-label="cook time"
-        />{" "}
-        amount of time to cook. i want to use{" "}
-        <input
-          type="text"
-          value={ingredients}
-          onChange={(e) => setIngredients(e.target.value)}
-          placeholder="ingredients"
-          className="prompt-input prompt-input--md"
-          aria-label="ingredients"
-        />{" "}
-        in my recipe.
-        <span className="prompt-quote">"</span>
-      </p>
+      {mode === "madlibs" ? (
+        <p className="prompt-wrap">
+          <span className="prompt-quote">&ldquo;</span>
+          i&apos;m looking to host a{" "}
+          <AutoInput
+            value={themeWords}
+            onChange={setThemeWords}
+            placeholder="summery italian wedding"
+            aria-label="theme words"
+          />{" "}
+          dinner party. i want the party to follow a{" "}
+          <AutoInput
+            value={keyword1}
+            onChange={setKeyword1}
+            placeholder="red and white"
+            aria-label="first keyword"
+          />{" "}
+          theme and use{" "}
+          <AutoInput
+            value={keyword2}
+            onChange={setKeyword2}
+            placeholder="rustic"
+            aria-label="second keyword"
+          />{" "}
+          decor. i want my menu to take{" "}
+          <AutoInput
+            value={length}
+            onChange={setLength}
+            placeholder="two hours"
+            aria-label="cook time"
+          />{" "}
+          to cook. i want to use{" "}
+          <AutoInput
+            value={ingredients}
+            onChange={setIngredients}
+            placeholder="pasta and tomatoes"
+            aria-label="ingredients"
+          />{" "}
+          in my recipe.
+          <span className="prompt-quote">&rdquo;</span>
+        </p>
+      ) : (
+        <div className="freeform-wrap">
+          <span className="prompt-quote freeform-quote-open">&ldquo;</span>
+          <textarea
+            className="freeform-input"
+            value={freeform}
+            onChange={(e) => setFreeform(e.target.value)}
+            placeholder="i'm looking to host a summery italian wedding dinner party with a red and white theme, rustic decor, two hours of cooking, and pasta and tomatoes on the menu."
+            rows={4}
+            aria-label="describe your dinner party"
+          />
+          <span className="prompt-quote freeform-quote-close">&rdquo;</span>
+        </div>
+      )}
 
-      {/* ── Filters ── */}
       <div className="filter-section">
         <div
           className="filter-group"
