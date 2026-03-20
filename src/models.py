@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import JSON
 
 db = SQLAlchemy()
 
@@ -8,9 +9,9 @@ class Song(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(64), nullable=False)
     artist = db.Column(db.String(64), nullable=False)
-    lyrics = db.Column(db.ARRAY(db.String), nullable=False)
+    lyrics = db.Column(JSON, nullable=False)
     chords = db.Column(db.String, nullable=False)
-    genres = db.Column(db.ARRAY(db.String), nullable=False)
+    genres = db.Column(JSON, nullable=False)
     popularity = db.Column(db.Float, nullable=False)
     guitar_difficulty = db.Column(db.Float, nullable=False)
     piano_difficulty = db.Column(db.Float, nullable=False)
