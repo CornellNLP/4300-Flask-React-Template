@@ -2,15 +2,15 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# Define Episode model
-class Episode(db.Model):
-    __tablename__ = 'episodes'
+# Define submission model
+class AitaPost(db.Model):
+    __tablename__ = 'aita_posts'
+
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
-    
-    def __repr__(self):
-        return f'Episode {self.id}: {self.title}'
+    submission_id = db.Column(db.String(20))
+    title = db.Column(db.Text)
+    selftext = db.Column(db.Text)
+    score = db.Column(db.Integer)
 
 # Define Review model
 class Review(db.Model):
