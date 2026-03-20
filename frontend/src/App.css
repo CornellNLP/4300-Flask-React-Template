@@ -7,15 +7,16 @@
   justify-content: start;
   align-items: center;
   flex-direction: column;
-  background-color: #ffffff;
+
 }
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
 
 .top-text {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  margin-bottom: 10px;
+  font-size: 70px;
+  color: #D43C00;
+  font-weight: 200;
 }
 
 .google-colors {

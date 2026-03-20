@@ -1,64 +1,19 @@
-import { useState, useEffect } from 'react'
-import './App.css'
-import SearchIcon from './assets/mag.png'
-import { Recipe } from './types'
-import Chat from './Chat'
+import { RouterProvider } from "react-router";
+import { router } from "./routes";
+import { useEffect, useState } from "react";
 
-function App(): JSX.Element {
-  const [useLlm, setUseLlm] = useState<boolean | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [recipes, setRecipes] = useState<Recipe[]>([])
+function App() {
+  const [useLlm, setUseLlm] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
-  }, [])
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((data) => setUseLlm(data.use_llm));
+  }, []);
 
-  const handleSearch = async (value: string): Promise<void> => {
-    setSearchTerm(value)
-    if (value.trim() === '') { setRecipes([]); return }
-    const response = await fetch(`/api/recipes?name=${encodeURIComponent(value)}`)
-    const data: Recipe[] = await response.json()
-    setRecipes(data)
-  }
+  if (useLlm === null) return <></>;
 
-  if (useLlm === null) return <></>
-
-  return (
-    <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
-      {/* Search bar (always shown) */}
-      <div className="top-text">
-        <div className="google-colors">
-          <h1 id="google-4">4</h1>
-          <h1 id="google-3">3</h1>
-          <h1 id="google-0-1">0</h1>
-          <h1 id="google-0-2">0</h1>
-        </div>
-        <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
-          <img src={SearchIcon} alt="search" />
-          <input
-            id="search-input"
-            placeholder="Search for a recipe"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Search results (always shown) */}
-      <div id="answer-box">
-        {recipes.map((recipe, index) => (
-          <div key={index} className="recipe-item">
-            <h3 className="recipe-name">{recipe.name}</h3>
-            <p className="recipe-desc">{recipe.description}</p>
-            <p className="recipe-time">Minutes: {String(recipe.minutes)}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
-    </div>
-  )
+  return <RouterProvider router={router} />;
 }
 
-export default App
+export default App;
