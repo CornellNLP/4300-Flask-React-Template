@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import imgIstockphoto2098046718612X612RemovebgPreview2 from "../assets/table2.png";
 
 const loadingMessages = [
@@ -12,6 +12,7 @@ const loadingMessages = [
 
 export function LoadingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messageIndex, setMessageIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
   const [dots, setDots] = useState("");
@@ -59,13 +60,13 @@ export function LoadingPage() {
   }, [isTypingDots]);
 
   useEffect(() => {
-    // Navigate to output page after 10 seconds
+    // Navigate to output page after 10 seconds, forwarding the state from InputPage
     const navigationTimeout = setTimeout(() => {
-      navigate("/output");
+      navigate("/output", { state: location.state });
     }, 10000);
 
     return () => clearTimeout(navigationTimeout);
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   return (
     <div

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import imgFood from "../assets/tomato.png";
 import Chat from "../Chat";
-import { Recipe } from "../types";
+import { Recipe, Playlist } from "../types";
 import "./InputPage.css";
 
 const DIETARY_FILTERS = [
@@ -26,6 +26,7 @@ export function InputPage() {
   const [courses, setCourses] = useState<string[]>([]);
   const [useLlm, setUseLlm] = useState<boolean | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/config")
@@ -60,8 +61,28 @@ export function InputPage() {
     setRecipes(data);
   };
 
-  const handleGetHosting = () => {
-    navigate("/loading");
+  const handleGetHosting = async () => {
+    const q = query || "food";
+    setLoading(true);
+    try {
+      const [recipesRes, playlistRes] = await Promise.all([
+        fetch(`/api/recipes?name=${encodeURIComponent(q)}`),
+        fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
+      ]);
+      const fetchedRecipes: Recipe[] = await recipesRes.json();
+      const fetchedPlaylists: Playlist[] = await playlistRes.json();
+      navigate("/loading", {
+        state: {
+          recipes: fetchedRecipes,
+          playlist: fetchedPlaylists[0] ?? null,
+        },
+      });
+    } catch (err) {
+      console.error("Failed to fetch party data:", err);
+      navigate("/loading", { state: { recipes: [], playlist: null } });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -153,8 +174,8 @@ export function InputPage() {
       </div>
 
       <div className="bottom-row">
-        <button onClick={handleGetHosting} className="get-hosting-btn">
-          get hosting →
+        <button onClick={handleGetHosting} className="get-hosting-btn" disabled={loading}>
+          {loading ? "loading..." : "get hosting →"}
         </button>
         <div className="food-decor" aria-hidden="true">
           <img src={imgFood} alt="" />

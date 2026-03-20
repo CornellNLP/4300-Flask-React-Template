@@ -1,31 +1,29 @@
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import imgCandles from "../assets/table3.png";
 import imgFood from "../assets/bread.png";
+import { Recipe, Playlist } from "../types";
 import "./OutputPage.css";
+
+interface OutputState {
+  recipes: Recipe[];
+  playlist: Playlist | null;
+}
 
 export function OutputPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = (location.state ?? {}) as Partial<OutputState>;
+
+  const recipes: Recipe[] = state.recipes ?? [];
+  const playlist: Playlist | null = state.playlist ?? null;
+
+  const songList: string[] = playlist
+    ? playlist.songs.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
 
   const handleRoundTwo = () => {
     navigate("/");
   };
-  const recipes = [
-    {
-      title: "recipe one",
-      body: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-    },
-    {
-      title: "recipe two",
-      body: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-    },
-    {
-      title: "recipe three",
-      body: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-    },
-  ];
-
-  const decorDescription =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
   return (
     <div className="output-page">
@@ -35,15 +33,20 @@ export function OutputPage() {
 
         <div className="menu-body">
           <div className="recipes">
-            {recipes.map(({ title, body }) => (
-              <div key={title} className="recipe-entry">
-                <div className="recipe-entry__header">
-                  <p className="recipe-entry__title">{title}</p>
-                  <span className="recipe-entry__dots" aria-hidden="true" />
+            {recipes.length === 0 ? (
+              <p className="body-text">No recipes found.</p>
+            ) : (
+              recipes.map((recipe) => (
+                <div key={recipe.name} className="recipe-entry">
+                  <div className="recipe-entry__header">
+                    <p className="recipe-entry__title">{recipe.name}</p>
+                    <span className="recipe-entry__dots" aria-hidden="true" />
+                  </div>
+                  <p className="recipe-entry__body">{recipe.description}</p>
+                  <p className="recipe-entry__meta">{recipe.minutes} min</p>
                 </div>
-                <p className="recipe-entry__body">{body}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <aside className="candles-aside" aria-hidden="true">
@@ -61,7 +64,6 @@ export function OutputPage() {
         <div className="left-col">
           <div className="decor-col">
             <h2 className="section-heading">DECOR</h2>
-            <p className="body-text">{decorDescription}</p>
           </div>
           <div>
             <button onClick={handleRoundTwo} className="round-two-btn">
@@ -74,14 +76,22 @@ export function OutputPage() {
         <div className="tunes-col">
           <h2 className="section-heading">TUNES</h2>
           <div className="playlist">
-            <p className="playlist-title">playlist title</p>
-            {Array.from({ length: 15 }, (_, i) => (
-              <p key={i} className="playlist-row">
-                <span className="song-name">song name</span>
-                <span className="dots" aria-hidden="true" />
-                <span className="artist">artist</span>
-              </p>
-            ))}
+            {playlist ? (
+              <>
+                <p className="playlist-title">{playlist.name}</p>
+                {songList.length === 0 ? (
+                  <p className="body-text">No songs found.</p>
+                ) : (
+                  songList.map((song, i) => (
+                    <p key={i} className="playlist-row">
+                      <span className="song-name">{song}</span>
+                    </p>
+                  ))
+                )}
+              </>
+            ) : (
+              <p className="body-text">No playlist found.</p>
+            )}
           </div>
         </div>
       </section>

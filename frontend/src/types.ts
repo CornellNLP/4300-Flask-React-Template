@@ -1,16 +1,10 @@
 export interface Recipe {
-    name: String,
-    minutes: Number,
-    tags: String[],
-    n_steps: Number,
-    steps: String[],
-    description: String,
-    n_ingredients: Number,
-    ingredients: String[]
+    name: string;
+    description: string;
+    minutes: number;
 }
 
 export interface Playlist {
-    name: String,
-    songs: String[],
-    artists: String[]
+    name: string;
+    songs: string; // comma-separated string from the API
 }
