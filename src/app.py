@@ -5,7 +5,7 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
+from models import db, Episode
 from routes import register_routes
 
 # src/ directory and project root (one level up)
