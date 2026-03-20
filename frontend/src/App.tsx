@@ -21,16 +21,25 @@ function App(): JSX.Element {
   const [results, setResults] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [searched, setSearched] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
 
   const doSearch = async (q: string, price: string) => {
-    if (!q.trim()) { setResults([]); setSearched(false); return }
+    if (!q.trim()) { setResults([]); setSearched(false); setError(null); return }
     setLoading(true)
     setSearched(true)
-    const params = new URLSearchParams({ q, ...(price ? { price } : {}) })
-    const res = await fetch(`/api/search?${params}`)
-    const data: Restaurant[] = await res.json()
-    setResults(data)
-    setLoading(false)
+    setError(null)
+    try {
+      const params = new URLSearchParams({ q, ...(price ? { price } : {}) })
+      const res = await fetch(`/api/search?${params}`)
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      const data: Restaurant[] = await res.json()
+      setResults(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setResults([])
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -91,7 +100,11 @@ function App(): JSX.Element {
           </div>
         )}
 
-        {!loading && searched && results.length === 0 && (
+        {!loading && error && (
+          <p className="no-results">{error}</p>
+        )}
+
+        {!loading && !error && searched && results.length === 0 && (
           <p className="no-results">No restaurants matched your query. Try different keywords.</p>
         )}
 
