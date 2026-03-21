@@ -1,19 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from geopy.distance import geodesic
 from ranker import rank_destinations, df as _df
-from data_loader import load_cities 
+from data_loader import load_cities
 import numpy as np
 import os
-from flask import send_from_directory
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='/')
 CORS(app)
 
-# Load once at startup for nearest-city lookup
 _df = load_cities()
-
-
 
 def get_nearest_city_baseline(user_lat, user_lon):
     dists = np.sqrt(
@@ -22,8 +18,6 @@ def get_nearest_city_baseline(user_lat, user_lon):
     )
     idx = dists.idxmin()
     return float(_df.loc[idx, "annual_avg_c"]), _df.loc[idx, "city"]
-
-
 
 @app.route("/api/search", methods=["GET"])
 def search():
@@ -36,8 +30,8 @@ def search():
     if not query:
         return jsonify({"error": "no query provided"}), 400
 
-    baseline_temp = None 
-    nearest_city = None 
+    baseline_temp = None
+    nearest_city = None
 
     if user_lat is not None and user_lon is not None:
         baseline_temp, nearest_city = get_nearest_city_baseline(user_lat, user_lon)
@@ -50,23 +44,27 @@ def search():
         top_n=top_n
     )
 
-    response = {
-        "query": query,
-        "results": results
-    }
-
+    response = {"query": query, "results": results}
     if nearest_city is not None:
         response["user_nearest_city"] = nearest_city
         response["user_baseline_temp_c"] = baseline_temp
 
     return jsonify(response)
 
-
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
 
+# ⬇️ catch-all — MUST be last
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    static = app.static_folder
+    if path and os.path.exists(os.path.join(static, path)):
+        return send_from_directory(static, path)
+    return send_from_directory(static, 'index.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
-
