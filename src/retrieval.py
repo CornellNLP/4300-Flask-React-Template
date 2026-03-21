@@ -17,6 +17,10 @@ Key IR techniques:
       muscle groups they target (quadriceps, glutes, calves, hamstrings), and
       equipment synonyms like "bodyweight" are mapped to dataset values
       ("body only") so the user doesn't need to know exact field terminology.
+    - Spell correction: each query token is checked against the TF-IDF
+      vocabulary using the Wagner-Fisher minimum edit distance algorithm.
+      Tokens not found in the vocabulary are replaced with the closest
+      vocabulary term within a maximum edit distance of 2.
 """
 import json
 import os
@@ -137,6 +141,83 @@ def _build_weighted_doc(ex):
     return " ".join(parts)
 
 
+def _wagner_fisher(s1, s2):
+    """Compute the Levenshtein edit distance between two strings.
+
+    Implements the Wagner-Fisher dynamic programming algorithm.  The DP table
+    is compressed to a single row to keep memory usage O(min(|s1|, |s2|)).
+
+    Args:
+        s1: First string.
+        s2: Second string.
+
+    Returns:
+        Integer minimum edit distance (insertions, deletions, substitutions).
+    """
+    # Always iterate over the longer string in the outer loop so the inner
+    # (row) dimension stays as small as possible.
+    if len(s1) < len(s2):
+        s1, s2 = s2, s1
+
+    m, n = len(s1), len(s2)
+    # dp[j] = edit distance between s1[:i] and s2[:j]
+    dp = list(range(n + 1))
+
+    for i in range(1, m + 1):
+        prev = dp[0]      # dp[i-1][j-1] before the inner loop overwrites it
+        dp[0] = i         # dp[i][0]: delete all of s1[:i]
+        for j in range(1, n + 1):
+            temp = dp[j]  # save dp[i-1][j] before overwrite
+            if s1[i - 1] == s2[j - 1]:
+                dp[j] = prev
+            else:
+                dp[j] = 1 + min(prev,    # substitution
+                                dp[j],   # deletion
+                                dp[j - 1])  # insertion
+            prev = temp
+
+    return dp[n]
+
+
+def _correct_token(token, vocab_by_length, max_dist=2):
+    """Return the closest vocabulary term to *token*, or *token* itself.
+
+    To avoid an expensive O(V) scan on every token, candidate vocabulary terms
+    are pre-bucketed by length.  Only terms whose length differs from the query
+    token by at most *max_dist* characters can possibly be within *max_dist*
+    edits, so we restrict the search to those buckets.
+
+    Args:
+        token: A single lowercase query token.
+        vocab_by_length: Dict mapping token_length → list of vocab terms of
+            that length.  Built once in ExerciseSearcher.__init__.
+        max_dist: Maximum edit distance to accept a correction (default 2).
+            Tokens needing more than this many edits are returned unchanged.
+
+    Returns:
+        The best-matching vocabulary term if one is found within *max_dist*
+        edits, otherwise the original token.
+    """
+    # Short tokens (1-2 chars) are almost always stop words or abbreviations;
+    # correcting them produces more noise than signal.
+    if len(token) <= 2:
+        return token
+
+    best_term = token
+    best_dist = max_dist + 1  # sentinel: "no correction found yet"
+
+    for length in range(len(token) - max_dist, len(token) + max_dist + 1):
+        for candidate in vocab_by_length.get(length, []):
+            d = _wagner_fisher(token, candidate)
+            if d < best_dist:
+                best_dist = d
+                best_term = candidate
+                if d == 0:          # exact match — can't do better
+                    return best_term
+
+    return best_term if best_dist <= max_dist else token
+
+
 def _expand_query(query):
     """Expand a user query with muscle group names and equipment synonyms.
 
@@ -206,6 +287,13 @@ class ExerciseSearcher:
         self.vectorizer = TfidfVectorizer(stop_words='english', max_features=10000)
         self.tfidf_matrix = self.vectorizer.fit_transform(docs)
 
+        # Build a length-bucketed vocabulary index for O(1) candidate lookup
+        # during spell correction.  Keys are token lengths; values are lists of
+        # all vocabulary terms of that length.
+        self.vocab_by_length = {}
+        for term in self.vectorizer.vocabulary_:
+            self.vocab_by_length.setdefault(len(term), []).append(term)
+
     def search(self, query, k=5):
         """Rank exercises against a natural-language query.
 
@@ -235,7 +323,18 @@ class ExerciseSearcher:
                 - category (str): Exercise category (strength, plyometrics, …).
                 - instructions (list[str]): Step-by-step instructions.
         """
-        expanded = _expand_query(query)
+        # Spell-correct each query token against the TF-IDF vocabulary before
+        # expansion so that typos like "shuolders" → "shoulders" are fixed
+        # before goal/equipment expansion runs.  Tokens already in the
+        # vocabulary (exact match) are returned unchanged in O(1) via the
+        # length-bucket lookup short-circuit.
+        tokens = query.lower().split()
+        corrected_tokens = [
+            _correct_token(t, self.vocab_by_length) for t in tokens
+        ]
+        corrected_query = " ".join(corrected_tokens)
+
+        expanded = _expand_query(corrected_query)
         query_vec = self.vectorizer.transform([expanded])
         scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
 
@@ -255,7 +354,12 @@ class ExerciseSearcher:
                 "category": ex.get("category"),
                 "instructions": ex.get("instructions", []),
             })
-        return results
+        return {
+            "results": results,
+            # Non-None only when at least one token was corrected, so the
+            # frontend can show a "Did you mean: <corrected_query>?" prompt.
+            "corrected_query": corrected_query if corrected_query != query.lower() else None,
+        }
 
 
 # Module-level singleton — lazily initialized on first call to search() so
@@ -276,8 +380,10 @@ def search(query, k=5):
         k: Number of top results to return (default 5).
 
     Returns:
-        A list of result dicts — see ``ExerciseSearcher.search`` for the
-        full schema.
+        A dict with keys:
+            - "results": list of result dicts (see ExerciseSearcher.search).
+            - "corrected_query": corrected query string if any token was
+              spell-corrected, otherwise None.
     """
     global _searcher
     if _searcher is None:

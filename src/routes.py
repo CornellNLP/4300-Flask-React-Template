@@ -85,8 +85,8 @@ def register_routes(app):
         query = data.get("query", "")
         if not query.strip():
             return jsonify({"results": []})
-        results = retrieval_search(query, k=5)
-        return jsonify({"results": results})
+        payload = retrieval_search(query, k=5)
+        return jsonify(payload)
 
     if USE_LLM:
         from llm_routes import register_chat_route
