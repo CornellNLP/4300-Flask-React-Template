@@ -24,9 +24,215 @@ Key IR techniques:
 """
 import json
 import os
+import re
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# ── Porter Stemmer ───────────────────
+# Implements Martin Porter's algorithm (1980).  Reduces inflected/derived forms
+# to a common stem so that "strengthening", "strengthens", and "strength" all
+# map to the same index term.
+#
+# The algorithm is split into six steps, each applying suffix-replacement rules
+# gated on the "measure" m — the number of consonant-vowel (VC) sequences in
+# the candidate stem.  A higher measure means a longer, less ambiguous stem and
+# therefore a more aggressive replacement is safe.
+
+_VOWELS = frozenset('aeiou')
+
+# Common English stop words handled in the tokenizer so we can pass
+# stop_words=None to TfidfVectorizer and avoid sklearn's "inconsistent
+# stop-words" warning when a custom tokenizer is used.
+_STOP_WORDS = frozenset([
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'is', 'it', 'its', 'be', 'are', 'was',
+    'were', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'could', 'should', 'may', 'might', 'can', 'as', 'this',
+    'that', 'these', 'those', 'which', 'who', 'what', 'how', 'when', 'where',
+    'while', 'if', 'not', 'no', 'so', 'than', 'then', 'also', 'more', 'most',
+    'other', 'such', 'same', 'your', 'you', 'they', 'their', 'them', 'he',
+    'she', 'his', 'her', 'we', 'our', 'us', 'me', 'my', 'i', 'each', 'both',
+])
+
+
+def _is_consonant(word, i):
+    """Return True if word[i] is a consonant.
+
+    'y' is treated as a consonant when it immediately follows another consonant
+    (e.g. the 'y' in 'sky'), and as a vowel otherwise (e.g. 'yes').
+    """
+    c = word[i]
+    if c in _VOWELS:
+        return False
+    if c == 'y':
+        return i == 0 or not _is_consonant(word, i - 1)
+    return True
+
+
+def _measure(word):
+    """Count VC sequences (Porter's measure m) in *word*.
+
+    The measure m counts how many times a vowel run is followed by a consonant
+    run: [C](VC)^m[V].  A stem with m > 0 has at least one interior vowel and
+    is long enough for most suffix rules to apply safely.
+    """
+    n, i, m = len(word), 0, 0
+    while i < n and _is_consonant(word, i):
+        i += 1                              # skip leading consonant cluster
+    while i < n:
+        while i < n and not _is_consonant(word, i):
+            i += 1                          # skip vowel run
+        if i < n:
+            m += 1                          # counted one VC pair
+            while i < n and _is_consonant(word, i):
+                i += 1                      # skip consonant run
+    return m
+
+
+def _has_vowel(word):
+    """Return True if *word* contains at least one vowel."""
+    return any(not _is_consonant(word, i) for i in range(len(word)))
+
+
+def _ends_double_consonant(word):
+    """Return True if *word* ends with the same consonant twice (e.g. 'tt')."""
+    return (len(word) >= 2
+            and word[-1] == word[-2]
+            and _is_consonant(word, len(word) - 1))
+
+
+def _ends_cvc(word):
+    """Return True if *word* ends with consonant-vowel-consonant, last c ∉ {w,x,y}.
+
+    Used in step 1b to decide whether to append 'e' after removing -ed/-ing.
+    """
+    n = len(word)
+    return (n >= 3
+            and _is_consonant(word, n - 1)
+            and not _is_consonant(word, n - 2)
+            and _is_consonant(word, n - 3)
+            and word[-1] not in 'wxy')
+
+
+def _step1ab(word):
+    """Step 1a: handle plurals.  Step 1b: handle -ed and -ing."""
+    # Step 1a
+    if word.endswith('sses'):
+        word = word[:-2]
+    elif word.endswith('ies'):
+        word = word[:-2]
+    elif not word.endswith('ss') and word.endswith('s'):
+        word = word[:-1]
+
+    # Step 1b
+    if word.endswith('eed'):
+        if _measure(word[:-3]) > 0:
+            word = word[:-1]
+    elif word.endswith('ed') or word.endswith('ing'):
+        stem = word[:-2] if word.endswith('ed') else word[:-3]
+        if _has_vowel(stem):
+            word = stem
+            if word.endswith(('at', 'bl', 'iz')):
+                word += 'e'
+            elif _ends_double_consonant(word) and word[-1] not in 'lsz':
+                word = word[:-1]
+            elif _measure(word) == 1 and _ends_cvc(word):
+                word += 'e'
+    return word
+
+
+def _step1c(word):
+    """Step 1c: replace trailing y with i when the stem has a vowel."""
+    if word.endswith('y') and len(word) > 1 and _has_vowel(word[:-1]):
+        word = word[:-1] + 'i'
+    return word
+
+
+def _step2(word):
+    """Step 2: reduce double-suffixes (m > 0 required)."""
+    rules = [
+        ('ational', 'ate'), ('tional', 'tion'), ('enci', 'ence'),
+        ('anci', 'ance'), ('izer', 'ize'), ('abli', 'able'),
+        ('alli', 'al'),  ('entli', 'ent'), ('eli', 'e'),
+        ('ousli', 'ous'), ('ization', 'ize'), ('ation', 'ate'),
+        ('ator', 'ate'), ('alism', 'al'), ('iveness', 'ive'),
+        ('fulness', 'ful'), ('ousness', 'ous'), ('aliti', 'al'),
+        ('iviti', 'ive'), ('biliti', 'ble'),
+    ]
+    for suffix, replacement in rules:
+        if word.endswith(suffix) and _measure(word[:-len(suffix)]) > 0:
+            return word[:-len(suffix)] + replacement
+    return word
+
+
+def _step3(word):
+    """Step 3: reduce single suffixes (m > 0 required)."""
+    rules = [
+        ('icate', 'ic'), ('ative', ''), ('alize', 'al'),
+        ('iciti', 'ic'), ('ical', 'ic'), ('ful', ''), ('ness', ''),
+    ]
+    for suffix, replacement in rules:
+        if word.endswith(suffix) and _measure(word[:-len(suffix)]) > 0:
+            return word[:-len(suffix)] + replacement
+    return word
+
+
+def _step4(word):
+    """Step 4: strip derivational suffixes (m > 1 required)."""
+    for suffix in ('al', 'ance', 'ence', 'er', 'ic', 'able', 'ible',
+                   'ant', 'ement', 'ment', 'ent', 'ou', 'ism', 'ate',
+                   'iti', 'ous', 'ive', 'ize'):
+        if word.endswith(suffix) and _measure(word[:-len(suffix)]) > 1:
+            return word[:-len(suffix)]
+    # -ion is only removed when the preceding letter is s or t
+    if word.endswith('ion'):
+        stem = word[:-3]
+        if _measure(stem) > 1 and stem and stem[-1] in 'st':
+            return stem
+    return word
+
+
+def _step5(word):
+    """Step 5: tidy up final e and double-l."""
+    # Step 5a: remove trailing e
+    if word.endswith('e'):
+        stem = word[:-1]
+        m = _measure(stem)
+        if m > 1 or (m == 1 and not _ends_cvc(stem)):
+            word = stem
+    # Step 5b: remove doubled l when m > 1
+    if _ends_double_consonant(word) and word.endswith('l') and _measure(word[:-1]) > 1:
+        word = word[:-1]
+    return word
+
+
+def _stem(word):
+    """Reduce *word* to its Porter stem (pure Python, no libraries).
+
+    Words of length ≤ 2 are returned unchanged — the algorithm is not
+    reliable on very short strings and they're unlikely to have inflections
+    worth stripping.
+    """
+    if len(word) <= 2:
+        return word
+    word = _step1ab(word)
+    word = _step1c(word)
+    word = _step2(word)
+    word = _step3(word)
+    word = _step4(word)
+    word = _step5(word)
+    return word
+
+
+def _tokenize_and_stem(text):
+    """Tokenize *text* into lowercase alpha tokens, remove stop words, then stem.
+
+    Used as the custom tokenizer for TfidfVectorizer so that index terms and
+    query terms go through identical preprocessing.
+    """
+    tokens = re.findall(r'[a-z]+', text.lower())
+    return [_stem(t) for t in tokens if t not in _STOP_WORDS and len(t) > 1]
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'exercises_free_db.json')
 
@@ -284,7 +490,12 @@ class ExerciseSearcher:
             self.exercises = json.load(f)
 
         docs = [_build_weighted_doc(ex) for ex in self.exercises]
-        self.vectorizer = TfidfVectorizer(stop_words='english', max_features=10000)
+        # stop_words=None because _tokenize_and_stem already filters them;
+        # passing stop_words='english' with a custom tokenizer triggers a
+        # sklearn UserWarning about inconsistency (stop words aren't stemmed).
+        self.vectorizer = TfidfVectorizer(tokenizer=_tokenize_and_stem,
+                                          stop_words=None,
+                                          max_features=10000)
         self.tfidf_matrix = self.vectorizer.fit_transform(docs)
 
         # Build a length-bucketed vocabulary index for O(1) candidate lookup
