@@ -1,5 +1,8 @@
-export interface Episode {
+export interface AitaPost {
+  id: number;
+  submission_id: string;
   title: string;
-  descr: string;
-  imdb_rating: number;
+  selftext: string;
+  score: number;
+  similarity: number;
 }
