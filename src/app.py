@@ -1,63 +1,70 @@
-import json
-import os
-from dotenv import load_dotenv
-from flask import Flask
-
-load_dotenv()
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from models import db, Episode, Review
-from routes import register_routes
+from geopy.distance import geodesic
+from ranker import rank_destinations, df as _df
+from data_loader import load_cities 
+import numpy as np
 
-# src/ directory and project root (one level up)
-current_directory = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_directory)
-
-# Serve React build files from <project_root>/frontend/dist
-app = Flask(__name__,
-    static_folder=os.path.join(project_root, 'frontend', 'dist'),
-    static_url_path='')
+app = Flask(__name__)
 CORS(app)
 
-# Configure SQLite database - using 3 slashes for relative path
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Load once at startup for nearest-city lookup
+_df = load_cities()
 
-# Initialize database with app
-db.init_app(app)
 
-# Register routes
-register_routes(app)
 
-# Function to initialize database, change this to your own database initialization logic
-def init_db():
-    with app.app_context():
-        # Create all tables
-        db.create_all()
-        
-        # Initialize database with data from init.json if empty
-        if Episode.query.count() == 0:
-            json_file_path = os.path.join(current_directory, 'init.json')
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
-                for episode_data in data['episodes']:
-                    episode = Episode(
-                        id=episode_data['id'],
-                        title=episode_data['title'],
-                        descr=episode_data['descr']
-                    )
-                    db.session.add(episode)
-                
-                for review_data in data['reviews']:
-                    review = Review(
-                        id=review_data['id'],
-                        imdb_rating=review_data['imdb_rating']
-                    )
-                    db.session.add(review)
-            
-            db.session.commit()
-            print("Database initialized with episodes and reviews data")
+def get_nearest_city_baseline(user_lat, user_lon):
+    dists = np.sqrt(
+        (_df["latitude"] - user_lat) ** 2 +
+        (_df["longitude"] - user_lon) ** 2
+    )
+    idx = dists.idxmin()
+    return float(_df.loc[idx, "annual_avg_c"]), _df.loc[idx, "city"]
 
-init_db()
+
+
+@app.route("/api/search", methods=["GET"])
+def search():
+    query = request.args.get("q", "")
+    user_lat = request.args.get("lat", type=float)
+    user_lon = request.args.get("lon", type=float)
+    top_n = request.args.get("top_n", default=10, type=int)
+    top_n = max(1, min(top_n, 50))
+
+    if not query:
+        return jsonify({"error": "no query provided"}), 400
+
+    baseline_temp = None 
+    nearest_city = None 
+
+    if user_lat is not None and user_lon is not None:
+        baseline_temp, nearest_city = get_nearest_city_baseline(user_lat, user_lon)
+
+    results = rank_destinations(
+        query,
+        user_lat=user_lat,
+        user_lon=user_lon,
+        user_baseline_temp=baseline_temp,
+        top_n=top_n
+    )
+
+    response = {
+        "query": query,
+        "results": results
+    }
+
+    if nearest_city is not None:
+        response["user_nearest_city"] = nearest_city
+        response["user_baseline_temp_c"] = baseline_temp
+
+    return jsonify(response)
+
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
+
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    app.run(host='0.0.0.0', port=5001, debug=True)
+

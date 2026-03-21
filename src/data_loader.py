@@ -1,6 +1,8 @@
 import pandas as pd
+import os
 
-def load_cities(path="data/goataway_cleaned_dataset.csv"):
+BASE_DIR = os.path.dirname(__file__)
+def load_cities(path="src/data/goataway_cleaned_dataset.csv"):
     df = pd.read_csv(path)
 
     # extract monthly avg temps from weather_text using the patterns already in the data
