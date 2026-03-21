@@ -360,26 +360,23 @@ def _wagner_fisher(s1, s2):
     Returns:
         Integer minimum edit distance (insertions, deletions, substitutions).
     """
-    # Always iterate over the longer string in the outer loop so the inner
-    # (row) dimension stays as small as possible.
     if len(s1) < len(s2):
         s1, s2 = s2, s1
 
     m, n = len(s1), len(s2)
-    # dp[j] = edit distance between s1[:i] and s2[:j]
     dp = list(range(n + 1))
 
     for i in range(1, m + 1):
-        prev = dp[0]      # dp[i-1][j-1] before the inner loop overwrites it
-        dp[0] = i         # dp[i][0]: delete all of s1[:i]
+        prev = dp[0]
+        dp[0] = i
         for j in range(1, n + 1):
-            temp = dp[j]  # save dp[i-1][j] before overwrite
+            temp = dp[j]
             if s1[i - 1] == s2[j - 1]:
                 dp[j] = prev
             else:
-                dp[j] = 1 + min(prev,    # substitution
-                                dp[j],   # deletion
-                                dp[j - 1])  # insertion
+                dp[j] = 1 + min(prev,
+                                dp[j],
+                                dp[j - 1])
             prev = temp
 
     return dp[n]
@@ -404,13 +401,11 @@ def _correct_token(token, vocab_by_length, max_dist=2):
         The best-matching vocabulary term if one is found within *max_dist*
         edits, otherwise the original token.
     """
-    # Short tokens (1-2 chars) are almost always stop words or abbreviations;
-    # correcting them produces more noise than signal.
     if len(token) <= 2:
         return token
 
     best_term = token
-    best_dist = max_dist + 1  # sentinel: "no correction found yet"
+    best_dist = max_dist + 1 
 
     for length in range(len(token) - max_dist, len(token) + max_dist + 1):
         for candidate in vocab_by_length.get(length, []):
@@ -418,7 +413,7 @@ def _correct_token(token, vocab_by_length, max_dist=2):
             if d < best_dist:
                 best_dist = d
                 best_term = candidate
-                if d == 0:          # exact match — can't do better
+                if d == 0: 
                     return best_term
 
     return best_term if best_dist <= max_dist else token
