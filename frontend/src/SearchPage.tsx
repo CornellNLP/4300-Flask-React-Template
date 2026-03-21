@@ -46,7 +46,7 @@ function SearchPage({ onBack }: Props): JSX.Element {
     if (lon) params.set('lon', lon)
 
     try {
-      const res = await fetch(`http://localhost:5001/api/search?${params}`)
+      const res = await fetch(`/api/search?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: SearchResponse = await res.json()
       setResults(data.results)
