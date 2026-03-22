@@ -49,6 +49,7 @@ def load_data():
         with open(doc_path, "r") as f:
             DOC_MAP = json.load(f)
             # REVERSE_DOC_MAP = {idx: title for idx, title in enumerate(DOC_MAP.keys())}
+            # REVERSE_DOC_MAP = [(v, k) for k, v in DOC_MAP.items()]
             REVERSE_DOC_MAP = {wiki_id: title for title, wiki_id in DOC_MAP.items()}
 
     except FileNotFoundError:
@@ -102,6 +103,8 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
 
     # 2.2: Do MMR
     candidates = list(doc_scores.keys())
+    # print(candidates)
+    # print(len(candidates))
     pathway = []
     
     for _ in range(path_length):
@@ -139,5 +142,5 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
             "title": title,
             "score": round(doc_scores[doc_id], 2)
         })
-
+        print(doc_id)
     return res
