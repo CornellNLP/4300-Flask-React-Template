@@ -37,6 +37,9 @@ function App(): JSX.Element {
         `/api/rabbithole?article=${encodeURIComponent(article)}&keywords=${encodeURIComponent(keywords)}`,
       );
       const data: ArticleNode[] = await response.json();
+      for (const node of data) {
+        console.log(node.id);
+      }
       setPathway(data);
     } catch (error) {
       console.error("Failed to fetch rabbit hole:", error);

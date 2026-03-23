@@ -50,7 +50,7 @@ def register_routes(app):
             additional_keywords=keywords,
             postings_model=Postings,
             path_length=5,
-            diversity_lambda=0.5
+            diversity_lambda=1
         )
         return jsonify(pathway)
     
