@@ -5,6 +5,7 @@ import { PlayerStats } from './types'
 import Chat from './Chat'
 
 interface SearchResponse {
+  mode?: string
   results: PlayerStats[]
 }
 
@@ -111,6 +112,11 @@ function App(): JSX.Element {
             <p className="episode-rating">
               Appearances: {player.appearances ?? 'N/A'}
             </p>
+            {player.similarity_score !== undefined && player.similarity_score !== null && (
+              <p className="episode-rating">
+                Similarity: {(player.similarity_score * 100).toFixed(1)}%
+              </p>
+            )}
           </div>
         ))}
       </div>

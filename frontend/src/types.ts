@@ -22,4 +22,6 @@ export interface PlayerStats {
   goals_per_game: number | null
   assists_per_game: number | null
   shot_on_target_ratio: number | null
+  similarity_score?: number | null
+  search_mode?: string | null
 }

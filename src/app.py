@@ -5,8 +5,8 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from models import db, Episode, Review
-from routes import register_routes
+from src.models import db, Episode, Review
+from src.routes import register_routes
 
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))
