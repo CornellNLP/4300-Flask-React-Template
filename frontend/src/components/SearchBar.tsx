@@ -32,6 +32,11 @@ function SearchBar({
                 autoComplete="off"
                 aria-label="Search players"
             />
+            <button className="search-bar-btn" type="submit" disabled={disabled} aria-label="Submit search">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3.5 9H14.5M14.5 9L10 4.5M14.5 9L10 13.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+            </button>
             </form>
         );
     }

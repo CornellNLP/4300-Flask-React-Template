@@ -24,23 +24,41 @@
 
 .search-bar {
   width: min(720px, 92vw);
-  height: 56px;
+  height: 64px;
   box-sizing: border-box;
-  background: #f4f4f4;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 24px 0 14px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  gap: 12px;
+  padding: 0 8px 0 20px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.07),
+    0 12px 32px rgba(0, 0, 0, 0.14),
+    0 0 0 0 rgba(16, 185, 116, 0);
+  transition: box-shadow 0.25s ease, transform 0.2s ease, border-color 0.25s ease;
+}
+
+.search-bar:focus-within {
+  border-color: rgba(16, 185, 116, 0.6);
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.07),
+    0 16px 40px rgba(0, 0, 0, 0.16),
+    0 0 0 4px rgba(16, 185, 116, 0.18);
+  transform: translateY(-1px);
 }
 
 .search-bar-icon {
-  width: 30px;
-  height: 30px;
-  opacity: 0.72;
+  width: 26px;
+  height: 26px;
+  opacity: 0.45;
   flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+.search-bar:focus-within .search-bar-icon {
+  opacity: 0.7;
 }
 
 .search-bar-input {
@@ -50,12 +68,84 @@
   outline: none;
   background: transparent;
   font-family: "SF Pro Display", sans-serif;
-  font-size: clamp(16px, 2.1vw, 32px);
+  font-size: clamp(15px, 1.9vw, 20px);
   color: #193F2F;
+  letter-spacing: -0.01em;
 }
 
 .search-bar-input::placeholder {
-  color: #a0a0a0;
+  color: #b0b8b4;
+}
+
+.search-bar-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #10b974;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(16, 185, 116, 0.4);
+}
+
+.search-bar-btn:hover:not(:disabled) {
+  background: #0da868;
+  transform: scale(1.07);
+  box-shadow: 0 4px 14px rgba(16, 185, 116, 0.55);
+}
+
+.search-bar-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.search-bar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Query carousel */
+.query-carousel-wrapper {
+  width: min(720px, 92vw);
+  margin-top: 16px;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  cursor: default;
+}
+
+.query-carousel-track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  will-change: transform;
+}
+
+.query-chip {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-family: "SF Pro Display", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.query-chip:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
 }
 
 .search-feedback {
@@ -349,7 +439,12 @@
   }
 
   .search-bar {
-    height: 52px;
+    height: 56px;
+  }
+
+  .search-bar-btn {
+    width: 40px;
+    height: 40px;
   }
 
   .player-grid {
