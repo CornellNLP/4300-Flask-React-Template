@@ -15,7 +15,7 @@ app = Flask(__name__,
     static_url_path='')
 CORS(app)
 
-db_path = os.path.join(project_root, 'inverted_index.db')
+db_path = os.path.join(project_root, '../inverted_index.db')
 print("DB PATH:", db_path)
 print("Exists?", os.path.exists(db_path))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
