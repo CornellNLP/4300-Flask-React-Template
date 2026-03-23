@@ -47,8 +47,8 @@ DATA_DIR = os.path.join(project_root, 'data')
 
 def load_data():
     global DOC_MAP, REVERSE_DOC_MAP, WORLD_MAP
-    doc_path = os.path.join(DATA_DIR, "doc_map.json")
-    world_path = os.path.join(DATA_DIR, "world_map.json")
+    doc_path = os.path.join(project_root, "doc_map.json")
+    world_path = os.path.join(project_root, "world_map.json")
 
     try:
         with open(doc_path, "r") as f:
