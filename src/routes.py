@@ -51,7 +51,6 @@ def register_routes(app):
             postings_model=Postings,
             path_length=5,
             diversity_lambda=1,
-            logger=app.logger
         )
         return jsonify(pathway)
     

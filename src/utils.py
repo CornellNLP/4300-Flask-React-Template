@@ -68,13 +68,14 @@ def load_data():
         print(e)
         print("Error: pls have the world_map.json in the data folder!")
 
-def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, logger = None):
+def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5):
     """
     Returns list of articles to discover
     """
 
     # 1. Retrives doc using binary index
     # gunicorn.info
+    global logger
     logger.info("Generating rabbit hole")
     query_text = f"{start_article} {additional_keywords}"
     tokens = stem_tokenizer(query_text)
