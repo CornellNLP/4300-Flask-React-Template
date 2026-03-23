@@ -68,7 +68,7 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     """
 
     # 1. Retrives doc using binary index
-    logging.getLogger().info("Generating rabbit hole")
+    logging.getLogger(__name__).info("Generating rabbit hole")
     query_text = f"{start_article} {additional_keywords}"
     tokens = stem_tokenizer(query_text)
     unique_tokens = list(set(tokens))
@@ -84,11 +84,13 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
         if term_id is not None:
             record = postings_model.query.filter_by(term_id=term_id).first()
             if record and record.postings:
+                logging.getLogger(__name__).info("Found records")
                 decoded = decode_postings(record.postings)
 
                 for doc_id, score in decoded:
                     doc_scores[doc_id] += score
                     doc_vectors[doc_id][token] = score
+    logging.getLogger(__name__).info("Processed tokens")
             
     if not doc_scores:
         return []
