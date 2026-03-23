@@ -57,13 +57,15 @@ def load_data():
             # REVERSE_DOC_MAP = [(v, k) for k, v in DOC_MAP.items()]
             REVERSE_DOC_MAP = {wiki_id: title for title, wiki_id in DOC_MAP.items()}
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        print(e)
         print("Error: boi pls put doc_map.json in <root>/data")
 
     try:
         with open(world_path, "r") as f:
             WORLD_MAP = json.load(f)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        print(e)
         print("Error: pls have the world_map.json in the data folder!")
 
 def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, logger = None):
