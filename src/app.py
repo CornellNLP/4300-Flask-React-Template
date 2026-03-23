@@ -4,6 +4,7 @@ from flask import Flask
 from flask_cors import CORS
 from models import db, Postings
 from routes import register_routes
+import logging
 
 load_dotenv()
 
@@ -14,10 +15,14 @@ app = Flask(__name__,
     static_folder=os.path.join(project_root, 'frontend', 'dist'),
     static_url_path='')
 CORS(app)
+logger = logging.getLogger(__name__)
+gunicorn_logger = logging.getLogger('gunicorn.info')
+logger.handlers = gunicorn_logger.handlers
+logger.setLevel(gunicorn_logger.level)
 
 db_path = os.path.join(project_root, 'inverted_index.db')
-app.logger.info(f"DB PATH: {db_path}")
-app.logger.info(f"Exists? {os.path.exists(db_path)}")
+logger.info(f"DB PATH: {db_path}")
+logger.info(f"Exists? {os.path.exists(db_path)}")
 print("DB PATH:", db_path)
 print("Exists?", os.path.exists(db_path))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'

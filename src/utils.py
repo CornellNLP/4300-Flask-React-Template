@@ -15,6 +15,10 @@ stemmed_stopwords = list({stemmer.stem(w) for w in ENGLISH_STOP_WORDS}) \
 DOC_MAP = {}
 REVERSE_DOC_MAP = {}
 WORLD_MAP = {}
+logger = logging.getLogger(__name__)
+gunicorn_logger = logging.getLogger('gunicorn.info')
+logger.handlers = gunicorn_logger.handlers
+logger.setLevel(gunicorn_logger.level)
 
 def decode_postings(blob):
     ptr = 0
@@ -62,13 +66,14 @@ def load_data():
     except FileNotFoundError:
         print("Error: pls have the world_map.json in the data folder!")
 
-def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5):
+def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, logger = None):
     """
     Returns list of articles to discover
     """
 
     # 1. Retrives doc using binary index
-    logging.getLogger(__name__).info("Generating rabbit hole")
+    # gunicorn.info
+    logger.info("Generating rabbit hole")
     query_text = f"{start_article} {additional_keywords}"
     tokens = stem_tokenizer(query_text)
     unique_tokens = list(set(tokens))
@@ -84,13 +89,13 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
         if term_id is not None:
             record = postings_model.query.filter_by(term_id=term_id).first()
             if record and record.postings:
-                logging.getLogger(__name__).info("Found records")
+                logger.info("Found records")
                 decoded = decode_postings(record.postings)
 
                 for doc_id, score in decoded:
                     doc_scores[doc_id] += score
                     doc_vectors[doc_id][token] = score
-    logging.getLogger(__name__).info("Processed tokens")
+    logger.info("Processed tokens")
             
     if not doc_scores:
         return []
