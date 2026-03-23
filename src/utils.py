@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 from nltk.stem import PorterStemmer
 from collections import defaultdict
+import logging
 
 stemmer = PorterStemmer()
 stemmed_stopwords = list({stemmer.stem(w) for w in ENGLISH_STOP_WORDS}) \
@@ -67,6 +68,7 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     """
 
     # 1. Retrives doc using binary index
+    logging.getLogger().info("Generating rabbit hole")
     query_text = f"{start_article} {additional_keywords}"
     tokens = stem_tokenizer(query_text)
     unique_tokens = list(set(tokens))
