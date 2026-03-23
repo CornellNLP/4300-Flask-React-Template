@@ -1,9 +1,3 @@
-export interface Episode {
-  title: string
-  descr: string
-  imdb_rating: number
-}
-
 export interface PlayerStats {
   name: string
   nationality: string | null
@@ -22,4 +16,21 @@ export interface PlayerStats {
   goals_per_game: number | null
   assists_per_game: number | null
   shot_on_target_ratio: number | null
+  similarity_score?: number | null
+  search_mode?: string | null
 }
+
+export interface PlayerCardData {
+  key: string
+  rank: number
+  name: string
+  team: string | null
+  position: string | null
+  nationality: string | null
+  //wages: number | null // ideally not null once we have the data
+  //age: number | null // ideally not null once we have the data
+  goals: number | null
+  appearances: number | null
+  image: string | null
+}
+
