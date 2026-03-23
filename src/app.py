@@ -18,7 +18,7 @@ CORS(app)
 db_path = os.path.join(project_root, 'var/www/inverted_index.db')
 print("DB PATH:", db_path)
 print("Exists?", os.path.exists(db_path))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///var/www/inverted_index.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite://var/www/inverted_index.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
