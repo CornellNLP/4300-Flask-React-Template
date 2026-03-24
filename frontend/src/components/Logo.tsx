@@ -1,4 +1,4 @@
-import logo from "../assets/footysearchlogo.png";
+import logo from "../assets/footysearchlogo.svg";
 
 type LogoProps = {
   className?: string
