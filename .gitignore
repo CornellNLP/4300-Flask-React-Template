@@ -27,3 +27,9 @@ frontend/node_modules/
 package-lock.json
 
 .env
+.env.local
+vite.config.ts*
+
+# Large original data files (split into parts instead)
+data/reddit.csv
+data/bbc_data/bbc_articles.csv

@@ -83,6 +83,9 @@ def register_chat_route(app, json_search):
                 for chunk in client.chat(messages, stream=True):
                     if chunk.get("content"):
                         yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
+            except GeneratorExit:
+                # Client closed the connection; stop streaming.
+                logger.info("Client disconnected during streaming")
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
                 yield f"data: {json.dumps({'error': 'Streaming error occurred'})}\n\n"
