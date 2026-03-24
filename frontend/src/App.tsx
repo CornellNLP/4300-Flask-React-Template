@@ -12,6 +12,23 @@ interface Filters {
   sortBy: string
 }
 
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <span className="star-rating">
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} className={i <= Math.round(rating) ? 'star filled' : 'star'}>★</span>
+      ))}
+      <span className="rating-number">{rating?.toFixed(1)}</span>
+    </span>
+  )
+}
+
+function SafetyBadge({ score }: { score: number }) {
+  const level = score >= 75 ? 'high' : score >= 45 ? 'medium' : 'low'
+  const label = score >= 75 ? 'Clean' : score >= 45 ? 'Moderate' : 'Review'
+  return <span className={`safety-badge safety-${level}`}>⬤ {label} ({Math.round(score)})</span>
+}
+
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
@@ -92,21 +109,76 @@ function App(): JSX.Element {
 
       {/* Search results (always shown) */}
       <div id="answer-box">
+        {searchTerm.trim() && products.length > 0 && (
+          <p className="result-count">{products.length} result{products.length !== 1 ? 's' : ''} for "{searchTerm}"</p>
+        )}
+        {searchTerm.trim() && products.length === 0 && (
+          <div className="empty-state">
+            <p>No products found for "{searchTerm}"</p>
+            <p className="empty-hint">Try a different search term or adjust your filters.</p>
+          </div>
+        )}
         {products.map((product, index) => (
-          <div key={index} className="product-item">
-            <h3 className="product-name">{product.name}</h3>
-            <p className="product-brand">{product.brand}</p>
-            <p className="product-rating">Rating: {product.rating}</p>
-            <p className="product-price">Price: ${product.price}</p>
-            <p className="product-category">Category: {product.category}</p>
+          <div key={index} className={`product-item${product.out_of_stock ? ' out-of-stock' : ''}`}>
+
+            {/* Top row: name + safety badge */}
+            <div className="card-header">
+              <div>
+                <h3 className="product-name">{product.name}</h3>
+                <p className="product-brand">{product.brand}</p>
+              </div>
+              <SafetyBadge score={product.safety_score} />
+            </div>
+
+            {/* Status badges */}
+            <div className="badge-row">
+              {product.is_new && <span className="badge badge-new">New</span>}
+              {product.sephora_exclusive && <span className="badge badge-exclusive">Sephora Exclusive</span>}
+              {product.limited_edition && <span className="badge badge-limited">Limited Edition</span>}
+              {product.out_of_stock && <span className="badge badge-oos">Out of Stock</span>}
+              <span className="badge badge-category">{product.category}</span>
+            </div>
+
+            {/* Rating + price row */}
+            <div className="meta-row">
+              <StarRating rating={product.rating} />
+              {product.review_count > 0 && (
+                <span className="review-count">{product.review_count.toLocaleString()} reviews</span>
+              )}
+              <span className="price-block">
+                {product.sale_price && product.sale_price < product.price ? (
+                  <>
+                    <span className="price-original">${product.price?.toFixed(2)}</span>
+                    <span className="price-sale">${product.sale_price.toFixed(2)}</span>
+                  </>
+                ) : (
+                  <span className="price-regular">${product.price?.toFixed(2)}</span>
+                )}
+              </span>
+            </div>
+
+            {/* Highlights */}
+            {product.highlights && (
+              <div className="highlights-row">
+                {product.highlights.split(',').map((h, i) => (
+                  <span key={i} className="highlight-tag">{h.trim()}</span>
+                ))}
+              </div>
+            )}
+
             <p className="product-description">{product.description}</p>
-            <p className="match-score">Match Score: {product.score}</p>
-            <p className="safety-score">Safety Score: {product.safety_score}</p>
-            
+
+            {/* Flagged ingredients */}
             {product.flagged_ingredients?.length > 0 && (
-            <p className="flagged-ingredients">
-              Flagged Ingredients: {product.flagged_ingredients.join(', ')} </p>
-          )}
+              <div className="flagged-block">
+                <span className="flagged-label">⚠ Flagged ingredients: </span>
+                {product.flagged_ingredients.map((ing, i) => (
+                  <span key={i} className="flagged-tag">{ing}</span>
+                ))}
+              </div>
+            )}
+
+            <p className="match-score-label">Match: {(product.score * 100).toFixed(0)}%</p>
           </div>
         ))}
       </div>
