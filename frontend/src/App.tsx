@@ -32,6 +32,7 @@ function SafetyBadge({ score }: { score: number }) {
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [hasSearched, setHasSearched] = useState<boolean>(false)
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [filters, setFilters] = useState<Filters>({ category: '', minPrice: '', maxPrice: '', minRating: '', sortBy: 'relevance' })
@@ -56,6 +57,7 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     setSearchTerm(value)
+    if (value.trim()) setHasSearched(true)
     await runSearch(value, filters)
   }
 
@@ -68,10 +70,11 @@ function App(): JSX.Element {
   if (useLlm === null) return <></>
 
   return (
-    <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
+    <div className={`full-body-container ${useLlm ? 'llm-mode' : ''} ${hasSearched ? 'searching' : ''}`}>
       {/* Search bar (always shown) */}
       <div className="top-text">
-        <h1> DermMatch Wahoo!</h1>
+        <h1>DermMatch</h1>
+        <p className="landing-tagline">Find clean, safe skincare — powered by ingredients</p>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input

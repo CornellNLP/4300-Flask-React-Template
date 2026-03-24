@@ -26,10 +26,11 @@ body {
   top: 0; left: 0; right: 0; bottom: 0;
   width: 100%;
   display: flex;
-  justify-content: start;
+  justify-content: flex-start;
   align-items: center;
   flex-direction: column;
   background-color: #F5F7F4;
+  overflow-y: auto;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -38,16 +39,43 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 2.5rem;
+  /* Landing: push down to vertical-center */
+  margin-top: 26vh;
+  transition: margin-top 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.searching .top-text {
+  margin-top: 2.5rem;
 }
 
 .top-text h1 {
   font-family: 'Kanit', sans-serif;
-  font-size: 2.6rem;
+  font-size: 3.4rem;
   font-weight: 700;
   color: #3A6B4A;
   letter-spacing: -0.5px;
   margin: 0 0 4px 0;
+  transition: font-size 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.searching .top-text h1 {
+  font-size: 2.2rem;
+}
+
+.landing-tagline {
+  font-size: 14px;
+  color: #9EAF9E;
+  margin: 4px 0 0 0;
+  opacity: 1;
+  max-height: 30px;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-height 0.3s ease 0.05s, margin 0.3s ease;
+}
+
+.searching .landing-tagline {
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
 }
 
 /* ── Search bar ─────────────────────────────────────────────────────────── */
@@ -58,11 +86,16 @@ body {
   background: #fff;
   display: flex;
   align-items: center;
-  margin-top: 14px;
-  padding: 12px 18px;
-  width: 620px;
+  margin-top: 16px;
+  padding: 16px 22px;
+  width: 680px;
   cursor: text;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s, width 0.35s cubic-bezier(0.4,0,0.2,1), padding 0.35s ease;
+}
+
+.searching .input-box {
+  width: 620px;
+  padding: 12px 18px;
 }
 
 .input-box:hover,
@@ -81,12 +114,17 @@ body {
 .input-box input {
   width: 100%;
   margin-left: 10px;
-  font-size: 15px;
+  font-size: 17px;
   border: none;
   outline: 0;
   background: transparent;
   font-family: 'Open Sans', sans-serif;
   color: #2D3B2D;
+  transition: font-size 0.3s ease;
+}
+
+.searching .input-box input {
+  font-size: 15px;
 }
 
 .input-box input::placeholder { color: #9EAF9E; }
@@ -97,10 +135,24 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
   width: 700px;
   max-width: 100%;
   justify-content: center;
+  /* Hidden in landing */
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+  transition: opacity 0.3s ease 0.15s, max-height 0.35s ease 0.1s, margin-top 0.3s ease 0.1s;
+}
+
+.searching .filter-bar {
+  opacity: 1;
+  pointer-events: auto;
+  max-height: 200px;
+  overflow: visible;
+  margin-top: 14px;
 }
 
 .filter-bar select,
@@ -158,6 +210,12 @@ body {
   gap: 1.2rem;
   margin-top: 1.6rem;
   padding-bottom: 2rem;
+  opacity: 0;
+  transition: opacity 0.3s ease 0.2s;
+}
+
+.searching #answer-box {
+  opacity: 1;
 }
 
 /* ── Product card ───────────────────────────────────────────────────────── */
