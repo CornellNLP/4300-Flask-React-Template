@@ -54,13 +54,17 @@ function QueryCarousel({ onSelect }: { onSelect: (q: string) => void }): JSX.Ele
   return (
     <div
       className="query-carousel-wrapper"
-      onMouseEnter={() => { pausedRef.current = true; }}
-      onMouseLeave={() => { pausedRef.current = false; }}
+      onMouseEnter={() => {
+        pausedRef.current = true;
+      }}
+      onMouseLeave={() => {
+        pausedRef.current = false;
+      }}
     >
       <div className="query-carousel-track" ref={trackRef}>
         {chips.map((q, i) => (
           <button
-            key={i}
+            key={`${q}-${i}`}
             className="query-chip"
             onClick={() => onSelect(q)}
           >
@@ -93,6 +97,7 @@ function toCardData(results: PlayerStats[]): PlayerCardData[] {
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [rawPlayers, setRawPlayers] = useState<PlayerStats[]>([]);
   const [players, setPlayers] = useState<PlayerCardData[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   useEffect(() => {
@@ -111,6 +116,7 @@ function App(): JSX.Element {
   const runSearch = async (term: string): Promise<void> => {
     const trimmed = term.trim();
     if (trimmed === "") {
+      setRawPlayers([]);
       setPlayers([]);
       setStatus("idle");
       return;
@@ -119,15 +125,19 @@ function App(): JSX.Element {
     try {
       const response = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(trimmed)}`);
       if (!response.ok) {
+        setRawPlayers([]);
         setPlayers([]);
         setStatus("error");
         return;
       }
       const data: SearchResponse = await response.json();
-      const nextPlayers = toCardData(Array.isArray(data.results) ? data.results : []);
+      const results = Array.isArray(data.results) ? data.results : [];
+      setRawPlayers(results);
+      const nextPlayers = toCardData(results);
       setPlayers(nextPlayers);
       setStatus(nextPlayers.length > 0 ? "populated" : "empty");
     } catch {
+      setRawPlayers([]);
       setPlayers([]);
       setStatus("error");
     }

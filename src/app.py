@@ -4,7 +4,10 @@ from flask import Flask
 
 load_dotenv()
 from flask_cors import CORS
-from routes import register_routes
+try:
+    from routes import register_routes
+except ImportError:  # pragma: no cover
+    from src.routes import register_routes
 
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))

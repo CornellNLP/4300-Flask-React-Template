@@ -1,4 +1,5 @@
 export interface PlayerStats {
+  player_id?: string | null
   name: string
   nationality: string | null
   position: string | null
