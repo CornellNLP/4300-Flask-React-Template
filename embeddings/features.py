@@ -1,10 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- embeddings.preprocess.preprocess_player_stats output schema and metadata.
-- src.player_search.normalize_text is reused upstream in preprocessing and intentionally not duplicated here.
-
-This module adds canonical feature engineering and position-wise scaling without changing existing search code.
-"""
 from __future__ import annotations
 
 import os
