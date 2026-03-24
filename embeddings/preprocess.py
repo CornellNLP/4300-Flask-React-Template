@@ -1,10 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- src.player_search.normalize_text: preserve the existing accent/case/whitespace normalization logic.
-- src.player_search.primary_position: preserve the existing position canonicalization rules.
-
-This module keeps those interfaces intact and layers embedding-specific preprocessing on top.
-"""
 from __future__ import annotations
 
 import logging

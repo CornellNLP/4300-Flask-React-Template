@@ -1,8 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- src.player_search.normalize_text via embeddings.preprocess.
-- Existing root requirements remain unchanged for now; these embedding dependencies are isolated and will need reconciliation before Flask integration.
-"""
 from __future__ import annotations
 
 import logging

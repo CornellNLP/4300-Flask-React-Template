@@ -1,10 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- embeddings.store.get_player_vector: preserve one exact/fuzzy lookup path for embeddings.
-- embeddings.features canonical feature ordering and discriminative feature groups.
-
-This module adds similarity and description-query ranking without modifying the boolean search pipeline.
-"""
 from __future__ import annotations
 
 import math

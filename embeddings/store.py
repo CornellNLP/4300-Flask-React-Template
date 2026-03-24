@@ -1,10 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- src.player_search.normalize_text: preserve the established player-name normalization behavior.
-- embeddings.features.save_position_scalers output format and canonical index order.
-
-This module adds standalone embedding artifact storage without changing existing app storage.
-"""
 from __future__ import annotations
 
 import json
