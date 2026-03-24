@@ -85,7 +85,7 @@ function App(): JSX.Element {
           <p className="no-results">No results found.</p>
         )}
         {players.map((player, index) => (
-          <div key={index} className="episode-item">
+          <div key={player.player_id ?? `${player.name}-${player.league}-${index}`} className="episode-item">
             <div className="player-header">
               <div className="player-image-frame">
                 <img

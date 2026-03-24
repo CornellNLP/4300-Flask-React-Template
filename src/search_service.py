@@ -1,10 +1,3 @@
-"""
-Dependencies reused from the existing codebase:
-- player_search.parse_query / boolean_search / find_player_by_name: preserve the existing boolean search pipeline.
-- embeddings.store / embeddings.similarity: reuse the saved embedding artifacts for similarity-backed search.
-
-This module adds query routing between boolean search and embedding-based similarity without changing existing interfaces.
-"""
 from __future__ import annotations
 
 import logging
@@ -72,6 +65,7 @@ def _aggregate_embedding_result(result: Dict[str, Any]) -> Dict[str, Any]:
 
     if not records:
         return {
+            "player_id": None,
             "name": player_name,
             "nationality": None,
             "position": result.get("position"),
@@ -109,6 +103,7 @@ def _aggregate_embedding_result(result: Dict[str, Any]) -> Dict[str, Any]:
         return sum(values) if values else None
 
     return {
+        "player_id": first_non_null("player_id"),
         "name": player_name,
         "nationality": first_non_null("nationality"),
         "position": result.get("position") or first_non_null("position"),
