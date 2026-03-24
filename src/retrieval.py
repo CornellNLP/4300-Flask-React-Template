@@ -53,6 +53,10 @@ _STOP_WORDS = frozenset([
     'while', 'if', 'not', 'no', 'so', 'than', 'then', 'also', 'more', 'most',
     'other', 'such', 'same', 'your', 'you', 'they', 'their', 'them', 'he',
     'she', 'his', 'her', 'we', 'our', 'us', 'me', 'my', 'i', 'each', 'both',
+    # Domain-specific stop words: too generic to discriminate in an exercise DB
+    'exercise', 'exercises', 'workout', 'workouts', 'target', 'targets',
+    'targeting', 'muscle', 'muscles', 'movement', 'movements', 'position',
+    'body', 'starting', 'repeat',
 ])
 
 
@@ -289,7 +293,7 @@ EQUIPMENT_KEYWORDS = {
 
 FIELD_WEIGHTS = {
     "primaryMuscles": 1.0,
-    "secondaryMuscles": 0.8,
+    "secondaryMuscles": 0.4,
     "category": 0.6,
     "level": 0.5,
     "equipment": 0.4,
@@ -529,16 +533,27 @@ class ExerciseSearcher:
                 - category (str): Exercise category (strength, plyometrics, …).
                 - instructions (list[str]): Step-by-step instructions.
         """
-        # Spell-correct each query token against the TF-IDF vocabulary before
-        # expansion so that typos like "shuolders" → "shoulders" are fixed
-        # before goal/equipment expansion runs.  Tokens already in the
-        # vocabulary (exact match) are returned unchanged in O(1) via the
-        # length-bucket lookup short-circuit.
-        tokens = query.lower().split()
-        corrected_tokens = [
-            _correct_token(t, self.vocab_by_length) for t in tokens
-        ]
-        corrected_query = " ".join(corrected_tokens)
+        # Spell-correct each query token against the TF-IDF vocabulary.
+        # Stem and remove stop words BEFORE spell correction so that valid
+        # words like "triceps" aren't needlessly "corrected" to their stemmed
+        # form, and stop words like "that" aren't mangled into "th".
+        raw_tokens = query.lower().split()
+        corrected_display = []  # for "Did you mean?" (human-readable)
+        any_corrected = False
+
+        for raw in raw_tokens:
+            if raw in _STOP_WORDS or len(raw) <= 1:
+                corrected_display.append(raw)
+                continue
+            stemmed = _stem(raw)
+            corrected = _correct_token(stemmed, self.vocab_by_length)
+            if corrected != stemmed:
+                corrected_display.append(corrected)
+                any_corrected = True
+            else:
+                corrected_display.append(raw)
+
+        corrected_query = " ".join(corrected_display)
 
         expanded = _expand_query(corrected_query)
         query_vec = self.vectorizer.transform([expanded])
@@ -562,9 +577,7 @@ class ExerciseSearcher:
             })
         return {
             "results": results,
-            # Non-None only when at least one token was corrected, so the
-            # frontend can show a "Did you mean: <corrected_query>?" prompt.
-            "corrected_query": corrected_query if corrected_query != query.lower() else None,
+            "corrected_query": corrected_query if any_corrected else None,
         }
 
 
