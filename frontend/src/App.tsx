@@ -27,9 +27,25 @@ function App(): JSX.Element {
     <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
       {/* Search bar (always shown) */}
       <div className="top-text">
-        <h1 className="project-title">Hey Girlies...</h1>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <div style={{
+            backgroundColor: '#007aff',
+            color: 'white',
+            padding: '14px 28px',
+            borderRadius: '24px',
+            borderBottomRightRadius: '6px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+            fontSize: '36px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
+            display: 'inline-block',
+            letterSpacing: '-0.5px'
+          }}>
+            Hey Girlie...
+          </div>
+        </div>
         <p className="project-subtitle">
-          Relatable relationship advice from real experiences.
+          Relatable relationship advice from real Reddit posts!
         </p>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
@@ -57,7 +73,7 @@ function App(): JSX.Element {
             <h3 className="episode-title">
               {episode.rank !== undefined ? `#${episode.rank} ` : ''}
               {episode.url ? (
-                <a href={episode.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit'}}>
+                <a href={episode.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
                   {episode.title}
                 </a>
               ) : (
@@ -83,7 +99,7 @@ function App(): JSX.Element {
                 <ul style={{ margin: '5px 0 0 20px', padding: 0 }}>
                   {episode.top_matching_dimensions.map((dim, dIdx) => (
                     <li key={dIdx}>
-                      Dimension {dim.id} (Contribution: {dim.contribution.toFixed(4)})<br/>
+                      Dimension {dim.id} (Contribution: {dim.contribution.toFixed(4)})<br />
                       <em>Top words: {dim.words.join(", ")}</em>
                     </li>
                   ))}
