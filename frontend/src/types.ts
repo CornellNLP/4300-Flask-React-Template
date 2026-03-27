@@ -1,5 +1,21 @@
-export interface Episode {
-  title: string;
-  descr: string;
-  imdb_rating: number;
+export interface Product {
+  id: number;
+  name: string;
+  brand: string;
+  price: number;
+  sale_price: number | null;
+  rating: number;
+  review_count: number;
+  loves_count: number;
+  category: string;
+  ingredients: string;
+  description: string;
+  highlights: string | null;
+  is_new: boolean;
+  sephora_exclusive: boolean;
+  limited_edition: boolean;
+  out_of_stock: boolean;
+  score: number;
+  safety_score: number;
+  flagged_ingredients: string[];
 }
