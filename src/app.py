@@ -43,7 +43,10 @@ def init_recipes():
             rows = recipe_data[1:]
             for i, row in enumerate(rows):
                 try:
-                    cleaned_desc = " ".join(row[9].split())
+                    desc_words = row[9].split()
+                    if len(desc_words) < 25:
+                        continue
+                    cleaned_desc = " ".join(desc_words)
                     recipe = Recipe(
                         id=i,
                         site_id=row[1],

@@ -77,20 +77,6 @@ export function OutputPage() {
       </section>
 
       {/* decor and music section */}
-      <section className="section-bottom">
-        <div className="left-col">
-          <div className="decor-col">
-            <h2 className="section-heading">DECOR</h2>
-          </div>
-          <div className="food-images">
-            <button onClick={handleRoundTwo} className="round-two-btn">
-              ← round two
-            </button>
-            <img alt="" className="bread-img" src={imgBread} />
-            <img alt="" className="cheese-img" src={imgCheese} />
-          </div>
-        </div>
-
         <div className="tunes-col">
           <h2 className="section-heading">TUNES</h2>
           <div className="playlist">
@@ -114,7 +100,13 @@ export function OutputPage() {
             )}
           </div>
         </div>
-      </section>
+      <div className="food-images">
+        <button onClick={handleRoundTwo} className="round-two-btn">
+          ← round two
+        </button>
+        <img alt="" className="bread-img" src={imgBread} />
+        <img alt="" className="cheese-img" src={imgCheese} />
+      </div>
     </div>
   );
 }
