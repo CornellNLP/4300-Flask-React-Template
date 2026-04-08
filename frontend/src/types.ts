@@ -16,4 +16,8 @@ export interface Episode {
     contribution: number;
     words: string[];
   }[];
+  radar_strengths?: {
+    name: string;
+    value: number;
+  }[];
 }

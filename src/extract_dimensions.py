@@ -10,8 +10,8 @@ def extract_top_words_for_dimensions():
     # Get the words (feature names) from the TF-IDF vectorizer
     feature_names = vectorizer.get_feature_names_out()
     
-    # For demonstration, we'll just look at the first 15 dimensions 
-    # instead of all 100 to avoid overwhelming output.
+    # The SVD model is configured to compute exactly 10 dimensions.
+    # We will display all 10 dimensions here.
     num_dimensions_to_show = 10
     top_n_words = 15
     

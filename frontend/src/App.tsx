@@ -3,6 +3,7 @@ import './App.css'
 import SearchIcon from './assets/mag.png'
 import { Episode } from './types'
 import Chat from './Chat'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
@@ -93,17 +94,30 @@ function App(): JSX.Element {
             <p className="episode-rating">
               Number of Comments: {episode.num_comments ?? 0}
             </p>
-            {episode.top_matching_dimensions && episode.top_matching_dimensions.length > 0 && (
-              <div className="matching-dimensions" style={{ marginTop: '10px', fontSize: '0.9em' }}>
-                <strong>Top Matching Semantic Dimensions:</strong>
-                <ul style={{ margin: '5px 0 0 20px', padding: 0 }}>
-                  {episode.top_matching_dimensions.map((dim, dIdx) => (
-                    <li key={dIdx}>
-                      Dimension {dim.id} (Contribution: {dim.contribution.toFixed(4)})<br />
-                      <em>Top words: {dim.words.join(", ")}</em>
-                    </li>
-                  ))}
-                </ul>
+            
+            {episode.radar_strengths && episode.radar_strengths.length > 0 && (
+              <div style={{ marginTop: '20px', height: '300px', width: '100%' }}>
+                <h4 style={{ textAlign: 'center', marginBottom: '10px', marginTop: '0' }}>SVD Component Strengths</h4>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={episode.radar_strengths}>
+                    <PolarGrid />
+                    <PolarAngleAxis dataKey="name" tick={{ fontSize: 10, fill: '#666' }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 10 }} />
+                    <Radar
+                      name="Strength"
+                      dataKey="value"
+                      stroke="#007aff"
+                      fill="#007aff"
+                      fillOpacity={0.3}
+                      strokeWidth={2}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Tooltip 
+                      formatter={(value: any) => typeof value === 'number' ? value.toFixed(3) : value}
+                      contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
               </div>
             )}
           </div>

@@ -47,7 +47,7 @@ def get_search_models():
     tfidf_matrix = vectorizer.fit_transform(docs)
     
     # SVD
-    n_components = min(100, tfidf_matrix.shape[1] - 1)
+    n_components = min(10, tfidf_matrix.shape[1] - 1)
     #THIS LINE IS REALLY IMPORTANT
     if n_components < 1:
         n_components = 1
@@ -143,6 +143,24 @@ def json_search(query):
                 "contribution": round(float(contributions[d_idx]), 4),
                 "words": dim_top_words[d_idx]
             })
+
+        # Calculate radar chart strengths
+        strengths = np.abs(d_vec)
+        if np.max(strengths) > 0:
+            strengths = strengths / np.max(strengths)
+        
+        dim_names = [
+            "Relationships", "Help-Seeking", "Reddit Engagement", 
+            "Social Interaction", "Attraction", "Breakup", 
+            "Physical Intimacy", "Friendzone", "Confusion", "Family"
+        ]
+        
+        radar_strengths = []
+        for i in range(len(strengths)):
+            radar_strengths.append({
+                "name": dim_names[i] if i < len(dim_names) else f"Dim {i}",
+                "value": round(float(strengths[i]), 4)
+            })
         
         # Format descriptor text
         body_text = str(row_data['body'])
@@ -161,6 +179,7 @@ def json_search(query):
             "cosine_similarity": round(sim_score, 4),
             "similarity_score": round(sim_score, 4),
             "top_matching_dimensions": top_matching_dimensions,
+            "radar_strengths": radar_strengths
         })
 
     cosine_scores = [row["cosine_similarity"] for row in rows]
