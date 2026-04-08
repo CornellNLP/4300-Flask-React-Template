@@ -34,7 +34,7 @@ def init_recipes():
             print("Database already initialized with", Recipe.query.count(), 'recipes')
             return
             
-        file_path = os.path.join(current_directory, 'recipes_sample.csv')
+        file_path = os.path.join(current_directory, 'cleaned_recipes.csv')
         with open(file_path, 'r', encoding='utf-8') as file:
             csv_reader = csv.reader(file)
 
@@ -44,8 +44,6 @@ def init_recipes():
             for i, row in enumerate(rows):
                 try:
                     desc_words = row[9].split()
-                    if len(desc_words) < 25:
-                        continue
                     cleaned_desc = " ".join(desc_words)
                     recipe = Recipe(
                         id=i,

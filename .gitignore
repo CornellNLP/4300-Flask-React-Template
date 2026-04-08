@@ -3,7 +3,6 @@ env/
 Docker/__pycache__
 
 venv/
-data/
 
 *.pyc
 __pycache__/
@@ -28,3 +27,4 @@ frontend/node_modules/
 package-lock.json
 
 .env
+recipes_sample.csv
