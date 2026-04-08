@@ -252,9 +252,9 @@ def register_routes(app):
 
             results.append({
                 "breed": breed_name,
-                "score": round(float(final_score), 3),
-                "text_score": round(float(text_score), 3) if text_score is not None else None,
-                "filter_score": round(float(filter_score), 3) if filter_score is not None else None,
+                "score": round(float(final_score) * 100, 1),
+                "text_score": round(float(text_score) * 100, 1) if text_score is not None else None,
+                "filter_score": round(float(filter_score) * 100, 1) if filter_score is not None else None,
                 "description": safe(row["description"]),
                 "min_height": safe(row["min_height"]),
                 "max_height": safe(row["max_height"]),

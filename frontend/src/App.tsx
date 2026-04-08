@@ -218,7 +218,7 @@ function App(): JSX.Element {
                     <div className="dog-card-content">
                       <div className="dog-card-header">
                         <h4>{dog.breed}</h4>
-                        <span className="match-score">Match: {dog.score}</span>
+                        <span className="match-score">Match: {dog.score}%</span>
                       </div>
 
                       <div className="traits">
