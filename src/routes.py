@@ -14,52 +14,61 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
+vectorizer = None
+song_vectors = None
+songs_data = None
 
-def json_search(query):
-    if not query or not query.strip():
-        query = "Love"
-        
-    songs = db.session.query(Song).all()
-    results = recommend_by_lyrics(query, db.session.query(Song))
-    matches = []
-    for song in results:
-        matches.append({
-            'title': song[0].title,
-            'artist' : song[0].artist,
-            'similarity': song[1],
-            'chords' : song[0].chords,
-            'guitar_difficulty' : song[0].guitar_difficulty,
-            'piano_difficulty' : song[0].piano_difficulty
-        })
-    return matches
+def build_search_index():
+    global vectorizer, song_vectors, songs_data
 
-def recommend_by_lyrics(user_input, data, top_n=5):
+    songs_data = db.session.query(Song).all()
+
     all_text = []
-    for song in data:
+    for song in songs_data:
         if isinstance(song.lyrics, list):
             text = " ".join(song.lyrics)
         else:
             text = song.lyrics or ""
         all_text.append(text)
-    all_text.extend([user_input])
 
     vectorizer = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = vectorizer.fit_transform(all_text)
+    song_vectors = vectorizer.fit_transform(all_text)
 
+def recommend_by_lyrics(user_input, top_n=5):
+    global vectorizer, song_vectors, songs_data
 
-    user_vector = tfidf_matrix[-1]
-    song_vectors = tfidf_matrix[:-1]
-
+    user_vector = vectorizer.transform([user_input])
     similarities = cosine_similarity(user_vector, song_vectors).flatten()
+
     indices = sorted(range(len(similarities)), key=lambda k: similarities[k], reverse=True)[:top_n]
 
     results = []
     for idx in indices:
-        results.append([data[idx], similarities[idx]*100])
-        
+        results.append([songs_data[idx], similarities[idx] * 100])
+
     return results
+def json_search(query):
+    if not query or not query.strip():
+        query = "Love"
+
+    results = recommend_by_lyrics(query)
+
+    matches = []
+    for song in results:
+        matches.append({
+            'title': song[0].title,
+            'artist': song[0].artist,
+            'similarity': song[1],
+            'chords': song[0].chords,
+            'guitar_difficulty': song[0].guitar_difficulty,
+            'piano_difficulty': song[0].piano_difficulty
+        })
+
+    return matches
 
 def register_routes(app):
+    with app.app_context():
+        build_search_index()
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve(path):
