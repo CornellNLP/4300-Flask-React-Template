@@ -81,12 +81,31 @@
   min-width: 1rem;
 }
 
+.recipe-entry__header a {
+  align-self: center;
+  display: flex;
+  align-items: center;
+}
+
+.link-icon {
+  height: 1em;
+  width: auto;
+  display: block;
+}
+
 .recipe-entry__body {
   font-family: var(--font-body);
   font-size: var(--text-body);
   font-weight: 400;
   line-height: var(--line-body);
   text-align: justify;
+  margin: 0;
+}
+
+.recipe-entry__min {
+  font-family: var(--font-body);
+  font-size: 0.9em;
+  opacity: 0.6;
   margin: 0;
 }
 

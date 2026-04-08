@@ -44,6 +44,7 @@ def query_data(query, data, data_set_category, vectorizer, doc_by_vocab, name_we
                 'name': data[i].name,
                 'description': data[i].description,
                 'minutes': data[i].minutes,
+                'ingredients': data[i].ingredients,
                 'link': reconstructed_link,
             }, float(score)))
 
