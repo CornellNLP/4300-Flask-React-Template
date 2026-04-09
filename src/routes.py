@@ -47,6 +47,7 @@ def recommend_by_lyrics(user_input, top_n=5):
         results.append([songs_data[idx], similarities[idx] * 100])
 
     return results
+
 def json_search(query):
     if not query or not query.strip():
         query = "Love"
@@ -58,7 +59,7 @@ def json_search(query):
         matches.append({
             'title': song[0].title,
             'artist': song[0].artist,
-            'similarity': song[1],
+            'similarity': (round(song[1], 2)),
             'chords': song[0].chords,
             'guitar_difficulty': song[0].guitar_difficulty,
             'piano_difficulty': song[0].piano_difficulty
