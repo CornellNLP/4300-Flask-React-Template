@@ -9,6 +9,7 @@ function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [songs, setSongs] = useState<Song[]>([])
+  // const [difficulty, setDifficulty] = useState<string>('all')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -32,15 +33,33 @@ function App(): JSX.Element {
           <img src={Logo} alt="logo" />
           <h1>Harmony</h1>
         </div>
-        <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
+        <form
+          className="input-box"
+          onSubmit={(e) => {
+          e.preventDefault()
+          handleSearch(searchTerm)
+          }}
+          >
           <img src={SearchIcon} alt="search" />
           <input
             id="search-input"
             placeholder="Search for a song you want to learn"
             value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
+          {/* <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="easy">Easy (1–3)</option>
+            <option value="medium">Medium (4–7)</option>
+            <option value="hard">Hard (8–10)</option>
+          </select> */}
+          <button type="submit">
+            Search
+          </button>
+        </form>
       </div>
 
       {/* Search results (always shown) */}
@@ -62,3 +81,4 @@ function App(): JSX.Element {
 }
 
 export default App
+
