@@ -21,6 +21,7 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
+  const [suggestedSearch, setSuggestedSearch] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -69,7 +70,7 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
             try {
               const data = JSON.parse(line.slice(6))
               if (data.search_term !== undefined) {
-                onSearchTerm(data.search_term)
+                setSuggestedSearch(data.search_term)
               }
               if (data.error) {
                 setMessages(prev => [...prev.slice(0, -1), { text: 'Error: ' + data.error, isUser: false }])
@@ -104,6 +105,19 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
             <span className="loading-dot" />
           </div>
         )}
+
+        {suggestedSearch && (
+          <div className="search-suggestion">
+            <button
+              onClick={() => {
+                onSearchTerm(suggestedSearch)
+                setSuggestedSearch(null)
+        }}
+      >
+            Search for: {suggestedSearch}
+          </button>
+      </div>
+      )}
         <div ref={bottomRef} />
       </div>
 
