@@ -19,8 +19,8 @@ function App(): JSX.Element {
     setSearchTerm(value)
     if (value.trim() === '') { setSongs([]); return }
     const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Song[] = await response.json()
-    setSongs(data)
+    const data = await response.json()
+    setSongs(data.results)
   }
 
   if (useLlm === null) return <></>
@@ -70,6 +70,10 @@ function App(): JSX.Element {
             <h4 className="song-artist">by {song.artist}</h4>
             <p className="song-chords">Chords: {song.chords}</p>
             <p className="song-difficulty" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Guitar difficulty: {song.guitar_difficulty}/10</span> <span>Piano difficulty: {song.piano_difficulty}/10</span></p>
+            <p className="song-scores" style={{ display: 'flex', gap: '1rem', fontSize: '0.85em', color: '#888' }}>
+              <span>Cosine: {song.cosine_score}%</span>
+              <span>SVD: {song.svd_score}%</span>
+            </p>
           </div>
         ))}
       </div>

@@ -26,9 +26,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database with app
 db.init_app(app)
 
-# Register routes
-register_routes(app)
-
 # Function to initialize database, change this to your own database initialization logic
 def init_db():
     with app.app_context():
@@ -62,6 +59,9 @@ def init_db():
             print("Database initialized with songs")
 
 init_db()
+
+# Register routes
+register_routes(app)
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5001)
