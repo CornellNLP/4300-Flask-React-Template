@@ -77,30 +77,29 @@ export function OutputPage() {
         </div>
       </section>
 
-      {/* decor and music section */}
-        <div className="tunes-col">
-          <h2 className="section-heading">TUNES</h2>
-          <div className="playlist">
-            {playlist ? (
-              <>
-                <p className="playlist-title">{playlist.name}</p>
-                {songList.length === 0 ? (
-                  <p className="body-text">No songs found.</p>
-                ) : (
-                  songList.map((song, i) => (
-                    <p key={i} className="playlist-row">
-                      <span className="song-name">{song}</span>
-                      <span className="recipe-entry__dots" aria-hidden="true" />
-                      <span className="artist-name">{artistList[i] || ""}</span>
-                    </p>
-                  ))
-                )}
-              </>
-            ) : (
-              <p className="body-text">No playlist found.</p>
-            )}
-          </div>
+      <div className="tunes-col">
+        <h2 className="section-heading">TUNES</h2>
+        <div className="playlist">
+          {playlist ? (
+            <>
+              <p className="playlist-title">{playlist.name}</p>
+              {songList.length === 0 ? (
+                <p className="body-text">No songs found.</p>
+              ) : (
+                songList.map((song, i) => (
+                  <p key={i} className="playlist-row">
+                    <span className="song-name">{song}</span>
+                    <span className="recipe-entry__dots" aria-hidden="true" />
+                    <span className="artist-name">{artistList[i] || ""}</span>
+                  </p>
+                ))
+              )}
+            </>
+          ) : (
+            <p className="body-text">No playlist found.</p>
+          )}
         </div>
+      </div>
       <div className="food-images">
         <button onClick={handleRoundTwo} className="round-two-btn">
           ← round two
