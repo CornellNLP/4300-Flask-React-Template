@@ -296,3 +296,76 @@
   #answer-box { padding: 0 1rem; }
   #messages { padding: 0 8px 8px; }
 }
+
+.filters-panel {
+  margin: 1rem auto 0;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filter-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #bbb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-chip.active {
+  background: #ffb400;
+  border-color: #e0a300;
+  color: #000;
+}
+
+.filter-chip input {
+  margin: 0;
+}
+
+.filter-group select {
+  width: max-content;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.filter-toggle {
+  align-self: flex-start;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+}

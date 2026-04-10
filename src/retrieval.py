@@ -528,7 +528,7 @@ class ExerciseSearcher:
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
 
-    def search(self, query, k=5):
+    def search(self, query, k=5, equipment=None, max_level=None, injured_muscles=None):
         """Rank exercises against a natural-language query.
 
         Steps:
@@ -583,6 +583,34 @@ class ExerciseSearcher:
         query_vec = self.vectorizer.transform([expanded])
         scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
 
+        # Apply optional filters as a pre-ranking mask. Masked-out rows get a
+        # negative score so they never enter the top-k.
+        equipment_set = {e.strip().lower() for e in equipment} if equipment else None
+        _LEVEL_ORDER = ["beginner", "intermediate", "expert"]
+        allowed_levels = None
+        if max_level:
+            ml = max_level.strip().lower()
+            if ml in _LEVEL_ORDER:
+                allowed_levels = set(_LEVEL_ORDER[: _LEVEL_ORDER.index(ml) + 1])
+        injured_set = {m.strip().lower() for m in injured_muscles} if injured_muscles else None
+
+        if equipment_set or allowed_levels or injured_set:
+            for i, ex in enumerate(self.exercises):
+                if equipment_set is not None:
+                    eq = ex.get("equipment")
+                    if eq is None or eq not in equipment_set:
+                        scores[i] = -1.0
+                        continue
+                if allowed_levels is not None:
+                    if ex.get("level") not in allowed_levels:
+                        scores[i] = -1.0
+                        continue
+                if injured_set is not None:
+                    muscles = set(ex.get("primaryMuscles") or []) | set(ex.get("secondaryMuscles") or [])
+                    if not injured_set.isdisjoint(muscles):
+                        scores[i] = -1.0
+                        continue
+
         top_indices = np.argsort(scores)[::-1][:k]
         results = []
         for idx in top_indices:
@@ -611,7 +639,7 @@ class ExerciseSearcher:
 _searcher = None
 
 
-def search(query, k=5):
+def search(query, k=5, equipment=None, max_level=None, injured_muscles=None):
     """Public entry point: search exercises by natural-language query.
 
     Lazily initializes a singleton ``ExerciseSearcher`` on first call, then
@@ -631,4 +659,10 @@ def search(query, k=5):
     global _searcher
     if _searcher is None:
         _searcher = ExerciseSearcher()
-    return _searcher.search(query, k=k)
+    return _searcher.search(
+        query,
+        k=k,
+        equipment=equipment,
+        max_level=max_level,
+        injured_muscles=injured_muscles,
+    )

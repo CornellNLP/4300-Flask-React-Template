@@ -85,7 +85,27 @@ def register_routes(app):
         query = data.get("query", "")
         if not query.strip():
             return jsonify({"results": []})
-        payload = retrieval_search(query, k=5)
+
+        raw_equipment = data.get("equipment")
+        equipment = [e for e in raw_equipment if isinstance(e, str)] if isinstance(raw_equipment, list) else None
+        if equipment == []:
+            equipment = None
+
+        raw_difficulty = data.get("difficulty")
+        max_level = raw_difficulty if isinstance(raw_difficulty, str) and raw_difficulty else None
+
+        raw_injuries = data.get("injuries")
+        injured_muscles = [m for m in raw_injuries if isinstance(m, str)] if isinstance(raw_injuries, list) else None
+        if injured_muscles == []:
+            injured_muscles = None
+
+        payload = retrieval_search(
+            query,
+            k=5,
+            equipment=equipment,
+            max_level=max_level,
+            injured_muscles=injured_muscles,
+        )
         return jsonify(payload)
 
     if USE_LLM:

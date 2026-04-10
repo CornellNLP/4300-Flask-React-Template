@@ -14,3 +14,51 @@ export interface Exercise {
   category: string | null;
   instructions: string[];
 }
+
+export interface SearchRequest {
+  query: string;
+  equipment?: string[];
+  difficulty?: string;
+  injuries?: string[];
+}
+
+export const EQUIPMENT_OPTIONS: string[] = [
+  'barbell',
+  'dumbbell',
+  'body only',
+  'cable',
+  'machine',
+  'kettlebells',
+  'bands',
+  'medicine ball',
+  'exercise ball',
+  'foam roll',
+  'e-z curl bar',
+  'other',
+];
+
+export const DIFFICULTY_OPTIONS: ['beginner', 'intermediate', 'expert'] = [
+  'beginner',
+  'intermediate',
+  'expert',
+];
+
+export const MUSCLE_OPTIONS: string[] = [
+  'abdominals',
+  'abductors',
+  'adductors',
+  'biceps',
+  'calves',
+  'chest',
+  'forearms',
+  'glutes',
+  'hamstrings',
+  'lats',
+  'lower back',
+  'middle back',
+  'neck',
+  'quadriceps',
+  'shoulders',
+  'traps',
+  'triceps',
+];

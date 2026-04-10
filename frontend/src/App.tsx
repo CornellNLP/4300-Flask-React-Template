@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Exercise } from './types'
+import {
+  Exercise,
+  EQUIPMENT_OPTIONS,
+  DIFFICULTY_OPTIONS,
+  MUSCLE_OPTIONS,
+} from './types'
 import Chat from './Chat'
 import bgImage from './assets/gym_background.png'
 
@@ -10,6 +15,10 @@ function App(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState<string>('')
   // const [episodes, setEpisodes] = useState<Episode[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+  const [difficulty, setDifficulty] = useState<string>('')
+  const [injuries, setInjuries] = useState<string[]>([])
+  const [showInjuries, setShowInjuries] = useState<boolean>(false)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -23,15 +32,46 @@ function App(): JSX.Element {
     document.body.style.backgroundAttachment = 'fixed'
   }, [])
 
-  const handleSearch = async (value: string): Promise<void> => {
+  const handleSearch = async (
+    value: string,
+    overrides?: { equipment?: string[]; difficulty?: string; injuries?: string[] },
+  ): Promise<void> => {
     if (value.trim() === '') { setExercises([]); return }
+    const eq = overrides?.equipment ?? selectedEquipment
+    const diff = overrides?.difficulty ?? difficulty
+    const inj = overrides?.injuries ?? injuries
+    const body: Record<string, unknown> = { query: value }
+    if (eq.length > 0) body.equipment = eq
+    if (diff) body.difficulty = diff
+    if (inj.length > 0) body.injuries = inj
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: value }),
+      body: JSON.stringify(body),
     })
     const data = await res.json()
     setExercises(data.results)
+  }
+
+  const toggleEquipment = (value: string): void => {
+    const next = selectedEquipment.includes(value)
+      ? selectedEquipment.filter(v => v !== value)
+      : [...selectedEquipment, value]
+    setSelectedEquipment(next)
+    if (searchTerm.trim() !== '') handleSearch(searchTerm, { equipment: next })
+  }
+
+  const changeDifficulty = (value: string): void => {
+    setDifficulty(value)
+    if (searchTerm.trim() !== '') handleSearch(searchTerm, { difficulty: value })
+  }
+
+  const toggleInjury = (value: string): void => {
+    const next = injuries.includes(value)
+      ? injuries.filter(v => v !== value)
+      : [...injuries, value]
+    setInjuries(next)
+    if (searchTerm.trim() !== '') handleSearch(searchTerm, { injuries: next })
   }
 
   if (useLlm === null) return <></>
@@ -57,6 +97,63 @@ function App(): JSX.Element {
           />
         </div>
         <button className="search-btn" onClick={() => handleSearch(searchTerm)}>Search</button>
+
+        <div className="filters-panel">
+          <div className="filter-group">
+            <label className="filter-label">Equipment</label>
+            <div className="filter-chips">
+              {EQUIPMENT_OPTIONS.map(opt => (
+                <label key={opt} className={`filter-chip ${selectedEquipment.includes(opt) ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedEquipment.includes(opt)}
+                    onChange={() => toggleEquipment(opt)}
+                  />
+                  {opt}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="filter-group">
+            <label className="filter-label" htmlFor="difficulty-select">Difficulty</label>
+            <select
+              id="difficulty-select"
+              value={difficulty}
+              onChange={(e) => changeDifficulty(e.target.value)}
+            >
+              <option value="">Any</option>
+              {DIFFICULTY_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <button
+              type="button"
+              className="filter-toggle"
+              onClick={() => setShowInjuries(s => !s)}
+            >
+              {showInjuries ? '− ' : '+ '}Injured muscles to avoid
+              {injuries.length > 0 && ` (${injuries.length})`}
+            </button>
+            {showInjuries && (
+              <div className="filter-chips">
+                {MUSCLE_OPTIONS.map(opt => (
+                  <label key={opt} className={`filter-chip ${injuries.includes(opt) ? 'active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={injuries.includes(opt)}
+                      onChange={() => toggleInjury(opt)}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Show Results for Kardashians, Not Needed Anymore */}
