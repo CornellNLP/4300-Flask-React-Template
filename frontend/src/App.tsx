@@ -1,9 +1,36 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
+import { Episode, FilterOptionsPayload } from './types'
 import Chat from './Chat'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts'
+
+type HeartBurst = {
+  id: string
+  x: number
+  size: number
+  durationMs: number
+  delayMs: number
+  opacity: number
+  hue: 'pink' | 'berry'
+}
+
+const THEME_STORAGE_KEY = 'hey-girlie-theme'
+
+type ThemeMode = 'light' | 'dark'
+
+function readStoredTheme(): ThemeMode {
+  try {
+    const s = localStorage.getItem(THEME_STORAGE_KEY)
+    if (s === 'dark' || s === 'light') return s
+    /* migrate old three-mode values */
+    if (s === 'intense') return 'dark'
+    if (s === 'soft' || s === 'cozy') return 'light'
+  } catch {
+    /* ignore */
+  }
+  return 'light'
+}
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
@@ -19,16 +46,15 @@ function formatNum(n: number | undefined, digits = 2): string {
   return n.toFixed(digits)
 }
 
-function getGaugeWords(episode: Episode, maxWords = 10): string[] {
-  const dims = episode.top_matching_dimensions ?? []
-  const words: string[] = []
-  for (const d of dims) {
-    for (const w of d.words) {
-      if (!words.includes(w)) words.push(w)
-      if (words.length >= maxWords) return words
-    }
-  }
-  return words
+function buildEpisodesUrl(title: string, f: {
+  safeMode: boolean
+  blockwords: string
+}): string {
+  const p = new URLSearchParams()
+  p.set('title', title)
+  if (f.safeMode) p.set('safe_mode', '1')
+  if (f.blockwords.trim()) p.set('blockwords', f.blockwords.trim())
+  return `/api/episodes?${p.toString()}`
 }
 
 function ResultCard({ episode }: { episode: Episode }): JSX.Element {
@@ -40,8 +66,6 @@ function ResultCard({ episode }: { episode: Episode }): JSX.Element {
   const cosine = episode.cosine_similarity ?? episode.similarity_score
   const upvotes = episode.upvote_score ?? episode.imdb_rating
   const comments = episode.num_comments
-
-  const gaugeWords = getGaugeWords(episode, 12)
 
   return (
     <div className="result-card">
@@ -65,17 +89,6 @@ function ResultCard({ episode }: { episode: Episode }): JSX.Element {
             <div className="score-gauge__label">Final score</div>
             <div className="score-gauge__value">{formatPct(scorePct)}</div>
           </div>
-
-          {gaugeWords.length > 0 ? (
-            <div className="score-gauge__tooltip" role="tooltip">
-              <div className="score-gauge__tooltipTitle">Top words</div>
-              <div className="score-gauge__tooltipWords">
-                {gaugeWords.map((w) => (
-                  <span key={w} className="word-chip">{w}</span>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="result-card__content">
@@ -214,43 +227,60 @@ function HeartEyesCatIcon(): JSX.Element {
   )
 }
 
-type CloudSpec = {
-  id: string
-  className?: string
-  style: React.CSSProperties
-}
-
-function CloudLayer(): JSX.Element {
-  // Fewer, puffier clouds (cleaner page)
-  const clouds: CloudSpec[] = [
-    { id: 'c1', className: 'bg-cloud--puffyA', style: { left: '-220px', top: '-130px', width: '640px', height: '320px', transform: 'rotate(-8deg)', opacity: 0.9 } },
-    { id: 'c2', className: 'bg-cloud--puffyB', style: { right: '-260px', top: '-150px', width: '720px', height: '340px', transform: 'rotate(10deg)', opacity: 0.86 } },
-    { id: 'c3', className: 'bg-cloud--puffyC', style: { left: '-280px', bottom: '-190px', width: '760px', height: '360px', transform: 'rotate(9deg)', opacity: 0.78 } },
-    { id: 'c4', className: 'bg-cloud--puffyA', style: { right: '-320px', bottom: '-220px', width: '820px', height: '380px', transform: 'rotate(-11deg)', opacity: 0.74 } },
-    // small accents near middle edges
-    { id: 'c5', className: 'bg-cloud--puffyB', style: { left: '-220px', top: '260px', width: '520px', height: '260px', transform: 'rotate(6deg)', opacity: 0.36 } },
-    { id: 'c6', className: 'bg-cloud--puffyC', style: { right: '-240px', top: '320px', width: '520px', height: '260px', transform: 'rotate(-7deg)', opacity: 0.32 } },
-  ]
-
-  return (
-    <>
-      {clouds.map((c) => (
-        <div key={c.id} className={`bg-cloud ${c.className ?? ''}`} style={c.style} aria-hidden="true" />
-      ))}
-    </>
-  )
-}
-
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [lastQuery, setLastQuery] = useState<string>('')
+  const [heartBursts, setHeartBursts] = useState<HeartBurst[]>([])
+  const [theme, setTheme] = useState<ThemeMode>(readStoredTheme)
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsPayload | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [safeMode, setSafeMode] = useState(false)
+  const [blockwords, setBlockwords] = useState('')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
   }, [])
+
+  useEffect(() => {
+    fetch('/api/filter-options')
+      .then((r) => r.json())
+      .then((data: FilterOptionsPayload) => setFilterOptions(data))
+      .catch(() => setFilterOptions(null))
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      /* ignore */
+    }
+  }, [theme])
+
+  const spawnHearts = (count = 7): void => {
+    const now = Date.now()
+    const newHearts: HeartBurst[] = Array.from({ length: count }).map((_, i) => {
+      const id = `hb_${now}_${i}_${Math.random().toString(16).slice(2)}`
+      return {
+        id,
+        x: (Math.random() * 56) - 28,
+        size: 10 + Math.random() * 10,
+        durationMs: 900 + Math.random() * 900,
+        delayMs: Math.random() * 120,
+        opacity: 0.55 + Math.random() * 0.35,
+        hue: Math.random() < 0.72 ? 'pink' : 'berry',
+      }
+    })
+
+    const maxLifetime = Math.max(...newHearts.map(h => h.durationMs + h.delayMs))
+    setHeartBursts(prev => [...prev, ...newHearts])
+    window.setTimeout(() => {
+      setHeartBursts(prev => prev.filter(h => !newHearts.some(nh => nh.id === h.id)))
+    }, maxLifetime + 60)
+  }
 
   const handleSearch = async (value: string): Promise<void> => {
     setSearchTerm(value)
@@ -259,7 +289,11 @@ function App(): JSX.Element {
     if (q === '') { setEpisodes([]); return }
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/episodes?title=${encodeURIComponent(q)}`)
+      const url = buildEpisodesUrl(q, {
+        safeMode,
+        blockwords,
+      })
+      const response = await fetch(url)
       const data: Episode[] = await response.json()
       setEpisodes(data)
     } finally {
@@ -271,18 +305,68 @@ function App(): JSX.Element {
 
   return (
     <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
-      <CloudLayer />
+      <div className="theme-switcher" role="group" aria-label="Color mode">
+        {(['light', 'dark'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`theme-switcher__btn ${theme === t ? 'theme-switcher__btn--active' : ''}`}
+            onClick={() => setTheme(t)}
+            aria-pressed={theme === t}
+          >
+            {t === 'light' ? 'Light' : 'Dark'}
+          </button>
+        ))}
+      </div>
 
       {/* Search bar (always shown) */}
       <div className="top-text">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-          <div className="girlie-logo" aria-label="Hey Girlie">
-            <span className="girlie-logo__sparkle" aria-hidden="true">✦</span>
+          <div
+            className="girlie-logo girlie-logo--home"
+            role="link"
+            tabIndex={0}
+            aria-label="Back to home"
+            title="Back to home"
+            onClick={() => {
+              window.location.assign('/')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                window.location.assign('/')
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="girlie-logo__cat"
+              aria-label="Cat mascot (click for hearts)"
+              onClick={(ev) => {
+                ev.stopPropagation()
+                spawnHearts(9)
+              }}
+            >
+              <HeartEyesCatIcon />
+              {heartBursts.map((h) => (
+                <span
+                  key={h.id}
+                  className={`cat-burst-heart cat-burst-heart--${h.hue}`}
+                  style={{
+                    ['--x' as any]: `${h.x}px`,
+                    ['--size' as any]: `${h.size}px`,
+                    ['--dur' as any]: `${h.durationMs}ms`,
+                    ['--delay' as any]: `${h.delayMs}ms`,
+                    ['--op' as any]: h.opacity,
+                  }}
+                  aria-hidden="true"
+                >
+                  ♥
+                </span>
+              ))}
+            </button>
             <span className="girlie-logo__text">Hey Girlie</span>
             <span className="girlie-logo__dots" aria-hidden="true">…</span>
-          </div>
-          <div className="logo-side-icon" aria-hidden="true">
-            <HeartEyesCatIcon />
           </div>
         </div>
         <p className="project-subtitle">
@@ -301,6 +385,58 @@ function App(): JSX.Element {
               }
             }}
           />
+        </div>
+
+        <div className="search-filters">
+          <button
+            type="button"
+            className="search-filters__toggle"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((o) => !o)}
+          >
+            Filters — block words and safe mode
+            <span className="search-filters__chevron" aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
+          </button>
+          {filtersOpen && !filterOptions ? (
+            <p className="search-filters__loading">Loading filters…</p>
+          ) : null}
+          {filtersOpen && filterOptions ? (
+            <div className="search-filters__panel">
+              <p className="search-filters__hint">
+                {filterOptions.blockwords_help}{' '}
+                {filterOptions.safe_mode_help}
+              </p>
+
+              <div className="search-filters__row">
+                <span className="search-filters__label">Block words</span>
+                <input
+                  type="text"
+                  className="search-filters__text"
+                  placeholder="e.g. gambling, drugs, slur phrase here"
+                  value={blockwords}
+                  onChange={(e) => setBlockwords(e.target.value)}
+                  aria-label="Words or phrases to exclude from results"
+                />
+              </div>
+
+              <label className="search-filters__check">
+                <input
+                  type="checkbox"
+                  checked={safeMode}
+                  onChange={(e) => setSafeMode(e.target.checked)}
+                />
+                <span>Safe mode — also hide posts that match a built-in adult / explicit term list</span>
+              </label>
+
+              <button
+                type="button"
+                className="search-filters__apply"
+                onClick={() => { if (searchTerm.trim()) void handleSearch(searchTerm) }}
+              >
+                Apply filters to search
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -357,6 +493,11 @@ function App(): JSX.Element {
             {episodes.length > 0 && (
               <p className="result-count">Top {episodes.length} matches</p>
             )}
+            {episodes.length === 0 && lastQuery && !isLoading ? (
+              <p className="result-count result-count--empty">
+                No posts matched. Clear block words if you listed very common terms (e.g. “reddit”), turn off safe mode if it is hiding everything, or try a different search.
+              </p>
+            ) : null}
             {episodes.map((episode, index) => (
               <ResultCard key={`${episode.rank ?? index}-${episode.title}`} episode={episode} />
             ))}

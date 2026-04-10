@@ -10,6 +10,14 @@ import re
 from difflib import SequenceMatcher
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
+from search_filters import (
+    filter_options_payload,
+    normalize_combined_text,
+    parse_request_filters,
+    passes_filters,
+    tag_boost_bonus,
+    tags_matched,
+)
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -376,9 +384,22 @@ def blend_scores(cosine_scores, upvote_scores, upvote_weight=0.15):
     return blended, norm_upvotes
 
 
-def json_search(query):
+def json_search(query, filters=None):
+    """
+    Semantic search over posts with optional filters: topic tags (text match), block words, safe mode.
+
+    filters: dict from search_filters.parse_request_filters or None for defaults.
+    """
     if not query or not query.strip():
         query = "need relationship advice"
+
+    if filters is None:
+        filters = {
+            "tag_ids": [],
+            "tag_mode": "boost",
+            "safe_mode": False,
+            "extra_block_words": set(),
+        }
 
     models = get_search_models()
     df = models["df"]
@@ -392,14 +413,15 @@ def json_search(query):
 
     # Compute cosine similarities between query and all docs
     sims = sklearn_cosine_similarity(query_vec, doc_vectors)[0]
-    
-    # Get top 10 indices
-    top_indices = sims.argsort()[-10:][::-1]
-    
+
+    # Larger candidate pool so filters can still yield ~10 results
+    pool = min(200, len(sims))
+    top_indices = sims.argsort()[-pool:][::-1]
+
     # Avoid zero division when normalizing query
     query_norm = np.linalg.norm(query_vec[0])
     q_vec_normalized = query_vec[0] / query_norm if query_norm > 0 else query_vec[0]
-    
+
     upvote_weight = 0.15
     rows = []
     dim_top_words = models["dim_top_words"]
@@ -449,15 +471,27 @@ def json_search(query):
         comments_extra = ""
         if comment_column:
             comments_extra = str(row_data.get(comment_column, "") or "")
+        title_s = str(row_data["title"])
+        text_for_filters = normalize_combined_text(title_s, body_full)
+        if comment_column and _is_placeholder_body(body_full) and comments_extra:
+            text_for_filters = normalize_combined_text(title_s, comments_extra)
+
+        req_tags = filters["tag_ids"]
+        tags_hit = tags_matched(text_for_filters, req_tags) if req_tags else set()
+
+        ok, _drop_reason = passes_filters(text_for_filters, tags_hit, filters)
+        if not ok:
+            continue
+
         body_summary, summary_source, hint_len = build_post_summary(
-            str(row_data["title"]),
+            title_s,
             body_full,
             comments_extra or None,
             query=query,
         )
 
         rows.append({
-            "title": str(row_data['title']),
+            "title": title_s,
             "descr": body_summary,
             "summary_source": summary_source,
             "body_full_length": hint_len if summary_source == "comments" else len(body_full),
@@ -470,7 +504,8 @@ def json_search(query):
             "cosine_similarity": round(sim_score, 4),
             "similarity_score": round(sim_score, 4),
             "top_matching_dimensions": top_matching_dimensions,
-            "radar_strengths": radar_strengths
+            "radar_strengths": radar_strengths,
+            "_tags_hit": tags_hit,
         })
 
     cosine_scores = [row["cosine_similarity"] for row in rows]
@@ -479,19 +514,24 @@ def json_search(query):
 
     for i, row in enumerate(rows):
         row["upvote_score_norm"] = round(norm_upvotes[i], 4)
-        row["final_score"] = final_scores[i]
-        row["final_score_pct"] = round(final_scores[i] * 100, 2)
+        base = final_scores[i]
+        tb = tag_boost_bonus(row["_tags_hit"], filters["tag_ids"])
+        adj = min(1.0, base + tb)
+        row["final_score"] = round(adj, 4)
+        row["final_score_pct"] = round(adj * 100, 2)
         row["score_blend"] = {
             "cosine_weight": round(1.0 - upvote_weight, 2),
             "upvote_weight": round(upvote_weight, 2),
+            "tag_boost": round(tb, 4),
         }
+        del row["_tags_hit"]
 
     rows.sort(key=lambda item: (item["final_score"], item["cosine_similarity"]), reverse=True)
-    
+
     top_rows = rows[:10]
     for rank, row in enumerate(top_rows, start=1):
         row["rank"] = rank
-        
+
     return top_rows
 
 
@@ -508,10 +548,15 @@ def register_routes(app):
     def config():
         return jsonify({"use_llm": USE_LLM})
 
+    @app.route("/api/filter-options")
+    def filter_options():
+        return jsonify(filter_options_payload())
+
     @app.route("/api/episodes")
     def episodes_search():
         text = request.args.get("title", "")
-        return jsonify(json_search(text))
+        flt = parse_request_filters(request.args)
+        return jsonify(json_search(text, filters=flt))
 
     if USE_LLM:
         from llm_routes import register_chat_route

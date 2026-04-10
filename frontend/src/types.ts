@@ -25,3 +25,8 @@ export interface Episode {
     value: number;
   }[];
 }
+
+export interface FilterOptionsPayload {
+  safe_mode_help: string;
+  blockwords_help: string;
+}
