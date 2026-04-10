@@ -38,8 +38,6 @@ function App(): JSX.Element {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [filters, setFilters] = useState<Filters>({ category: '', minPrice: '', maxPrice: '', minRating: '', sortBy: 'relevance' })
-  const [likedIds, setLikedIds] = useState<number[]>([])
-  const [dislikedIds, setDislikedIds] = useState<number[]>([])
   const latestRequestId = useRef<number>(0)
 
   useEffect(() => {
@@ -47,7 +45,7 @@ function App(): JSX.Element {
     fetch('/api/categories').then(r => r.json()).then(setCategories)
   }, [])
 
-  const runSearch = async (term: string, currentFilters: Filters, currentLikedIds: number[], currentDislikedIds: number[]): Promise<void> => {
+  const runSearch = async (term: string, currentFilters: Filters): Promise<void> => {
     const trimmed = term.trim()
     if (trimmed === '') {
       setProducts([])
@@ -62,8 +60,6 @@ function App(): JSX.Element {
     if (currentFilters.maxPrice) params.set('max_price', currentFilters.maxPrice)
     if (currentFilters.minRating) params.set('min_rating', currentFilters.minRating)
     if (currentFilters.sortBy !== 'relevance') params.set('sort_by', currentFilters.sortBy)
-    if (currentLikedIds.length) params.set('liked_ids', currentLikedIds.join(','))
-    if (currentDislikedIds.length) params.set('disliked_ids', currentDislikedIds.join(','))
     try {
       const response = await fetch(`/api/products/search?${params}`)
       if (!response.ok) {
@@ -94,16 +90,6 @@ function App(): JSX.Element {
     setFilters(newFilters)
   }
 
-  const toggleLike = (id: number): void => {
-    setLikedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-    setDislikedIds(prev => prev.filter(x => x !== id))
-  }
-
-  const toggleDislike = (id: number): void => {
-    setDislikedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-    setLikedIds(prev => prev.filter(x => x !== id))
-  }
-
   useEffect(() => {
     const trimmed = searchTerm.trim()
     if (!trimmed) {
@@ -117,13 +103,13 @@ function App(): JSX.Element {
     setVisibleCount(24)
     setIsSearching(true)
     const timer = window.setTimeout(() => {
-      runSearch(trimmed, filters, likedIds, dislikedIds)
+      runSearch(trimmed, filters)
     }, 350)
 
     return () => {
       window.clearTimeout(timer)
     }
-  }, [searchTerm, filters, likedIds, dislikedIds])
+  }, [searchTerm, filters])
 
   if (useLlm === null) return <></>
 
@@ -188,23 +174,11 @@ function App(): JSX.Element {
         {visibleProducts.map((product, index) => (
           <div key={index} className={`product-item${product.out_of_stock ? ' out-of-stock' : ''}`}>
 
-            {/* Top row: product name/brand + feedback */}
+            {/* Top row: product name/brand */}
             <div className="card-header">
               <div>
                 <h3 className="product-name">{product.name}</h3>
                 <p className="product-brand">{product.brand}</p>
-              </div>
-              <div className="feedback-buttons">
-                <button
-                  className={`feedback-btn${likedIds.includes(product.id) ? ' active-like' : ''}`}
-                  onClick={() => toggleLike(product.id)}
-                  title="More like this"
-                >👍</button>
-                <button
-                  className={`feedback-btn${dislikedIds.includes(product.id) ? ' active-dislike' : ''}`}
-                  onClick={() => toggleDislike(product.id)}
-                  title="Less like this"
-                >👎</button>
               </div>
             </div>
 
@@ -212,10 +186,9 @@ function App(): JSX.Element {
             <div className="pill-row">
               <SafetyBadge score={product.safety_score} />
               <span className="badge badge-category">{product.category}</span>
-              {product.highlights && product.highlights.replace(/^\[|\]$/g, '').split(',').map((h, i) => {
-                const clean = h.trim().replace(/^['"]|['"]$/g, '').trim()
-                return clean ? <span key={`highlight-${i}`} className="highlight-tag">{clean}</span> : null
-              })}
+              {product.highlights && product.highlights.split(',').map((h, i) => (
+                <span key={`highlight-${i}`} className="highlight-tag">{h.trim()}</span>
+              ))}
               {product.flagged_ingredients?.map((ing, i) => (
                 <span key={`flagged-${i}`} className="flagged-tag">{ing}</span>
               ))}
