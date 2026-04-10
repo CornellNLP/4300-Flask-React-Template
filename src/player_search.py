@@ -195,6 +195,13 @@ def rate_or_none(numerator: Optional[int], denominator: Optional[int]) -> Option
 
 
 def normalize_row(row: Dict[str, Any], league: str) -> Dict[str, Any]:
+    player_id = first_non_empty(
+        row.get("player_id"),
+        row.get("provider_id"),
+        row.get("opta_id"),
+        row.get("id"),
+    )
+
     if league == "La Liga":
         name = first_non_empty(row.get("player_name"), row.get("nickname")) or "Unknown Player"
         appearances = safe_int(row.get("total_games"))
@@ -250,6 +257,7 @@ def normalize_row(row: Dict[str, Any], league: str) -> Dict[str, Any]:
     season_years = extract_season_years(row, league)
 
     return {
+        "player_id": player_id,
         "name": name,
         "normalized_name": normalized_name,
         "nationality": nationality,
@@ -275,6 +283,7 @@ def normalize_row(row: Dict[str, Any], league: str) -> Dict[str, Any]:
 
 def serialize_player(player: Dict[str, Any]) -> Dict[str, Any]:
     return {
+        "player_id": player.get("player_id"),
         "name": player.get("name"),
         "nationality": player.get("nationality"),
         "position": player.get("position"),
