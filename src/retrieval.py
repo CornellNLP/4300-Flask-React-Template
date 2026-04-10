@@ -21,6 +21,9 @@ Key IR techniques:
       vocabulary using the Wagner-Fisher minimum edit distance algorithm.
       Tokens not found in the vocabulary are replaced with the closest
       vocabulary term within a maximum edit distance of 2.
+    - Light load-time cleaning of the Free Exercise DB: secondaryMuscles is
+      deduped against primaryMuscles so a muscle listed in both fields is
+      not double-weighted. See data/DATASETS.md for the full data audit.
 """
 import json
 import os
@@ -321,6 +324,21 @@ def _safe(val):
     return str(val)
 
 
+def _dedup_secondary(ex):
+    """Return secondaryMuscles with any entries that also appear in
+    primaryMuscles removed.
+
+    9 exercises in the upstream Free Exercise DB list the same muscle in both
+    primaryMuscles and secondaryMuscles (e.g. "Barbell Step Ups" has
+    quadriceps in both). Without this dedup, those muscles would be weighted
+    1.0 (primary) + 0.4 (secondary) = 1.4x, giving those 9 docs a small but
+    unearned TF bump on the shared muscle term. See data/DATASETS.md.
+    """
+    primary = set(ex.get("primaryMuscles") or [])
+    secondary = ex.get("secondaryMuscles") or []
+    return [m for m in secondary if m not in primary]
+
+
 def _build_weighted_doc(ex):
     """Build a single TF-IDF document string for one exercise.
 
@@ -333,6 +351,9 @@ def _build_weighted_doc(ex):
     Instructions are appended once at the end (unweighted) to provide
     additional context without dominating the score.
 
+    secondaryMuscles is deduped against primaryMuscles (see _dedup_secondary)
+    so that a muscle listed in both fields is not double-weighted.
+
     Args:
         ex: A single exercise dict from the Free Exercise DB JSON.
 
@@ -341,7 +362,10 @@ def _build_weighted_doc(ex):
     """
     parts = []
     for field, weight in FIELD_WEIGHTS.items():
-        text = _safe(ex.get(field, ""))
+        if field == "secondaryMuscles":
+            text = _safe(_dedup_secondary(ex))
+        else:
+            text = _safe(ex.get(field, ""))
         if text:
             repeat = max(1, int(weight * 5))  # scale weights into repeat counts
             parts.extend([text] * repeat)
