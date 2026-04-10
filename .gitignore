@@ -27,5 +27,5 @@ frontend/dist/
 frontend/node_modules/
 package-lock.json
 
-src/data/archive/
+# src/data/archive
 src/data_scripts/spotify_podcast_collector.ipynb
