@@ -25,6 +25,7 @@ json_template/
 
 # Large files
 data/datasets/programs_kaggle.csv
+data/datasets/programs_kaggle_clean.csv
 data/gym_dataset.zip
 
 # Node/React
