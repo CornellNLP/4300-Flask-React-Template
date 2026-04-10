@@ -24,16 +24,16 @@ USE_LLM = False
 OS_PATH = os.path.dirname(os.path.abspath(__file__))
 # with open(os.path.join(OS_PATH, 'data/svd_shows_improved.pkl'), 'rb') as f:
 #     svd_model = pickle.load(f) 
-with open(os.path.join(OS_PATH, 'data/svd_shows.pkl'), 'rb') as f:
+with open(os.path.join(OS_PATH, 'data/svd_shows_improved2.pkl'), 'rb') as f:
     svd_model = pickle.load(f) 
     
 # shape: (n_podcasts, 100)
 # embeddings = np.load(os.path.join(OS_PATH, 'data/embeddings/description_embeddings_mixed.npy'))
 # show_ids = Path(os.path.join(OS_PATH, 'data/embeddings/embedding_show_ids.txt')).read_text().splitlines()
 # df = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts_cleaned.csv'))
-embeddings = np.load(os.path.join(OS_PATH, 'data/embeddings/description_embeddings.npy'))
-show_ids = Path(os.path.join(OS_PATH, 'data/embeddings/embedding_show_ids.txt')).read_text().splitlines()
-df = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts.csv'))
+embeddings = np.load(os.path.join(OS_PATH, 'data/embeddings/description_embeddings_improved2.npy'))
+show_ids = Path(os.path.join(OS_PATH, 'data/embeddings/embedding_show_ids2.txt')).read_text().splitlines()
+df = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts2.csv'))
 
 KNOWN_GENRES = [
     'Comedy',
@@ -224,7 +224,7 @@ def json_search(query, explicit=False, genres=None, excluded_genres=None, publis
             'score': round(float(r['score']), 4),
             'popularity': r['podcast'].popularity_score,
             'episode_count': r['podcast'].episode_count,
-            # 'avg_episode_time': r['podcast'].avg_duration_min,
+            'avg_episode_time': r['podcast'].avg_duration_min,
         } for r in results]
     )
 

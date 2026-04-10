@@ -140,7 +140,7 @@ function QueryComponent({ title, idPrefix, onSearch, initialQuery = '' }: QueryC
               className="query-select"
             >
               <option value="total_episodes">Number of Episodes</option>
-              {/* <option value="duration_ms">Episode Duration</option> */}
+              <option value="duration_ms">Episode Duration</option>
             </select>
             <label htmlFor={`${idPrefix}-min-length`} className="query-label subtle-label">Minimum Value</label>
             <input

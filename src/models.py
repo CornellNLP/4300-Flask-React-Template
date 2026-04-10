@@ -14,7 +14,7 @@ class Podcast(db.Model):
     descr = db.Column(db.Text, nullable=True, default="No description available.")
     categories = db.Column(db.String(256), nullable=False)
     explicit = db.Column(db.Boolean, nullable=False)
-    # avg_duration_min = db.Column(db.Float, nullable=True, default=0) # TODO: implement
+    avg_duration_min = db.Column(db.Float, nullable=True, default=0) # TODO: implement
     episode_count = db.Column(db.Integer, nullable=True, default=0)
     language = db.Column(db.String(16), nullable=True, default="Unknown")
     image_url = db.Column(db.String(256), nullable=True, default="No image URL")
@@ -35,7 +35,7 @@ class Episode(db.Model):
     podcast_id = db.Column(db.String, db.ForeignKey('podcasts.id'), nullable=False)
     podcast_name = db.Column(db.String(64), nullable=False)
     category = db.Column(db.String(64), nullable=False)
-    episode_name = db.Column(db.String(64), nullable=False)
+    episode_name = db.Column(db.String(64), nullable=True, default="Unknown Episode Name")
     description = db.Column(db.String(1024), nullable=True, default="No description available.")
     duration_min = db.Column(db.Float, nullable=False)
     release_date = db.Column(db.DateTime, nullable=True, default=None)

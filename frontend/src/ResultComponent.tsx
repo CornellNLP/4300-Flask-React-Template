@@ -71,13 +71,13 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
     setSelectedPodcast(null)
   }
 
-  // const formatAvgEpisodeTime = (minutes?: number): string => {
-  //   if (minutes === undefined || minutes === null || Number.isNaN(minutes)) {
-  //     return 'N/A'
-  //   }
+  const formatAvgEpisodeTime = (minutes?: number): string => {
+    if (minutes === undefined || minutes === null || Number.isNaN(minutes)) {
+      return 'N/A'
+    }
 
-  //   return `${minutes.toFixed(1)} min`
-  // }
+    return `${minutes.toFixed(1)} min`
+  }
 
   return (
     <>
@@ -140,7 +140,7 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
             <div className="modal-why">
               <h3>Podcast Details</h3>
               <p>Episode count: {selectedPodcast.episode_count ?? 'N/A'}</p>
-              {/* <p>Average episode time: {formatAvgEpisodeTime(selectedPodcast.avg_episode_time)}</p> */}
+              <p>Average episode time: {formatAvgEpisodeTime(selectedPodcast.avg_episode_time) ?? 'N/A'}</p>
             </div>
 
             <div className="modal-why">
