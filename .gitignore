@@ -24,7 +24,7 @@ helpers/*
 json_template/
 
 # Large files
-data/datasets/programs_detailed_boostcamp_kaggle.csv
+data/datasets/programs_kaggle.csv
 data/gym_dataset.zip
 
 # Node/React
