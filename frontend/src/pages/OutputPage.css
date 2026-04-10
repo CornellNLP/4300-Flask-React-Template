@@ -105,6 +105,7 @@
 .recipe-link:hover {
   filter: brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(1733%) hue-rotate(2deg) brightness(112%) contrast(105%);
   text-decoration: underline;
+  cursor: pointer;
 }
 
 .recipe-entry__body {
