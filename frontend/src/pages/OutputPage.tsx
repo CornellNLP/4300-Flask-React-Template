@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router";
 import imgCandles from "../assets/table3.png";
 import imgBread from "../assets/bread.png";
 import imgCheese from "../assets/cheese.png";
-import linkIcon from "../assets/external-link.png";
+import linkIcon from "../assets/link.svg";
 import { Recipe, Playlist } from "../types";
 import "./OutputPage.css";
 
@@ -53,11 +53,13 @@ export function OutputPage() {
               recipes.map((recipe) => (
                 <div key={recipe.name} className="recipe-entry">
                   <div className="recipe-entry__header">
-                    <p className="recipe-entry__title">{recipe.name}</p>
+                    <div className="recipe-link">
+                      <p className="recipe-entry__title">{recipe.name}</p>
+                      <a href={recipe.link} target="_blank" rel="noopener noreferrer">
+                        <img alt="" className="link-icon" src={linkIcon} />
+                      </a>
+                    </div>
                     <span className="recipe-entry__dots" aria-hidden="true" />
-                    <a href={recipe.link} target="_blank" rel="noopener noreferrer">
-                      <img alt="" className="link-icon" src={linkIcon} />
-                    </a>
                   </div>
                   <p className="recipe-entry__body">{recipe.description}</p>
                   <p className="recipe-entry__min">{recipe.minutes} min</p>
@@ -102,7 +104,7 @@ export function OutputPage() {
       </div>
       <div className="food-images">
         <button onClick={handleRoundTwo} className="round-two-btn">
-          ← round two
+          ← next party
         </button>
         <img alt="" className="bread-img" src={imgBread} />
         <img alt="" className="cheese-img" src={imgCheese} />
