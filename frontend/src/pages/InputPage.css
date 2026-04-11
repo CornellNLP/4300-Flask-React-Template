@@ -43,7 +43,7 @@
 
 .mode-toggle-container {
   display: grid;
-  align-items: center;
+  justify-items: right;
 }
 
 .mode-toggle-group {
@@ -64,7 +64,7 @@
 
 .clear-input-btn {
   font-family: var(--font-body);
-  font-size: clamp(0.75rem, 1vw, 0.75rem);
+  font-size: clamp(0.8rem, 1vw, 0.8rem);
   font-weight: 500;
   color: var(--color-text-dark);
   background: transparent;
@@ -73,8 +73,7 @@
 }
 
 .clear-input-btn:hover {
-  /* text-decoration: underline; */
-  opacity: 0.8;
+  color: var(--color-chip-active);
 }
 
 .mode-toggle {

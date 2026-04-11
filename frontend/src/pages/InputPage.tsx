@@ -214,6 +214,9 @@ export function InputPage() {
     setDecorKeyword("");
     setLength("");
     setIngredients("");
+
+    setDietary([]);
+    setCourses([]);
   };
 
   return (
@@ -260,7 +263,7 @@ export function InputPage() {
             className="clear-input-btn"
             type="button"
           >
-            reset {mode === "madlibs" ? "guided" : "freeform"} input
+            reset filters and {mode === "madlibs" ? "guided" : "freeform"} input
           </button>
         </div>
       </div>
