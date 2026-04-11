@@ -47,7 +47,8 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 # 3. Start Flask backend (in one terminal)
-python src/app.py
+cd src
+python app.py
 
 # 4. In a NEW terminal, install and start React
 cd frontend
