@@ -204,6 +204,9 @@ export function InputPage() {
   };
 
   const clearSavedInput = () => {
+    setDietary([]);
+    setCourses([]);
+
     if (mode === "freeform") {
       setFreeform("");
       return;
@@ -214,9 +217,6 @@ export function InputPage() {
     setDecorKeyword("");
     setLength("");
     setIngredients("");
-
-    setDietary([]);
-    setCourses([]);
   };
 
   return (

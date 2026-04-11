@@ -104,7 +104,7 @@ export function OutputPage() {
       </div>
       <div className="food-images">
         <button onClick={handleRoundTwo} className="round-two-btn">
-          ← next party
+          ← keep this party going
         </button>
         <img alt="" className="bread-img" src={imgBread} />
         <img alt="" className="cheese-img" src={imgCheese} />

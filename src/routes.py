@@ -108,7 +108,7 @@ def cosine_search_recipes(query, dietary_filters, course_filters):
     recipes = db.session.query(Recipe).all()
     recipes = filter_recipes(recipes, dietary_filters, DIETARY_FILTERS)
     recipes = filter_recipes(recipes, course_filters, COURSE_FILTERS, force_include=True)
-    print(f"Filtered from 2000 to {len(recipes)} recipes based on dietary filters: {dietary_filters} and course filters: {course_filters}")
+    # print(f"Filtered from 2000 to {len(recipes)} recipes based on dietary filters: {dietary_filters} and course filters: {course_filters}")
 
     vectorizer, doc_by_vocab = matching.build_tfidf_index(recipes, "recipe")
     if vectorizer is None or doc_by_vocab is None:
