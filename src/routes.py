@@ -22,7 +22,6 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def clean_product_description(text):
     if not text:
         return ""
@@ -146,11 +145,6 @@ score_name = []
 
 @lru_cache(maxsize=1)
 def load_skin_condition_rules():
-    """
-    Load skin condition ingredient guidance from CSV once and cache it.
-    Returns dictionaries for condition -> good/bad ingredient lists,
-    plus global ingredient lexicons for query intent extraction.
-    """
     current_directory = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_directory, 'ingredients_skin_conditions.csv')
 
@@ -160,334 +154,330 @@ def load_skin_condition_rules():
     all_bad_terms = set()
 
     if not os.path.exists(file_path):
-        return {
-            'condition_rules': condition_rules,
-            'alias_to_condition': alias_to_condition,
-            'all_good_terms': all_good_terms,
-            'all_bad_terms': all_bad_terms,
-        }
+        return {'condition_rules': condition_rules, 'alias_to_condition': alias_to_condition,
+                'all_good_terms': all_good_terms, 'all_bad_terms': all_bad_terms}
 
     with open(file_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
+        for row in csv.DictReader(csvfile):
             raw_condition = (row.get('Skin_Condition/Concern') or '').strip()
             if not raw_condition:
                 continue
-
             aliases = [c.strip() for c in raw_condition.split(',') if c.strip()]
-            canonical_condition = aliases[0].lower()
+            canonical = aliases[0].lower()
+            good = [x.strip().lower() for x in (row.get('Good_Ingredients') or '').replace('\n', ',').split(',') if x.strip()]
+            bad  = [x.strip().lower() for x in (row.get('Bad_Ingredients')  or '').replace('\n', ',').split(',') if x.strip()]
 
-            good_ingredients = [
-                x.strip().lower()
-                for x in (row.get('Good_Ingredients') or '').replace('\n', ',').split(',')
-                if x.strip()
-            ]
-            bad_ingredients = [
-                x.strip().lower()
-                for x in (row.get('Bad_Ingredients') or '').replace('\n', ',').split(',')
-                if x.strip()
-            ]
-
-            if canonical_condition not in condition_rules:
-                condition_rules[canonical_condition] = {'good': set(), 'bad': set()}
-            condition_rules[canonical_condition]['good'].update(good_ingredients)
-            condition_rules[canonical_condition]['bad'].update(bad_ingredients)
-
+            condition_rules.setdefault(canonical, {'good': set(), 'bad': set()})
+            condition_rules[canonical]['good'].update(good)
+            condition_rules[canonical]['bad'].update(bad)
             for alias in aliases:
-                alias_to_condition[alias.lower()] = canonical_condition
+                alias_to_condition[alias.lower()] = canonical
+            all_good_terms.update(good)
+            all_bad_terms.update(bad)
 
-            all_good_terms.update(good_ingredients)
-            all_bad_terms.update(bad_ingredients)
-
-    return {
-        'condition_rules': condition_rules,
-        'alias_to_condition': alias_to_condition,
-        'all_good_terms': all_good_terms,
-        'all_bad_terms': all_bad_terms,
-    }
+    return {'condition_rules': condition_rules, 
+            'alias_to_condition': alias_to_condition,
+            'all_good_terms': all_good_terms, 
+            'all_bad_terms': all_bad_terms}
 
 
 def _ingredients_present(ingredients_text, candidates):
-    """Return candidate terms that appear in the product ingredient text."""
     if not ingredients_text or not candidates:
         return set()
-
     ingredients_norm = normalize_search_text(ingredients_text)
-    matched = set()
-    for term in candidates:
-        term_norm = normalize_search_text(term)
-        if term_norm and term_norm in ingredients_norm:
-            matched.add(term)
-    return matched
+    return {term for term in candidates if normalize_search_text(term) and normalize_search_text(term) in ingredients_norm}
 
+CATEGORY_KEYWORDS = {
+    'cleanser':    ['cleanser', 'cleanse', 'face wash', 'foaming wash', 'facewash'],
+    'moisturizer': ['moisturizer', 'moisturize', 'moisturiser', 'lotion', 'cream', 'hydrator'],
+    'serum':       ['serum', 'essence', 'ampoule', 'treatment'],
+    'toner':       ['toner', 'tonic', 'mist'],
+    'mask':        ['mask', 'masque', 'peel'],
+    'sunscreen':   ['sunscreen', 'spf', 'sunblock'],
+    'eye cream':   ['eye cream', 'eye gel', 'eye serum'],
+    'oil':         ['face oil', 'facial oil'],
+    'exfoliator':  ['exfoliator', 'scrub', 'exfoliant'],
+    'foundation':  ['foundation'],
+    'concealer':   ['concealer'],
+    'primer':      ['primer'],
+    'blush':       ['blush'],
+    'highlighter': ['highlighter'],
+    'mascara':     ['mascara'],
+    'eyeliner':    ['eyeliner'],
+    'eyeshadow':   ['eyeshadow'],
+    'lipstick':    ['lipstick'],
+    'palette':     ['palette'],
+    'brow':        ['brow'],
+}
 
 def parse_query_skin_context(query):
-    """
-    Extract condition-aware and ingredient-intent signals from the query.
-    - Detects mentioned skin conditions using aliases from CSV.
-    - Detects direct ingredient preferences/avoidance (e.g. "with niacinamide", "avoid fragrance").
-    """
     rules = load_skin_condition_rules()
     normalized_query = normalize_search_text(query)
 
-    detected_conditions = set()
-    for alias, canonical in rules['alias_to_condition'].items():
-        alias_norm = normalize_search_text(alias)
-        if alias_norm and re.search(rf'\b{re.escape(alias_norm)}\b', normalized_query):
-            detected_conditions.add(canonical)
+    # Detect skin conditions
+    detected_conditions = {
+        canonical for alias, canonical in rules['alias_to_condition'].items()
+        if normalize_search_text(alias) and re.search(rf'\b{re.escape(normalize_search_text(alias))}\b', normalized_query)
+    }
 
+    # Detect ingredient preferences/avoidances from query markers
     prefer_markers = ('with ', 'contains ', 'good for ', 'best for ', 'help ', 'helps ', 'for ')
-    avoid_markers = ('without ', 'avoid ', 'no ', 'free of ', 'exclude ', 'exclude ')
-    wants_prefer = any(marker in normalized_query for marker in prefer_markers)
-    wants_avoid = any(marker in normalized_query for marker in avoid_markers)
+    avoid_markers  = ('without ', 'avoid ', 'no ', 'free of ', 'exclude ')
+    wants_prefer = any(m in normalized_query for m in prefer_markers)
+    wants_avoid  = any(m in normalized_query for m in avoid_markers)
 
-    preferred_ingredients = set()
-    avoided_ingredients = set()
-
-    # Only include terms present in the user query to keep intent explicit.
-    all_known_terms = rules['all_good_terms'].union(rules['all_bad_terms'])
-    for term in all_known_terms:
+    preferred_ingredients, avoided_ingredients = set(), set()
+    for term in rules['all_good_terms'] | rules['all_bad_terms']:
         term_norm = normalize_search_text(term)
         if term_norm and re.search(rf'\b{re.escape(term_norm)}\b', normalized_query):
-            if wants_avoid:
-                avoided_ingredients.add(term)
-            elif wants_prefer:
-                preferred_ingredients.add(term)
+            (avoided_ingredients if wants_avoid else preferred_ingredients if wants_prefer else set()).add(term)
 
-    condition_good = set()
-    condition_bad = set()
+    # Pull condition-based ingredient guidance
     for condition in detected_conditions:
-        condition_good.update(rules['condition_rules'].get(condition, {}).get('good', set()))
-        condition_bad.update(rules['condition_rules'].get(condition, {}).get('bad', set()))
+        preferred_ingredients.update(rules['condition_rules'].get(condition, {}).get('good', set()))
+        avoided_ingredients.update(rules['condition_rules'].get(condition, {}).get('bad', set()))
 
-    preferred_ingredients.update(condition_good)
-    avoided_ingredients.update(condition_bad)
+    # Detect category using CATEGORY_KEYWORDS (with fuzzy matching via levenshtein)
+    detected_category = None
+    query_words = normalized_query.split()
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        for kw in keywords:
+            kw_words = kw.split()
+            # Multi-word keyword: check phrase presence
+            if len(kw_words) > 1:
+                if re.search(rf'\b{re.escape(kw)}\b', normalized_query):
+                    detected_category = cat
+                    break
+            elif any(levenshtein_distance(w, kw) <= 1 and len(w) >= len(kw) - 1 for w in query_words):
+                detected_category = cat
+                break
+        if detected_category:
+            break
+
+    # Detect if query is purely a category with no other attributes
+    residual = normalized_query
+    if detected_category:
+        for kw in CATEGORY_KEYWORDS[detected_category]:
+            residual = residual.replace(kw, '').strip()
+    pure_category_query = detected_category is not None and len(residual) <= 2
 
     return {
         'detected_conditions': detected_conditions,
         'preferred_ingredients': preferred_ingredients,
         'avoided_ingredients': avoided_ingredients,
+        'detected_category': detected_category,
+        'pure_category_query': pure_category_query,
     }
+
 
 def get_chemical_frequency():
     current_directory = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_directory, 'makeupchemicalscleaned.csv')
     chemical_counts = {}
-
     if os.path.exists(file_path):
         with open(file_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
+            for row in csv.DictReader(csvfile):
                 name = row.get('ChemicalName')
                 if name:
                     chemical_counts[name] = chemical_counts.get(name, 0) + 1
-
     return list(chemical_counts.items())
 
 def ranked_product_search(query, category='', min_price=None, max_price=None, min_rating=None, sort_by='relevance'):
     global score_name
+
     if not query or not query.strip():
         return []
 
     normalized_query = normalize_search_text(query)
     query_skin_context = parse_query_skin_context(query)
+    query_category     = query_skin_context['detected_category']
+    pure_category_query = query_skin_context['pure_category_query']
 
-    # Expand query for retrieval using condition + ingredient guidance.
-    expansion_terms = sorted(query_skin_context['detected_conditions']) + sorted(query_skin_context['preferred_ingredients'])
-    expanded_query_text = " ".join([normalized_query] + expansion_terms).strip()
-
-    # Keep original tokens for name/token coverage checks.
+    expansion_terms = sorted(query_skin_context['detected_conditions'])
+    expanded_query  = " ".join([normalized_query] + expansion_terms).strip()
     raw_query_tokens = tokenize_and_stem(normalized_query)
-    query_tokens = tokenize_and_stem(expanded_query_text)
-    
-    MIN_MATCH_SCORE = 0.20
-    MIN_BASE_SIMILARITY = 0.02
-    MIN_TFIDF_SIMILARITY = 0.003
-    MIN_SVD_SIMILARITY = 0.05
+    query_tokens     = tokenize_and_stem(expanded_query)
+
+    MIN_MATCH_SCORE = 0.1
+    MIN_BASE_SIMILARITY = 0.2
+    MIN_TFIDF_SIMILARITY = 0.01
+    MIN_SVD_SIMILARITY = 0.1
 
     products = Product.query.all()
-
-    # Filter out perfumes and hair products (identified by "All Hair Types" tag)
-    products = [p for p in products if (p.category or '').lower() != 'perfume' and 'All Hair Types' not in (p.highlights or '')]
+    products = [p for p in products
+        if (p.category or '').lower() != 'perfume'
+        and 'All Hair Types' not in (p.highlights or '')]
 
     chem_freq = get_chemical_frequency()
-    max_chem_freq = max([freq for name, freq in chem_freq]) if chem_freq else 1
+    max_chem_freq = max((freq for _, freq in chem_freq), default=1)
 
-    # ---- Build text corpus ----
-    corpus = []
-    for p in products:
-        text = f"{p.product_name or ''} {p.brand_name or ''} {p.primary_category or ''} {p.secondary_category or ''} {p.category or ''} {p.description or ''} {p.ingredients or ''}"
-        corpus.append(" ".join(tokenize_and_stem(text)))
+    def product_full_text(p):
+        structured = (f"{p.product_name or ''} {p.brand_name or ''} {p.primary_category or ''} "
+                    f"{p.secondary_category or ''} {p.category or ''} {p.highlights or ''}")
+        description = f"{p.description or ''} {p.ingredients or ''}"
+        return f"{structured} {structured} {structured} {description}"
 
-    # ---- TF-IDF ----
+    # TF-IDF + SVD/LSA
+    corpus = [" ".join(tokenize_and_stem(product_full_text(p))) for p in products]
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform(corpus)
-
     query_vec = vectorizer.transform([" ".join(query_tokens)])
 
-    # ---- Cosine similarity (baseline lexical relevance) ----
-    tfidf_similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    tfidf_sim = cosine_similarity(query_vec, tfidf_matrix).flatten()
 
-    # ---- LSA via SVD (semantic relevance) ----
-    # This projects TF-IDF vectors into a lower-dimensional latent space,
-    # improving matching for related terms that may not share exact words.
-    max_components = min(tfidf_matrix.shape[0] - 1, tfidf_matrix.shape[1] - 1, 150)
-    svd_similarities = np.zeros_like(tfidf_similarities)
-    if max_components >= 2:
-        svd = TruncatedSVD(n_components=max_components, random_state=42)
-        doc_lsa = svd.fit_transform(tfidf_matrix)
-        query_lsa = svd.transform(query_vec)
+    n_components = min(tfidf_matrix.shape[0] - 1, tfidf_matrix.shape[1] - 1, 150)
+    svd_sim = np.zeros_like(tfidf_sim)
+    if n_components >= 2:
+        svd = TruncatedSVD(n_components=n_components, random_state=42)
+        doc_lsa = normalize(svd.fit_transform(tfidf_matrix))
+        query_lsa = normalize(svd.transform(query_vec))
+        svd_sim = cosine_similarity(query_lsa, doc_lsa).flatten()
 
-        doc_lsa = normalize(doc_lsa)
-        query_lsa = normalize(query_lsa)
-        svd_similarities = cosine_similarity(query_lsa, doc_lsa).flatten()
-
-    # Blend lexical + semantic signals.
-    similarities = 0.45 * tfidf_similarities + 0.55 * svd_similarities
+    similarities = 0.45 * tfidf_sim + 0.55 * svd_sim
 
     results = []
 
     for i, p in enumerate(products):
-        base_score = similarities[i]
-        lexical_score = tfidf_similarities[i]
-        semantic_score = svd_similarities[i]
+        product_category_text = f"{p.primary_category or ''} {p.secondary_category or ''} {p.category or ''}".lower()
+        category_match = bool(query_category and query_category in product_category_text)
 
-        product_text_norm = normalize_search_text(
-            f"{p.product_name or ''} {p.brand_name or ''} {p.primary_category or ''} {p.secondary_category or ''} {p.category or ''}"
-        )
-        product_name_norm = normalize_search_text(p.product_name or "")
-        product_tokens = tokenize_and_stem(
-            f"{p.product_name or ''} {p.brand_name or ''} {p.primary_category or ''} {p.secondary_category or ''} {p.category or ''} {p.description or ''} {p.ingredients or ''}"
-        )
+        if pure_category_query:
+            # Drop non-matching categories; all matches start equal, ranked by quality
+            if not category_match:
+                continue
+            base_score = 0.0
+        else:
+            base_score = similarities[i]
+            if base_score < MIN_BASE_SIMILARITY:
+                continue
+            if tfidf_sim[i] < MIN_TFIDF_SIMILARITY and svd_sim[i] < MIN_SVD_SIMILARITY:
+                continue
 
-        cleaned_query_matches_name = bool(normalized_query and normalized_query in product_text_norm)
-        query_token_coverage = 0.0
-        if raw_query_tokens:
-            matched_tokens = sum(
-                1 for token in raw_query_tokens
-                if any(words_match(token, candidate) for candidate in product_tokens)
+            # Token coverage + phrase match boosts
+            product_tokens = tokenize_and_stem(product_full_text(p))
+            token_coverage = (
+                sum(1 for t in raw_query_tokens if any(words_match(t, c) for c in product_tokens))
+                / len(raw_query_tokens)
+            ) if raw_query_tokens else 0.0
+
+            phrase_match = normalized_query in normalize_search_text(
+                f"{p.product_name or ''} {p.brand_name or ''} {p.primary_category or ''} "
+                f"{p.secondary_category or ''} {p.category or ''}"
             )
-            query_token_coverage = matched_tokens / len(raw_query_tokens)
-
-        fuzzy_name_match = False
-        if raw_query_tokens and product_tokens:
-            fuzzy_name_match = all(
-                any(words_match(token, candidate) for candidate in product_tokens)
-                for token in raw_query_tokens
+            full_token_match = raw_query_tokens and all(
+                any(words_match(t, c) for c in product_tokens) for t in raw_query_tokens
             )
 
-        # Require some query relevance before adding quality boosts.
-        if base_score < MIN_BASE_SIMILARITY:
-            continue
-        if lexical_score < MIN_TFIDF_SIMILARITY and semantic_score < MIN_SVD_SIMILARITY:
-            continue
+            if phrase_match or full_token_match:
+                base_score += 0.05 + token_coverage * 0.05
+            elif token_coverage > 0:
+                base_score += token_coverage * 0.05
 
-        # Strong boost when the cleaned query is a direct phrase match in the product text.
-        if cleaned_query_matches_name or fuzzy_name_match:
-            base_score = max(base_score, 1.0 + query_token_coverage)
-        elif query_token_coverage > 0:
-            base_score = max(base_score, query_token_coverage)
+            if normalized_query in normalize_search_text(f"{p.product_name or ''} {p.brand_name or ''}"):
+                base_score += 0.05
 
-        # ---- Boost 1: name + brand match (strong weight) ----
-        name_brand_text = normalize_search_text(f"{p.product_name or ''} {p.brand_name or ''}")
-        if normalized_query and normalized_query in name_brand_text:
-            base_score *= 2.0
+            # Category multiplier: strong lift for matches, penalty for mismatches
+            if query_category:
+                base_score *= 1.6 if category_match else 0.15
 
-        # ---- Boost 2: category match ----
-        category_text = normalize_search_text(f"{p.primary_category or ''} {p.secondary_category or ''} {p.category or ''}")
-        if normalized_query and normalized_query in category_text:
-            base_score *= 1.5
+        # Safety score Old Version (chemical frequency deductions only):
+        # safety_score = max(0.0, 100.0 - sum(
+        #     (freq / max_chem_freq) * 10 for name, freq in chem_freq if name in (p.ingredients or '')
+        # ))
+        # p.flagged_ingredients = list({name for name, _ in chem_freq if p.ingredients and name in p.ingredients})
+        # p.good_ingredients = list(_ingredients_present(p.ingredients, query_skin_context['preferred_ingredients']))
+        # p.safety_score = safety_score
 
-        # ---- Boost 3: rating + loves ----
-        rating_boost = (p.rating or 0) / 5.0
-        loves_boost = min((p.loves_count or 0) / 10000, 1)
+        # Safety score — chemical safety dataset deductions
+        safety_score = max(0.0, 100.0 - sum(
+            (freq / max_chem_freq) * 10 for name, freq in chem_freq if name in (p.ingredients or '')
+        ))
 
-        # ---- Safety Score ----
-        safety_score = 100.0
-        p.flagged_ingredients = []
-        if p.ingredients:
-            for chem_name, freq in chem_freq:
-                if chem_name in p.ingredients:
-                    p.flagged_ingredients.append(chem_name)
-                    deduction = (freq / max_chem_freq) * 10
-                    safety_score -= deduction
+        # Additional deduction for condition-specific bad ingredients
+        if query_skin_context['avoided_ingredients']:
+            avoided_hits = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+            safety_score = max(0.0, safety_score - len(avoided_hits) * 10)
+
+        p.flagged_ingredients = list({name for name, _ in chem_freq if p.ingredients and name in p.ingredients})
         
-        p.flagged_ingredients = list(set(p.flagged_ingredients))
-        p.safety_score = max(0.0, safety_score)
+        # Also flag condition-specific bad ingredients
+        if query_skin_context['avoided_ingredients']:
+            condition_flags = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+            p.flagged_ingredients = list(set(p.flagged_ingredients) | condition_flags)
 
-        # ---- Condition-aware ingredient weighting ----
+        p.safety_score = safety_score
+
+        # Ingredient alignment
         preferred_hits = _ingredients_present(p.ingredients, query_skin_context['preferred_ingredients'])
-        avoided_hits = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        avoided_hits   = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        alignment = max(0.30, 1.0 + min(0.08 * len(preferred_hits), 0.32) - min(0.12 * len(avoided_hits), 0.48))
 
-        ingredient_alignment_multiplier = 1.0
-        if preferred_hits:
-            ingredient_alignment_multiplier += min(0.08 * len(preferred_hits), 0.32)
-        if avoided_hits:
-            ingredient_alignment_multiplier -= min(0.12 * len(avoided_hits), 0.48)
-        ingredient_alignment_multiplier = max(0.30, ingredient_alignment_multiplier)
+        rating_boost = (p.rating or 0) / 5.0
+        loves_boost  = min((p.loves_count or 0) / 10000, 1.0)
 
-        quality_multiplier = 1.0 + 0.25 * rating_boost + 0.20 * loves_boost + 0.15 * (p.safety_score / 100.0)
-        final_score = base_score * quality_multiplier * ingredient_alignment_multiplier
+        if pure_category_query:
+            # Quality is the only ranking signal if pure category query
+            quality_add = 0.4 * rating_boost + 0.3 * loves_boost + 0.3 * (safety_score / 100.0)
+        else:
+            quality_add = 0.02 * rating_boost + 0.02 * loves_boost + 0.05 * (safety_score / 100.0)
 
-        results.append((final_score, p))
+        ingredient_add = (alignment - 1.0) * 0.02
+        results.append((base_score + quality_add + ingredient_add, p))
 
-    if results:
-        max_score = max(r[0] for r in results)
-        if max_score > 0:
-            results = [(score / max_score, p) for score, p in results]
+    if not results:
+        return []
 
-    # ---- Apply filters ----
+    max_score = max(s for s, _ in results)
+    if max_score > 0:
+        results = [(s / max_score * 100, p) for s, p in results]
+
+    # Filters
     if category:
-        results = [(s, p) for s, p in results if (p.primary_category or '').lower() == category.lower()]
-    if min_price is not None:
-        results = [(s, p) for s, p in results if p.price is not None and p.price >= min_price]
-    if max_price is not None:
-        results = [(s, p) for s, p in results if p.price is not None and p.price <= max_price]
-    if min_rating is not None:
-        results = [(s, p) for s, p in results if p.rating is not None and p.rating >= min_rating]
+        results = [(s, p) for s, p in results if category.lower() in {
+            (p.primary_category or '').lower(),
+            (p.secondary_category or '').lower(),
+            (p.category or '').lower()
+        }]
+    if min_price is not None: results = [(s, p) for s, p in results if (p.price  or 0) >= min_price]
+    if max_price is not None: results = [(s, p) for s, p in results if (p.price  or 0) <= max_price]
+    if min_rating is not None: results = [(s, p) for s, p in results if (p.rating or 0) >= min_rating]
 
     results = [(s, p) for s, p in results if s > MIN_MATCH_SCORE]
     if not results:
         return []
-    
-    # ---- Sort ----
-    if sort_by == 'price_asc':
-        results.sort(key=lambda x: x[1].price or 0)
-    elif sort_by == 'price_desc':
-        results.sort(key=lambda x: x[1].price or 0, reverse=True)
-    elif sort_by == 'rating':
-        results.sort(key=lambda x: x[1].rating or 0, reverse=True)
-    elif sort_by == 'safety':
-        results.sort(key=lambda x: getattr(x[1], 'safety_score', 100.0), reverse=True)
-    else:
-        results.sort(key=lambda x: x[0], reverse=True)
 
-    score_name = [(score, p.product_name) for score, p in results]
+    sort_keys = {
+        'price_asc': (lambda x: x[1].price or 0, False),
+        'price_desc': (lambda x: x[1].price or 0, True),
+        'rating': (lambda x: x[1].rating or 0, True),
+        'safety': (lambda x: getattr(x[1], 'safety_score', 100.0), True),
+    }
+    key, reverse = sort_keys.get(sort_by, (lambda x: x[0], True))
+    results.sort(key=key, reverse=reverse)
 
-    # ---- Return top results ----
+    score_name = [(s, p.product_name) for s, p in results]
+
     return [{
-        "id": p.id,
-        "name": p.product_name,
+        "id": p.id, 
+        "name": p.product_name, 
         "category": p.category,
-        "brand": p.brand_name,
-        "price": p.price,
+        "brand": p.brand_name, 
+        "price": p.price, 
         "sale_price": p.sale_price_usd,
-        "rating": p.rating,
-        "review_count": p.review_count,
+        "rating": p.rating, 
+        "review_count": p.review_count, 
         "loves_count": p.loves_count,
-        "description": clean_product_description(p.description),
+        "description": clean_product_description(p.description), 
         "ingredients": p.ingredients,
-        "highlights": p.highlights,
-        "is_new": p.new,
+        "highlights": p.highlights, 
+        "is_new": p.new, 
         "sephora_exclusive": p.sephora_exclusive,
-        "limited_edition": p.limited_edition,
+        "limited_edition": p.limited_edition, 
         "out_of_stock": p.out_of_stock,
-        "safety_score": getattr(p, "safety_score", 100.0),
-        "score": score,
-        "flagged_ingredients": p.flagged_ingredients
-    } for score, p in results]
-
-
+        "safety_score": getattr(p, 'safety_score', 100.0), 
+        "score": s,
+        "flagged_ingredients": p.flagged_ingredients,
+    } for s, p in results]
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})

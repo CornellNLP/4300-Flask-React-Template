@@ -63,6 +63,7 @@ class Product(db.Model):
     score = 0.0
     safety_score = 100.0
     flagged_ingredients = []
+    good_ingredients = []
 
 ## All CSV Column Names
 # product_name,brand_name,price,description, product_id, 
