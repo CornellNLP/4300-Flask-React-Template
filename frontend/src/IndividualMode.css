@@ -1,0 +1,99 @@
+body {
+  background: #eaf6d5;
+}
+.individual-bg {
+  background: #eaf6d5;
+  min-height: 100vh;
+  padding-bottom: 3rem;
+}
+.individual-header {
+  text-align: center;
+  padding-top: 2rem;
+}
+.individual-title {
+  font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+  color: #7bb661;
+  font-size: 2.5rem;
+  margin-bottom: 0.2em;
+}
+.individual-logo {
+  color: #2b7a78;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.individual-subtitle {
+  font-family: 'Caveat', cursive, sans-serif;
+  color: #7bb661;
+  font-size: 1.5rem;
+  margin-bottom: 2em;
+}
+.individual-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  max-width: 600px;
+  margin: 0 auto 2em auto;
+}
+.individual-toggle {
+  flex: 1;
+  padding: 0.7em 0;
+  font-size: 1.1rem;
+  border: 2px solid #b2d8b2;
+  background: #e0f1e0;
+  color: #3a5a40;
+  border-radius: 0.5em;
+  margin: 0 0.5em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.individual-toggle.left.active {
+  background: #b2d8b2;
+  color: #3a5a40;
+  font-weight: bold;
+  border: 2px solid #7bb661;
+}
+.individual-toggle.right {
+  border-color: #cdb4db;
+  background: #f3e6fa;
+  color: #6d4c8b;
+}
+.individual-main-form-box {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  background: #cde3e1;
+  border-radius: 1.5rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem 2rem 2rem;
+  box-shadow: 0 2px 12px #0001;
+  border: 2px solid #7bb661;
+}
+.individual-form-side {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 340px;
+  max-width: 400px;
+  margin: 0 1rem;
+}
+.individual-instructions-side {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 340px;
+  max-width: 400px;
+  margin: 0 1rem;
+}
+.individual-form-label {
+  font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+  color: #3a5a40;
+  font-size: 1.1rem;
+  margin-bottom: 0.5em;
+}
+.individual-instructions-box {
+  background: #bfe3d1;
+  border-radius: 0.7em;
+  min-height: 180px;
+  margin-top: 0.5em;
+  flex: 1;
+}

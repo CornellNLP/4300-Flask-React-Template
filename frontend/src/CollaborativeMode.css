@@ -1,0 +1,87 @@
+body {
+  background: #eaf6d5;
+}
+.collab-bg {
+  background: #eaf6d5;
+  min-height: 100vh;
+  padding-bottom: 3rem;
+}
+.collab-header {
+  text-align: center;
+  padding-top: 2rem;
+}
+.collab-title {
+  font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+  color: #7bb661;
+  font-size: 2.5rem;
+  margin-bottom: 0.2em;
+}
+.collab-logo {
+  color: #2b7a78;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.collab-subtitle {
+  font-family: 'Caveat', cursive, sans-serif;
+  color: #7bb661;
+  font-size: 1.5rem;
+  margin-bottom: 2em;
+}
+.collab-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  max-width: 600px;
+  margin: 0 auto 2em auto;
+}
+.collab-toggle {
+  flex: 1;
+  padding: 0.7em 0;
+  font-size: 1.1rem;
+  border: 2px solid #b2d8b2;
+  background: #e0f1e0;
+  color: #3a5a40;
+  border-radius: 0.5em;
+  margin: 0 0.5em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.collab-toggle.left {
+  border-color: #7bb661;
+  background: #bfe3d1;
+  color: #3a5a40;
+}
+.collab-toggle.right {
+  border-color: #cdb4db;
+  background: #f3e6fa;
+  color: #6d4c8b;
+}
+.collab-toggle.right.active {
+  background: #cdb4db;
+  color: #fff;
+  font-weight: bold;
+}
+.collab-main-form-box {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  background: #e7dff2;
+  border-radius: 1.5rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem 2rem 2rem;
+  box-shadow: 0 2px 12px #0001;
+}
+.collab-form-side {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 340px;
+  max-width: 400px;
+  margin: 0 1rem;
+}
+.collab-form-label {
+  font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+  color: #3a5a40;
+  font-size: 1.1rem;
+  margin-bottom: 0.5em;
+}
