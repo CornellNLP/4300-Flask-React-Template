@@ -20,18 +20,19 @@ DIETARY_FILTERS = {
     },
     "vegan": {
         "include": ["vegan"],
-        "exclude": ["beef", "chicken", "pork", "fish", "seafood", "bacon", "ham", "meat", "veal", "shrimp", "salmon", "tuna", "turkey", "duck", "cheese", "milk", "eggs"]
+        "exclude": ["beef", "chicken", "pork", "fish", "seafood", "bacon", "ham", "meat", "veal", "shrimp", "salmon", "tuna", "turkey", "duck", "cheese", "milk", "eggs", "butter", "honey", "cream", "yogurt"]
     },
     "gluten-free": {
         "include": ["gluten-free"],
+        "exclude": ["wheat", "flour", "bread", "pasta"]
     },
     "dairy-free": {
         "include": ["dairy-free"],
-        "exclude": ["milk", "cheese"]
+        "exclude": ["milk", "cheese", "butter", "cream", "yogurt"]
     },
     "nut-free": {
         "include": ["nut-free"],
-        "exclude": ["nuts"]
+        "exclude": ["nuts", "almond", "peanut", "walnut", "pecan", "cashew", "hazelnut", "macadamia nut", "pistachio", "brazil nut"]
     },
 }
 
@@ -66,7 +67,6 @@ def json_search(query):
     return matches
 
 
-
 def filter_recipes(recipes, filters, filter_type):
     if not filters:
         return recipes
@@ -74,21 +74,20 @@ def filter_recipes(recipes, filters, filter_type):
     filtered = []
     for r in recipes:
         skip = False
+        include_override = False
         for selected in filters:
-            # key = selected.strip().lower().replace("_", "-")
             config = filter_type.get(selected) or {}
             include_tags = config.get("include", [])
             exclude_tags = config.get("exclude", [])
 
-            if include_tags and not any(tag in r.tags for tag in include_tags):
+            if include_tags and all(tag in r.tags for tag in include_tags):
+                include_override = True
+                break
+            if exclude_tags and (any(tag in r.tags for tag in exclude_tags) or any (ingredient in r.ingredients for ingredient in exclude_tags)):
                 skip = True
                 break
 
-            if exclude_tags and any(tag in r.tags for tag in exclude_tags):
-                skip = True
-                break
-
-        if skip:
+        if skip and not include_override:
             continue
 
         filtered.append(r)
@@ -102,7 +101,7 @@ def cosine_search_recipes(query, dietary_filters, course_filters):
     recipes = db.session.query(Recipe).all()
     recipes = filter_recipes(recipes, dietary_filters, DIETARY_FILTERS)
     recipes = filter_recipes(recipes, course_filters, COURSE_FILTERS)
-    print(f"Filtered from 2000 to {len(recipes)} recipes based on dietary filters: {dietary_filters} and course filters: {course_filters}")
+    # print(f"Filtered from 2000 to {len(recipes)} recipes based on dietary filters: {dietary_filters} and course filters: {course_filters}")
 
     vectorizer, doc_by_vocab = matching.build_tfidf_index(recipes, "recipe")
     if vectorizer is None or doc_by_vocab is None:
