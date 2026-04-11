@@ -7,4 +7,5 @@ export interface Song {
   chords: string;
   guitar_difficulty: number;
   piano_difficulty: number;
+  difficulty: number;
 }

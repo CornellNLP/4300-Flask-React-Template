@@ -85,7 +85,7 @@ def explain_svd(user_input, n_topics=3):
         })
     return explanations
 
-def recommend_by_lyrics(user_input, top_n=5):
+def recommend_by_lyrics(user_input, top_n=5, instrument="guitar", difficulty="all"):
     global vectorizer, song_vectors, songs_data
 
     # Cosine similarity score
@@ -98,7 +98,32 @@ def recommend_by_lyrics(user_input, top_n=5):
     # Combined score = ALPHA * svd + (1 - ALPHA) * cosine
     combined_scores = ALPHA * svd_scores + (1 - ALPHA) * cosine_scores
 
-    indices = np.argsort(combined_scores)[::-1][:top_n]
+    if difficulty == "all":
+        indices = np.argsort(combined_scores)[::-1][:top_n]
+    else:
+        temp = np.argsort(combined_scores)[::-1]
+        indices = []
+        i = 0;
+        if difficulty == "easy":
+            low = 1
+            high = 4
+        elif difficulty == "medium":
+            low = 4.01
+            high = 7
+        else:
+            low = 7.01
+            high = 10
+            
+        while len(indices) < top_n and i < len(temp):
+            song = songs_data[temp[i]]
+            if instrument == "guitar":
+                if song.guitar_difficulty >= low and song.guitar_difficulty <= high:
+                    indices.append(temp[i])
+            else:
+                if song.piano_difficulty >= low and song.piano_difficulty <= high:
+                    indices.append(temp[i])
+            i += 1
+
 
     results = []
     for idx in indices:
@@ -110,15 +135,19 @@ def recommend_by_lyrics(user_input, top_n=5):
         ])
     return results
 
-def json_search(query):
+def json_search(query, top_n=5, instrument="guitar", difficulty="all"):
     if not query or not query.strip():
         query = "Love"
 
-    results = recommend_by_lyrics(query)
+    results = recommend_by_lyrics(query, top_n, instrument, difficulty)
     svd_explanation = explain_svd(query)
 
     matches = []
     for song in results:
+        if instrument == "guitar":
+            diff = song[0].guitar_difficulty
+        else:
+            diff = song[0].piano_difficulty
         matches.append({
             'title': song[0].title,
             'artist': song[0].artist,
@@ -126,8 +155,7 @@ def json_search(query):
             'cosine_score': round(song[2], 2), 
             'svd_score': round(song[3], 2),  
             'chords': song[0].chords,
-            'guitar_difficulty': song[0].guitar_difficulty,
-            'piano_difficulty': song[0].piano_difficulty
+            'difficulty': diff
         })
 
     return {
@@ -150,10 +178,19 @@ def register_routes(app):
     def config():
         return jsonify({"use_llm": USE_LLM})
 
-    @app.route("/api/episodes")
-    def episodes_search():
+    @app.route("/api/songs")
+    def song_search():
         text = request.args.get("title", "")
-        return jsonify(json_search(text))
+        
+        top_n = request.args.get("topn", 5 ,type=int)
+        print(f"Title: {text}")
+        print(f"Num results: {top_n}")
+        instrument = request.args.get("instrument", "")
+        difficulty = request.args.get("difficulty", "")
+        
+        print(f"Instrument: {instrument}")
+        print(f"Difficulty: {difficulty}")
+        return jsonify(json_search(text, top_n, instrument, difficulty))
 
     if USE_LLM:
         from llm_routes import register_chat_route
