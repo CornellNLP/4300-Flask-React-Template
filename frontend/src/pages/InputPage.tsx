@@ -110,14 +110,28 @@ export function InputPage() {
     );
   };
 
+  const buildRecipeUrl = (name: string) => {
+    const params = new URLSearchParams({
+      name,
+    });
+
+    if (dietary.length > 0) {
+      params.set("dietary", dietary.join(","));
+    }
+
+    if (courses.length > 0) {
+      params.set("courses", courses.join(","));
+    }
+
+    return `/api/recipes?${params.toString()}`;
+  };
+
   const handleSearch = async (value: string): Promise<void> => {
     if (value.trim() === "") {
       setRecipes([]);
       return;
     }
-    const response = await fetch(
-      `/api/recipes?name=${encodeURIComponent(value)}`,
-    );
+    const response = await fetch(buildRecipeUrl(value));
     const data: Recipe[] = await response.json();
     setRecipes(data);
   };
@@ -127,7 +141,7 @@ export function InputPage() {
     setLoading(true);
     try {
       const [recipesRes, playlistRes] = await Promise.all([
-        fetch(`/api/recipes?name=${encodeURIComponent(q)}`),
+        fetch(buildRecipeUrl(q)),
         fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
       ]);
       const fetchedRecipes: Recipe[] = await recipesRes.json();
