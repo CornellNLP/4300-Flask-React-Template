@@ -388,28 +388,37 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
         # p.good_ingredients = list(_ingredients_present(p.ingredients, query_skin_context['preferred_ingredients']))
         # p.safety_score = safety_score
 
-        # Safety score — chemical safety dataset deductions
-        safety_score = max(0.0, 100.0 - sum(
-            (freq / max_chem_freq) * 10 for name, freq in chem_freq if name in (p.ingredients or '')
-        ))
+        # # Safety score — chemical safety dataset deductions
+        # safety_score = max(0.0, 100.0 - sum(
+        #     (freq / max_chem_freq) * 10 for name, freq in chem_freq if name in (p.ingredients or '')
+        # ))
 
-        # Additional deduction for condition-specific bad ingredients
-        if query_skin_context['avoided_ingredients']:
-            avoided_hits = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
-            safety_score = max(0.0, safety_score - len(avoided_hits) * 10)
+        # # Additional deduction for condition-specific bad ingredients
+        # if query_skin_context['avoided_ingredients']:
+        #     avoided_hits = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        #     safety_score = max(0.0, safety_score - len(avoided_hits) * 10)
 
-        p.flagged_ingredients = list({name for name, _ in chem_freq if p.ingredients and name in p.ingredients})
+        # p.flagged_ingredients = list({name for name, _ in chem_freq if p.ingredients and name in p.ingredients})
         
-        # Also flag condition-specific bad ingredients
-        if query_skin_context['avoided_ingredients']:
-            condition_flags = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
-            p.flagged_ingredients = list(set(p.flagged_ingredients) | condition_flags)
+        # # Also flag condition-specific bad ingredients
+        # if query_skin_context['avoided_ingredients']:
+        #     condition_flags = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        #     p.flagged_ingredients = list(set(p.flagged_ingredients) | condition_flags)
 
+        # p.safety_score = safety_score
+        
+        avoided_hits = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        
+        ingredients_lower = (p.ingredients or '').lower()
+
+        safety_score = max(0.0, 100.0 - sum((freq / max_chem_freq) * 2000 for name, freq in chem_freq if name.lower() in ingredients_lower) - len(avoided_hits) * 10)
+
+        p.flagged_ingredients = list({name for name, _ in chem_freq if name.lower() in ingredients_lower} | avoided_hits)
         p.safety_score = safety_score
 
         # Ingredient alignment
         preferred_hits = _ingredients_present(p.ingredients, query_skin_context['preferred_ingredients'])
-        avoided_hits   = _ingredients_present(p.ingredients, query_skin_context['avoided_ingredients'])
+        p.good_ingredients = list(_ingredients_present(p.ingredients, query_skin_context['preferred_ingredients']))
         alignment = max(0.30, 1.0 + min(0.08 * len(preferred_hits), 0.32) - min(0.12 * len(avoided_hits), 0.48))
 
         rating_boost = (p.rating or 0) / 5.0
@@ -417,11 +426,11 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
 
         if pure_category_query:
             # Quality is the only ranking signal if pure category query
-            quality_add = 0.4 * rating_boost + 0.3 * loves_boost + 0.3 * (safety_score / 100.0)
+            quality_add = 0.2 * rating_boost + 0.3 * loves_boost + 0.5 * (safety_score / 100.0)
         else:
-            quality_add = 0.02 * rating_boost + 0.02 * loves_boost + 0.05 * (safety_score / 100.0)
+            quality_add = 0.02 * rating_boost + 0.02 * loves_boost + 0.5 * (safety_score / 100.0)
 
-        ingredient_add = (alignment - 1.0) * 0.02
+        ingredient_add = (alignment - 1.0) * 0.15  # Max 15% boost for perfect alignment, up to 15% penalty for misalignment
         results.append((base_score + quality_add + ingredient_add, p))
 
     if not results:
