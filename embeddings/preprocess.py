@@ -8,7 +8,12 @@ from typing import Any
 
 import pandas as pd
 
-from src.player_search import normalize_text, primary_position
+from src.player_search import (
+    canonical_nationality,
+    first_non_empty,
+    normalize_text,
+    primary_position,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -241,6 +246,8 @@ def build_player_metadata(raw_df: pd.DataFrame, grouped_df: pd.DataFrame) -> dic
         season_years = sorted({year for values in group["season_years"] for year in values})
         positions_seen = sorted({value for value in group["position_canonical"].dropna().tolist() if value})
         leagues = sorted({value for value in group["league"].dropna().astype(str).tolist() if value})
+        nat_values = [v for v in group["nationality_canonical"].dropna().tolist() if v]
+        nationality = Counter(nat_values).most_common(1)[0][0] if nat_values else None
         metadata[normalized_name] = {
             "display_name": display_name,
             "primary_position": grouped_df.loc[normalized_name, "primary_position"],
@@ -249,6 +256,8 @@ def build_player_metadata(raw_df: pd.DataFrame, grouped_df: pd.DataFrame) -> dic
             "season_years": season_years,
             "career_start_year": min(season_years) if season_years else None,
             "career_end_year": max(season_years) if season_years else None,
+            "nationality": nationality,
+            "nationality_normalized": normalize_text(nationality) if nationality else "",
         }
     return metadata
 
@@ -277,6 +286,12 @@ def preprocess_player_stats(csv_paths: list[str] | None = None) -> tuple[pd.Data
     raw_df = raw_df[raw_df["normalized_name"] != ""].copy()
     raw_df["position_canonical"] = raw_df.apply(
         lambda row: primary_position(_select_first_present(row, POSITION_COLUMNS)),
+        axis=1,
+    )
+    raw_df["nationality_canonical"] = raw_df.apply(
+        lambda row: canonical_nationality(
+            first_non_empty(row.get("country"), row.get("nationality"))
+        ),
         axis=1,
     )
     raw_df["season_years"] = raw_df.apply(extract_season_years_for_row, axis=1)

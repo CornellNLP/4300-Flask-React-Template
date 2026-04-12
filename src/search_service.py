@@ -22,9 +22,27 @@ from embeddings.svd_search import (
 )
 
 try:
-    from player_search import PLAYER_INDEX, boolean_search, find_player_by_name, parse_query
+    from player_search import (
+        PLAYER_INDEX,
+        boolean_search,
+        career_start_year_for_embedding_player,
+        find_player_by_name,
+        nationality_normalized_for_embedding_player,
+        parse_query,
+        passes_max_age_under,
+        reference_year_for_queries,
+    )
 except ImportError:  # pragma: no cover - package-style import fallback
-    from src.player_search import PLAYER_INDEX, boolean_search, find_player_by_name, parse_query
+    from src.player_search import (
+        PLAYER_INDEX,
+        boolean_search,
+        career_start_year_for_embedding_player,
+        find_player_by_name,
+        nationality_normalized_for_embedding_player,
+        parse_query,
+        passes_max_age_under,
+        reference_year_for_queries,
+    )
 
 
 LOGGER = logging.getLogger(__name__)
@@ -34,7 +52,16 @@ SIMILAR_PLAYER_PATTERNS = (
     re.compile(r"^\s*(?:players?\s+)?similar to\s+(.+?)\s*$", re.IGNORECASE),
     re.compile(r"^\s*who(?:'s| is)\s+like\s+(.+?)\s*$", re.IGNORECASE),
 )
-DESCRIPTION_HINTS = ("clinical", "creative", "defensive", "physical", "playmaker", "box-to-box")
+DESCRIPTION_HINTS = (
+    "clinical",
+    "creative",
+    "defensive",
+    "physical",
+    "playmaker",
+    "box-to-box",
+    "prolific",
+    "young",
+)
 
 _EMBEDDING_CACHE: dict[str, Any] | None = None
 
@@ -74,13 +101,14 @@ def _is_description_similarity_query(query: str) -> bool:
 
 
 def _aggregate_embedding_result(result: Dict[str, Any]) -> Dict[str, Any]:
-    player_name = result["player"]
-    records = find_player_by_name(player_name) or []
+    display_name = result["player"]
+    lookup_key = result.get("lookup_key") or display_name
+    records = find_player_by_name(lookup_key) or []
 
     if not records:
         return {
             "player_id": None,
-            "name": player_name,
+            "name": display_name,
             "nationality": None,
             "position": result.get("position"),
             "league": "Embedding profile",
@@ -118,7 +146,7 @@ def _aggregate_embedding_result(result: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "player_id": first_non_null("player_id"),
-        "name": player_name,
+        "name": first_non_null("name") or display_name,
         "nationality": first_non_null("nationality"),
         "position": result.get("position") or first_non_null("position"),
         "league": ", ".join(leagues) if leagues else "Embedding profile",
@@ -153,6 +181,10 @@ def _description_filtered_names(
 ) -> List[str]:
     filters = parse_similarity_query(query)
     filtered_names: List[str] = []
+    nat_key = filters.get("nationality_normalized")
+    nat_region = filters.get("nationality_region")
+    max_age_under = filters.get("max_age_under")
+    ref_year = int(filters.get("reference_year") or reference_year_for_queries())
     for name in player_index:
         meta = player_metadata.get(name, {})
         if filters.get("position") and meta.get("primary_position") != filters["position"]:
@@ -162,6 +194,17 @@ def _description_filtered_names(
         if era_start is not None and era_end is not None:
             years = meta.get("season_years", [])
             if not any(era_start <= year <= era_end for year in years):
+                continue
+        pnat = nationality_normalized_for_embedding_player(name, meta)
+        if nat_region:
+            if pnat not in nat_region:
+                continue
+        elif nat_key:
+            if pnat != nat_key:
+                continue
+        if max_age_under is not None:
+            start = career_start_year_for_embedding_player(name, meta)
+            if not passes_max_age_under(max_age_under, ref_year, start):
                 continue
         filtered_names.append(name)
     return filtered_names
@@ -181,6 +224,7 @@ def _pack_semantic_hit(
     display = meta.get("display_name", norm_name)
     inner = {
         "player": display,
+        "lookup_key": norm_name,
         "score": float(score),
         "position": meta.get("primary_position", "Unknown"),
     }
