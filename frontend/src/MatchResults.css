@@ -1,0 +1,189 @@
+/* ── Import all shared styles from ResultComponent ───────────────────────────
+   MatchResults reuses .results-container, .podcast-card, .podcast-image,
+   .image-placeholder, .title-score-row, .podcast-title, .podcast-score,
+   .genre-tags, .compact-tags, .tag, .podcast-modal-overlay, .podcast-modal,
+   .modal-close, .modal-title, .modal-tags, .modal-description, .modal-why,
+   .modal-actions, .listen-now-btn from ResultComponent.css.
+   Import that file in your parent page, or copy those rules here if needed.
+   ─────────────────────────────────────────────────────────────────────────── */
+@import './ResultComponent.css';
+
+/* ── Match hero ──────────────────────────────────────────────────────────── */
+
+.match-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1rem 2rem;
+}
+
+/* Circular ring */
+.match-ring {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+
+.match-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* start arc from top */
+}
+
+.ring-track {
+  fill: none;
+  stroke: #e8edf4;
+  stroke-width: 9;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Color variants */
+.ring-high   .ring-fill { stroke: #22c55e; }
+.ring-mid    .ring-fill { stroke: #3b82f6; }
+.ring-low    .ring-fill { stroke: #14b8a6; }
+.ring-very-low .ring-fill { stroke: #ef4444; }
+
+/* Number inside the ring */
+.match-ring-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.match-pct {
+  font-family: 'Kanit', sans-serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #28505c;
+  letter-spacing: -0.02em;
+}
+
+.match-pct-symbol {
+  font-size: 1.4rem;
+  font-weight: 600;
+  vertical-align: super;
+  color: #6b7280;
+}
+
+.match-label {
+  margin: 0;
+  font-family: 'Kanit', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #28505c;
+}
+
+.match-sub {
+  margin: 0;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.match-combined-query {
+  margin: 0;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #2f6144;
+  text-align: center;
+  max-width: 720px;
+}
+
+/* ── Per-user score chips on cards ───────────────────────────────────────── */
+
+.user-scores {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+
+.user-score {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.06rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.user-score-a {
+  background: #d9edf0;
+  color: #205a63;
+  border-color: #8db5bb;
+}
+
+.user-score-b {
+  background: #e8dff0;
+  color: #6d4e8c;
+  border-color: #bfa9d9;
+}
+
+/* ── Per-user score bars in modal ─────────────────────────────────────────── */
+
+.modal-user-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+
+.modal-user-score {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.modal-user-label {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  width: 58px;
+  flex-shrink: 0;
+}
+
+.modal-user-bar-wrap {
+  flex: 1;
+  height: 7px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.modal-user-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-user-bar-a {
+  background: #14b8a6;
+}
+
+.modal-user-bar-b {
+  background: #7d5ebc;
+}
+
+.modal-user-val {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1f2937;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import SearchIcon from './assets/mag.png'
 import './QueryComponent.css'
 
@@ -62,23 +62,7 @@ function QueryComponent({
     [],
   )
 
-  useEffect(() => {
-    if (initialRequest) {
-      setQuery(initialRequest.query ?? '')
-      setIsExplicit(initialRequest.explicit ?? false)
-      setSelectedGenres(initialRequest.genres ?? [])
-      setLengthMetric(initialRequest.lengthMetric ?? 'total_episodes')
-      setMinLength(initialRequest.minLength ?? defaultMinLength)
-      setMaxLength(initialRequest.maxLength ?? defaultMaxLength)
-      setPublisher(initialRequest.publisher ?? '')
-      setReleaseYear(initialRequest.releaseYear ?? '')
-      return
-    }
-
-    setQuery(initialQuery)
-  }, [initialQuery, initialRequest])
-
-  useEffect(() => {
+  const emitDraftChange = (nextRequest: Partial<SearchRequest>): void => {
     if (!onDraftChange) return
 
     onDraftChange({
@@ -90,27 +74,24 @@ function QueryComponent({
       lengthMetric,
       minLength,
       maxLength,
+      ...nextRequest,
     })
-  }, [
-    query,
-    isExplicit,
-    selectedGenres,
-    publisher,
-    releaseYear,
-    lengthMetric,
-    minLength,
-    maxLength,
-    onDraftChange,
-  ])
+  }
 
   const handleGenreToggle = (genre: string): void => {
-    setSelectedGenres(prev =>
-      prev.includes(genre) ? prev.filter(item => item !== genre) : [...prev, genre],
-    )
+    setSelectedGenres(prev => {
+      const nextGenres = prev.includes(genre) ? prev.filter(item => item !== genre) : [...prev, genre]
+      emitDraftChange({ genres: nextGenres })
+      return nextGenres
+    })
   }
 
   const handleGenreRemove = (genre: string): void => {
-    setSelectedGenres(prev => prev.filter(item => item !== genre))
+    setSelectedGenres(prev => {
+      const nextGenres = prev.filter(item => item !== genre)
+      emitDraftChange({ genres: nextGenres })
+      return nextGenres
+    })
   }
 
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
@@ -137,7 +118,11 @@ function QueryComponent({
             className="solo-input"
             value={query}
             placeholder="Health Podcasts"
-            onChange={event => setQuery(event.target.value)}
+            onChange={event => {
+              const nextQuery = event.target.value
+              setQuery(nextQuery)
+              emitDraftChange({ query: nextQuery })
+            }}
             required
           />
         </div>
@@ -146,8 +131,14 @@ function QueryComponent({
         <div className="solo-explicit">
           <label className="solo-label required">Explicit?</label>
           <div className="solo-explicit-options">
-            <label><input type="radio" name={`${radioNamePrefix}-explicit`} value="no" checked={!isExplicit} onChange={() => setIsExplicit(false)} /> No</label>
-            <label><input type="radio" name={`${radioNamePrefix}-explicit`} value="yes" checked={isExplicit} onChange={() => setIsExplicit(true)} /> Yes</label>
+            <label><input type="radio" name={`${radioNamePrefix}-explicit`} value="no" checked={!isExplicit} onChange={() => {
+              setIsExplicit(false)
+              emitDraftChange({ explicit: false })
+            }} /> No</label>
+            <label><input type="radio" name={`${radioNamePrefix}-explicit`} value="yes" checked={isExplicit} onChange={() => {
+              setIsExplicit(true)
+              emitDraftChange({ explicit: true })
+            }} /> Yes</label>
           </div>
         </div>
         <div className="solo-genres">
@@ -182,7 +173,11 @@ function QueryComponent({
         </div>
         <div className="solo-length">
           <label className="solo-label">Length Metric</label>
-          <select className="solo-select" value={lengthMetric} onChange={event => setLengthMetric(event.target.value as 'duration_ms' | 'total_episodes')}>
+          <select className="solo-select" value={lengthMetric} onChange={event => {
+            const nextLengthMetric = event.target.value as 'duration_ms' | 'total_episodes'
+            setLengthMetric(nextLengthMetric)
+            emitDraftChange({ lengthMetric: nextLengthMetric })
+          }}>
             <option value="duration_ms">Episode Duration (minutes)</option>
             <option value="total_episodes">Total Episodes</option>
           </select>
@@ -195,7 +190,9 @@ function QueryComponent({
             value={minLength}
             onChange={event => {
               const nextMin = Math.max(defaultMinLength, Number(event.target.value) || defaultMinLength)
-              setMinLength(Math.min(nextMin, maxLength))
+              const nextValue = Math.min(nextMin, maxLength)
+              setMinLength(nextValue)
+              emitDraftChange({ minLength: nextValue })
             }}
           />
           <label className="solo-label">Maximum Value</label>
@@ -207,17 +204,27 @@ function QueryComponent({
             value={maxLength}
             onChange={event => {
               const nextMax = Math.min(defaultMaxLength, Number(event.target.value) || defaultMaxLength)
-              setMaxLength(Math.max(nextMax, minLength))
+              const nextValue = Math.max(nextMax, minLength)
+              setMaxLength(nextValue)
+              emitDraftChange({ maxLength: nextValue })
             }}
           />
         </div>
         <div className="solo-year">
           <label className="solo-label">Year</label>
-          <input className="solo-input" type="number" min={1900} max={2100} placeholder="2024" value={releaseYear} onChange={event => setReleaseYear(event.target.value)} />
+          <input className="solo-input" type="number" min={1900} max={2100} placeholder="2024" value={releaseYear} onChange={event => {
+            const nextReleaseYear = event.target.value
+            setReleaseYear(nextReleaseYear)
+            emitDraftChange({ releaseYear: nextReleaseYear })
+          }} />
         </div>
         <div className="solo-publisher">
           <label className="solo-label">Publisher</label>
-          <input className="solo-input" type="text" placeholder="NPR" value={publisher} onChange={event => setPublisher(event.target.value)} />
+          <input className="solo-input" type="text" placeholder="NPR" value={publisher} onChange={event => {
+            const nextPublisher = event.target.value
+            setPublisher(nextPublisher)
+            emitDraftChange({ publisher: nextPublisher })
+          }} />
         </div>
       </div>
       {showSubmit && (

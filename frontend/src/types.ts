@@ -38,6 +38,16 @@ export interface Podcast {
   top_dimensions?: DimensionGroup;
 }
 
+export interface SearchPayload {
+  query: string;
+  explicit: boolean;
+  genres: string[];
+  lengthMetric: "duration_ms" | "total_episodes";
+  maxLength: number;
+  publisher: string;
+  releaseYear: string;
+}
+
 /* TODO: add more types as needed
 
 Episode { 

@@ -8,6 +8,7 @@ load_dotenv()
 from flask_cors import CORS
 from models import db, Episode, Review, Podcast
 from routes import register_routes
+from match_routes import match_bp
 
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ db.init_app(app)
 
 # Register routes
 register_routes(app)
+app.register_blueprint(match_bp)
 
 # Function to initialize database
 # TODO: change from init.json to like podcast.csv, and create Podcast Objects instead

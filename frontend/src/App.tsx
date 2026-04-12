@@ -1,36 +1,38 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
-// import ResultInstructions from './assets/instr result.png'
 import { Podcast } from './types'
 import Chat from './Chat'
 import { type SearchRequest } from './QueryComponent'
 import ResultComponent from './ResultComponent'
+import MatchResults from './MatchResults'
 import MainLogo from './assets/main_logo.png'
 import CollaborativeMode from './CollaborativeMode'
 import IndividualMode from './IndividualMode'
+
 type ListeningMode = 'solo' | 'collab'
 type AppView = 'query' | 'results'
 type SearchContext =
   | { mode: 'solo'; request: SearchRequest }
   | { mode: 'collab'; user1: SearchRequest; user2: SearchRequest }
 
-function App(): JSX.Element {
-  const defaultSearchRequest: SearchRequest = {
-    query: '',
-    explicit: false,
-    genres: [],
-    excludedGenres: [],
-    publisher: '',
-    releaseYear: '',
-    lengthMetric: 'total_episodes',
-    minLength: 0,
-    maxLength: 500,
-  }
+const defaultSearchRequest: SearchRequest = {
+  query: '',
+  explicit: false,
+  genres: [],
+  excludedGenres: [],
+  publisher: '',
+  releaseYear: '',
+  lengthMetric: 'total_episodes',
+  minLength: 0,
+  maxLength: 500,
+}
 
+function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [listeningMode, setListeningMode] = useState<ListeningMode>('solo')
   const [view, setView] = useState<AppView>('query')
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
+  const [matchPct, setMatchPct] = useState<number>(0)
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
   const [chatSeedTerm, setChatSeedTerm] = useState<string>('')
   const [soloDraft, setSoloDraft] = useState<SearchRequest>(defaultSearchRequest)
@@ -50,6 +52,7 @@ function App(): JSX.Element {
       setView('query')
       return
     }
+
     const params = new URLSearchParams()
     params.set('query', request.query)
     if (request.explicit !== undefined) params.set('explicit', String(request.explicit))
@@ -60,11 +63,40 @@ function App(): JSX.Element {
     if (request.lengthMetric) params.set('lengthMetric', request.lengthMetric)
     if (request.minLength !== undefined) params.set('minLength', String(request.minLength))
     if (request.maxLength !== undefined) params.set('maxLength', String(request.maxLength))
+
     const response = await fetch(`/api/podcasts?${params.toString()}`)
     const data: Podcast[] = await response.json()
     setPodcasts(data)
     setView('results')
   }
+
+  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest): Promise<void> => {
+    setCollabDraftUser1(user1)
+    setCollabDraftUser2(user2)
+    setSearchContext({ mode: 'collab', user1, user2 })
+
+    if (!user1.query?.trim() || !user2.query?.trim()) {
+      setPodcasts([])
+      setView('query')
+      return
+    }
+
+    const response = await fetch('/api/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userA: user1, userB: user2 }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Collaborative search failed with status ${response.status}`)
+    }
+
+    const data: { match_pct: number; results: Podcast[] } = await response.json()
+    setMatchPct(data.match_pct ?? 0)
+    setPodcasts(data.results ?? [])
+    setView('results')
+  }
+
   const handleBackToQuery = (): void => {
     setView('query')
   }
@@ -73,23 +105,6 @@ function App(): JSX.Element {
     setListeningMode('solo')
     setChatSeedTerm(value)
     await handleSearch({ query: value })
-  }
-
-  // Real collaborative handler
-  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest): Promise<void> => {
-    setCollabDraftUser1(user1)
-    setCollabDraftUser2(user2)
-    setSearchContext({ mode: 'collab', user1, user2 })
-
-    // Example: call a real collaborative endpoint, e.g. /api/collab_podcasts
-    const params = new URLSearchParams()
-    // You may want to send both users' queries as JSON, or as separate params
-    params.set('user1', JSON.stringify(user1))
-    params.set('user2', JSON.stringify(user2))
-    const response = await fetch(`/api/collab_podcasts?${params.toString()}`)
-    const data: Podcast[] = await response.json()
-    setPodcasts(data)
-    setView('results')
   }
 
   const formatLengthMetric = (metric?: SearchRequest['lengthMetric']): string => {
@@ -133,9 +148,11 @@ function App(): JSX.Element {
     }
 
     return (
-      <div className="search-summary-collab-wrap">
-        {renderSummaryCard('User 1 Preferences', searchContext.user1)}
-        {renderSummaryCard('User 2 Preferences', searchContext.user2)}
+      <div className="search-summary-stack">
+        <div className="search-summary-collab-wrap">
+          {renderSummaryCard('User 1 Preferences', searchContext.user1)}
+          {renderSummaryCard('User 2 Preferences', searchContext.user2)}
+        </div>
       </div>
     )
   }
@@ -150,9 +167,9 @@ function App(): JSX.Element {
           <div className="main-logo">
             <img src={MainLogo} alt="Peas in a Podcast logo" className="main-logo-img" />
           </div>
-          {view === 'query' && <div className="main-subtitle">Today, I’m listening...</div>}
+          {view === 'query' && <div className="main-subtitle">Today, I'm listening...</div>}
         </header>
-        {/* Only show toggle buttons in form view */}
+
         {view === 'query' && (
           <div className={`mode-toggle-row ${listeningMode === 'solo' ? 'solo-toggle-row' : 'collab-toggle-row'}`}>
             <button
@@ -171,6 +188,7 @@ function App(): JSX.Element {
             </button>
           </div>
         )}
+
         <div className="main-panel">
           {view === 'query' && (
             <>
@@ -194,6 +212,7 @@ function App(): JSX.Element {
               )}
             </>
           )}
+
           {view === 'results' && (
             <div className="results-area">
               <div className="search-summary-panel">
@@ -207,7 +226,17 @@ function App(): JSX.Element {
               </div>
               <div id="answer-box">
                 {podcasts.length > 0 ? (
-                  <ResultComponent podcasts={podcasts} />
+                  listeningMode === 'collab' ? (
+                    <MatchResults
+                      matchPct={matchPct}
+                      results={podcasts}
+                      combinedQuery={searchContext?.mode === 'collab'
+                        ? [searchContext.user1.query?.trim(), searchContext.user2.query?.trim()].filter(Boolean).join(' + ')
+                        : undefined}
+                    />
+                  ) : (
+                    <ResultComponent podcasts={podcasts} />
+                  )
                 ) : (
                   <p className="no-results">No podcasts found for this search.</p>
                 )}
@@ -215,6 +244,7 @@ function App(): JSX.Element {
             </div>
           )}
         </div>
+
         {useLlm && <Chat onSearchTerm={handleChatSearch} />}
       </div>
     </div>
