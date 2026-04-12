@@ -2,6 +2,7 @@ import ast
 import collections
 import json
 import math
+import os
 import re
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -135,7 +136,7 @@ def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
 if __name__ == "__main__":
     import json
 
-    with open("init.json", "r", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(__file__), "init.json"), "r", encoding="utf-8") as f:
         all_restaurants = json.load(f)
     
     city = "Philadelphia"
