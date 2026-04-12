@@ -13,7 +13,7 @@ export interface Restaurant {
   priceRange?: string;
   priceTier?: number | null;
   ambience?: string[];
-  hours?: string;
+  hours?: Record<string, string> | null;
   matchExplanation?: string;
 }
 
@@ -37,6 +37,35 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
   const priceDisplay =
     restaurant.priceRange ??
     (restaurant.priceTier && restaurant.priceTier > 0 ? "$".repeat(restaurant.priceTier) : undefined);
+
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayLabel = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: userTimeZone }).format(new Date());
+
+  const parseTime = (timeStr: string): string | null => {
+    const [hourRaw, minuteRaw = "0"] = timeStr.split(":");
+    const hourNum = Number(hourRaw);
+    const minuteNum = Number(minuteRaw);
+    if (Number.isNaN(hourNum) || Number.isNaN(minuteNum)) return null;
+    const period = hourNum >= 12 ? "PM" : "AM";
+    const hour12 = ((hourNum + 11) % 12) + 1;
+    return `${hour12}:${minuteNum.toString().padStart(2, "0")} ${period}`;
+  };
+
+  const formatHoursForToday = (): string | null => {
+    if (!restaurant.hours || typeof restaurant.hours !== "object") return null;
+    const todayRange = restaurant.hours[todayLabel];
+    if (!todayRange) return null;
+    if (todayRange.toLowerCase() === "closed") return "Closed today";
+    const [start, end] = todayRange.split("-");
+    if (!start || !end) return null;
+    if (start === "0:0" && end === "0:0") return "Closed today";
+    const startFormatted = parseTime(start);
+    const endFormatted = parseTime(end);
+    if (!startFormatted || !endFormatted) return null;
+    return `${startFormatted} – ${endFormatted}`;
+  };
+
+  const todayHours = formatHoursForToday();
 
   const ratingValue = restaurant.rating ?? restaurant.stars;
   const location = [restaurant.city, restaurant.state].filter(Boolean).join(", ") || restaurant.city;
@@ -84,10 +113,10 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
             <span>{primaryCuisine}</span>
           </div>
         )}
-        {restaurant.hours && (
+        {todayHours && (
           <div className="flex items-center gap-1.5">
             <Clock className="size-4 text-gray-400" />
-            <span>{restaurant.hours}</span>
+            <span>{todayHours}</span>
           </div>
         )}
       </div>

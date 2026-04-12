@@ -63,6 +63,7 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
             "stars": business.get("stars"),
             "review_count": business.get("review_count"),
             "categories": business.get("categories"),
+            "hours": business.get("hours"),
             "priceTier": price_tier,
             "priceRange": price_label,
             "matchScore": float(score)
