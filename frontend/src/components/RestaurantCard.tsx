@@ -21,6 +21,24 @@ interface RestaurantCardProps {
   restaurant: Restaurant;
 }
 
+const GENERIC_CATEGORIES = new Set([
+  "Restaurants",
+  "Nightlife",
+  "Food",
+  "Bars",
+  "Desserts",
+  "Vegetarian",
+  "Event Planning & Services",
+  "Arts & Entertainment",
+  "Local Services",
+  "Shopping",
+  "Specialty Food",
+  "Caterers",
+  "Active Life",
+  "Beauty & Spas",
+  "Hotels & Travel",
+]);
+
 export function RestaurantCard({ restaurant }: RestaurantCardProps) {
   const categoriesList = Array.isArray(restaurant.categories)
     ? restaurant.categories
@@ -28,7 +46,11 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
       ? restaurant.categories.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
 
-  const primaryCuisine = restaurant.cuisine?.[0] ?? categoriesList[0];
+  const cuisineCandidates = [
+    ...(restaurant.cuisine ?? []),
+    ...categoriesList,
+  ];
+  const primaryCuisine = cuisineCandidates.find((cat) => cat && !GENERIC_CATEGORIES.has(cat));
   const derivedTags =
     restaurant.ambience && restaurant.ambience.length > 0
       ? restaurant.ambience
