@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import imgFood from "../assets/tomato.png";
 import Chat from "../Chat";
 import { Recipe, Playlist } from "../types";
@@ -16,6 +16,18 @@ const DIETARY_FILTERS = [
 const COURSE_FILTERS = ["appetizer", "entrée", "dessert", "beverage"];
 
 const PLACEHOLDERS = ["summery italian wedding", "red and white", "rustic", "two hours", "pasta and tomatoes"];
+
+interface InputState {
+  dinnerPartyKeyword: string;
+  themeKeyWord: string;
+  decorKeyword: string;
+  length: string;
+  ingredients: string;
+  freeform: string;
+  mode: "madlibs" | "freeform";
+  dietary: string[];
+  courses: string[];
+}
 
 function AutoInput({
   value,
@@ -63,19 +75,37 @@ function AutoInput({
 
 export function InputPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const savedState = (location.state ?? {}) as Partial<InputState>;
 
-  const [dinnerPartyKeyword, setDinnerPartyKeyword] = useState("");
-  const [themeKeyWord, setThemeKeyWord] = useState("");
-  const [decorKeyword, setDecorKeyword] = useState("");
-  const [length, setLength] = useState("");
-  const [ingredients, setIngredients] = useState("");
+  const [dinnerPartyKeyword, setDinnerPartyKeyword] = useState<string>(
+    () => savedState.dinnerPartyKeyword ?? "",
+  );
+  const [themeKeyWord, setThemeKeyWord] = useState<string>(
+    () => savedState.themeKeyWord ?? "",
+  );
+  const [decorKeyword, setDecorKeyword] = useState<string>(
+    () => savedState.decorKeyword ?? "",
+  );
+  const [length, setLength] = useState<string>(() => savedState.length ?? "");
+  const [ingredients, setIngredients] = useState<string>(
+    () => savedState.ingredients ?? "",
+  );
 
-  const [freeform, setFreeform] = useState("");
+  const [freeform, setFreeform] = useState<string>(
+    () => savedState.freeform ?? "",
+  );
 
-  const [mode, setMode] = useState<"madlibs" | "freeform">("madlibs");
+  const [mode, setMode] = useState<"madlibs" | "freeform">(
+    () => savedState.mode ?? "madlibs",
+  );
 
-  const [dietary, setDietary] = useState<string[]>([]);
-  const [courses, setCourses] = useState<string[]>([]);
+  const [dietary, setDietary] = useState<string[]>(
+    () => savedState.dietary ?? [],
+  );
+  const [courses, setCourses] = useState<string[]>(
+    () => savedState.courses ?? [],
+  );
   const [useLlm, setUseLlm] = useState<boolean | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,14 +140,28 @@ export function InputPage() {
     );
   };
 
+  const buildRecipeUrl = (name: string) => {
+    const params = new URLSearchParams({
+      name,
+    });
+
+    if (dietary.length > 0) {
+      params.set("dietary", dietary.join(","));
+    }
+
+    if (courses.length > 0) {
+      params.set("courses", courses.join(","));
+    }
+
+    return `/api/recipes?${params.toString()}`;
+  };
+
   const handleSearch = async (value: string): Promise<void> => {
     if (value.trim() === "") {
       setRecipes([]);
       return;
     }
-    const response = await fetch(
-      `/api/recipes?name=${encodeURIComponent(value)}`,
-    );
+    const response = await fetch(buildRecipeUrl(value));
     const data: Recipe[] = await response.json();
     setRecipes(data);
   };
@@ -125,25 +169,54 @@ export function InputPage() {
   const handleGetHosting = async () => {
     const q = query || "food";
     setLoading(true);
+    const inputState: InputState = {
+      dinnerPartyKeyword,
+      themeKeyWord,
+      decorKeyword,
+      length,
+      ingredients,
+      freeform,
+      mode,
+      dietary,
+      courses,
+    };
+
     try {
       const [recipesRes, playlistRes] = await Promise.all([
-        fetch(`/api/recipes?name=${encodeURIComponent(q)}`),
+        fetch(buildRecipeUrl(q)),
         fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
       ]);
       const fetchedRecipes: Recipe[] = await recipesRes.json();
       const fetchedPlaylists: Playlist[] = await playlistRes.json();
       navigate("/loading", {
         state: {
+          ...inputState,
           recipes: fetchedRecipes,
           playlist: fetchedPlaylists[0] ?? null,
         },
       });
     } catch (err) {
       console.error("Failed to fetch party data:", err);
-      navigate("/loading", { state: { recipes: [], playlist: null } });
+      navigate("/loading", { state: { ...inputState, recipes: [], playlist: null } });
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearSavedInput = () => {
+    setDietary([]);
+    setCourses([]);
+
+    if (mode === "freeform") {
+      setFreeform("");
+      return;
+    }
+
+    setDinnerPartyKeyword("");
+    setThemeKeyWord("");
+    setDecorKeyword("");
+    setLength("");
+    setIngredients("");
   };
 
   return (
@@ -151,37 +224,46 @@ export function InputPage() {
       <div className="heading-row">
         <h1 className="input-heading">BRING THE PARTY</h1>
         {/* Mode toggle */}
-        <div className="mode-toggle-group" role="group" aria-label="input mode">
-          <button
-            className="mode-toggle"
-            onClick={() => setMode("freeform")}
-            aria-label={`Switch to freeform input`}
-          >
-            <div
-              style={
-                mode === "freeform"
-                  ? { color: " #d43c00", textDecorationLine: "underline" }
-                  : { color: " #8d6350", textDecorationLine: "none" }
-              }
+        <div className="mode-toggle-container">
+          <div className="mode-toggle-group" role="group" aria-label="input mode">
+            <button
+              className="mode-toggle"
+              onClick={() => setMode("freeform")}
+              aria-label={`Switch to freeform input`}
             >
-              freeform
-            </div>
-          </button>
-          <span className="mode-toggle-separator"> | </span>
-          <button
-            className="mode-toggle"
-            onClick={() => setMode("madlibs")}
-            aria-label="Switch to guided input"
-          >
-            <div
-              style={
-                mode === "madlibs"
-                  ? { color: " #d43c00", textDecorationLine: "underline" }
-                  : { color: " #8d6350", textDecorationLine: "none" }
-              }
+              <div
+                style={
+                  mode === "freeform"
+                    ? { color: " #d43c00", textDecorationLine: "underline" }
+                    : { color: " #8d6350", textDecorationLine: "none" }
+                }
+              >
+                freeform
+              </div>
+            </button>
+            <span className="mode-toggle-separator"> | </span>
+            <button
+              className="mode-toggle"
+              onClick={() => setMode("madlibs")}
+              aria-label="Switch to guided input"
             >
-              guided
-            </div>
+              <div
+                style={
+                  mode === "madlibs"
+                    ? { color: " #d43c00", textDecorationLine: "underline" }
+                    : { color: " #8d6350", textDecorationLine: "none" }
+                }
+              >
+                guided
+              </div>
+            </button>
+          </div>
+          <button
+            onClick={clearSavedInput}
+            className="clear-input-btn"
+            type="button"
+          >
+            reset filters and {mode === "madlibs" ? "guided" : "freeform"} input
           </button>
         </div>
       </div>
@@ -275,13 +357,15 @@ export function InputPage() {
       </div>
 
       <div className="bottom-row">
-        <button
-          onClick={handleGetHosting}
-          className="get-hosting-btn"
-          disabled={loading}
-        >
-          {loading ? "loading..." : "get hosting →"}
-        </button>
+        <div className="bottom-row__actions">
+          <button
+            onClick={handleGetHosting}
+            className="get-hosting-btn"
+            disabled={loading}
+          >
+            {loading ? "loading..." : "get hosting →"}
+          </button>
+        </div>
         <div className="food-decor" aria-hidden="true">
           <img src={imgFood} alt="" />
         </div>

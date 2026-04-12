@@ -74,6 +74,8 @@
   margin: 0;
 }
 
+
+
 .recipe-entry__dots {
   flex: 1;
   border-bottom: 1.5px dotted var(--color-text);
@@ -88,9 +90,22 @@
 }
 
 .link-icon {
-  height: 1em;
+  height: 0.7em;
   width: auto;
   display: block;
+  margin-top: -0.2em;
+  margin-left: 0.2rem;
+}
+
+.recipe-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+.recipe-link:hover {
+  filter: brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(1733%) hue-rotate(2deg) brightness(112%) contrast(105%);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .recipe-entry__body {

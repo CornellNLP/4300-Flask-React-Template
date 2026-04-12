@@ -10,8 +10,11 @@ def build_tfidf_index(data, data_set_category):
         f"{d.name} {d.description} {d.tags} {d.ingredients}"
         for d in data
         ]
+        min_df = 10 if len(corpus) >= 10 else 1
         vectorizer = TfidfVectorizer(
-            max_features=5000, stop_words='english', max_df=0.8, min_df=10, norm='l2')
+            max_features=5000, stop_words='english', max_df=0.8, min_df=min_df, norm='l2')
+        if len(corpus) == 0:
+            return None, None
         doc_by_vocab = vectorizer.fit_transform(corpus)
         return vectorizer, doc_by_vocab
 

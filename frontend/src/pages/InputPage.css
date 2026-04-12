@@ -5,7 +5,8 @@
   --color-text-dark: #623926;
   --color-chip-bg: #f6f2e1;
   --color-chip-bg-hover: #ebe5ce;
-  --color-chip-active: #e8d9b0;
+  --color-chip-active: #cf3b01;
+  --color-chip-active-text: #f6f2e1;
   --font-display: "Alatsi", sans-serif;
   --font-body: "Source Serif 4", "Source Serif Pro", Georgia, serif;
   --space-page-left: clamp(3rem, 10vw, 9rem);
@@ -40,6 +41,11 @@
   line-height: 1.1;
 }
 
+.mode-toggle-container {
+  display: grid;
+  justify-items: right;
+}
+
 .mode-toggle-group {
   font-family: var(--font-body);
   font-size: clamp(1rem, 1.1vw, 1rem);
@@ -54,6 +60,20 @@
   align-items: center;
   gap: 6px;
   position: relative;
+}
+
+.clear-input-btn {
+  font-family: var(--font-body);
+  font-size: clamp(0.8rem, 1vw, 0.8rem);
+  font-weight: 500;
+  color: var(--color-text-dark);
+  background: transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.clear-input-btn:hover {
+  color: var(--color-chip-active);
 }
 
 .mode-toggle {
@@ -207,7 +227,7 @@
 
 .filter-chip.active {
   background: var(--color-chip-active);
-  color: var(--color-accent);
+  color: var(--color-chip-active-text);
 }
 
 .bottom-row {
