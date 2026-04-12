@@ -11,10 +11,9 @@ interface MatchPodcast extends Podcast {
 interface MatchResultsProps {
   matchPct: number
   results: MatchPodcast[]
-  combinedQuery?: string
 }
 
-function MatchResults({ matchPct, results, combinedQuery }: MatchResultsProps): JSX.Element {
+function MatchResults({ matchPct, results }: MatchResultsProps): JSX.Element {
   const [selectedPodcast, setSelectedPodcast] = useState<MatchPodcast | null>(null)
 
   const htmlToText = (value: string): string => {
@@ -85,6 +84,14 @@ function MatchResults({ matchPct, results, combinedQuery }: MatchResultsProps): 
 
   const closeModal = (): void => setSelectedPodcast(null)
 
+  const formatAvgEpisodeTime = (minutes?: number): string => {
+    if (minutes === undefined || minutes === null || Number.isNaN(minutes)) {
+      return 'N/A'
+    }
+
+    return `${minutes.toFixed(1)} min`
+  }
+
   return (
     <>
       {/* ── Match score hero ─────────────────────────────────────────── */}
@@ -105,8 +112,9 @@ function MatchResults({ matchPct, results, combinedQuery }: MatchResultsProps): 
           </div>
         </div>
         <p className="match-label">{matchLabel}</p>
-        <p className="match-sub">{results.length} podcasts for both of you</p>
-        {combinedQuery && <p className="match-combined-query">Combined query: {combinedQuery}</p>}
+      </div>
+      <div className="results-heading-wrap">
+        <h2 className="results-heading">Here are {Math.min(results.length, 5)} podcasts for you</h2>
       </div>
 
       {/* ── Results grid — same structure as ResultComponent ─────────── */}
@@ -213,8 +221,14 @@ function MatchResults({ matchPct, results, combinedQuery }: MatchResultsProps): 
             <p className="modal-description">{selectedDescription}</p>
 
             <div className="modal-why">
+              <h3>Podcast Details</h3>
+              <p>Episode count: {selectedPodcast.episode_count ?? 'N/A'}</p>
+              <p>Average episode time: {formatAvgEpisodeTime(selectedPodcast.avg_episode_time)}</p>
+            </div>
+
+            <div className="modal-why">
               <h3>Why you'd {'<3'} it together</h3>
-              <p>{buildWhyBothLoveIt(selectedPodcast)}</p>
+              <p>{`This feature will be improved with future RAG integration. ${buildWhyBothLoveIt(selectedPodcast)}`}</p>
             </div>
 
             {selectedPodcast.top_dimensions &&

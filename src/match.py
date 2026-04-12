@@ -15,6 +15,63 @@ with open(os.path.join(OS_PATH, 'data/svd_shows_improved2.pkl'), 'rb') as f:
 embeddings = np.load(os.path.join(OS_PATH, 'data/embeddings/description_embeddings_mixed2.npy'))
 show_ids = Path(os.path.join(OS_PATH, 'data/embeddings/embedding_show_ids2.txt')).read_text().splitlines()
 df = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts_cleaned2.csv'))
+show_id_to_idx = {show_id: idx for idx, show_id in enumerate(show_ids)}
+
+tfidf_vectorizer = svd_model['tfidf']
+svd_model_obj = svd_model['svd']
+feature_names = tfidf_vectorizer.get_feature_names_out()
+
+
+def get_dimension_label(dim_idx: int, top_words_count: int = 3) -> str:
+    if dim_idx >= len(svd_model_obj.components_):
+        return f'Dim {dim_idx}'
+
+    component = svd_model_obj.components_[dim_idx]
+    top_indices = np.argsort(np.abs(component))[-top_words_count:][::-1]
+    top_words = [str(feature_names[i]) for i in top_indices]
+    return ', '.join(top_words)
+
+
+dimension_labels = {i: get_dimension_label(i) for i in range(len(svd_model_obj.components_))}
+
+
+def get_top_dimensions(embedding, k=6):
+    if embedding is None:
+        return {'positive': [], 'negative': []}
+
+    embedding = np.asarray(embedding).flatten()
+    positive_mask = embedding > 0
+    negative_mask = embedding < 0
+
+    positive_vals = embedding[positive_mask]
+    negative_vals = embedding[negative_mask]
+    positive_indices = np.where(positive_mask)[0]
+    negative_indices = np.where(negative_mask)[0]
+
+    pos_top_k = min(k, len(positive_vals))
+    neg_top_k = min(k, len(negative_vals))
+
+    pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]] if pos_top_k else []
+    neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]] if neg_top_k else []
+
+    return {
+        'positive': [
+            {
+                'dimension': int(idx),
+                'value': float(embedding[idx]),
+                'label': dimension_labels.get(int(idx), f'Dim {idx}'),
+            }
+            for idx in pos_sorted_idx
+        ],
+        'negative': [
+            {
+                'dimension': int(idx),
+                'value': float(embedding[idx]),
+                'label': dimension_labels.get(int(idx), f'Dim {idx}'),
+            }
+            for idx in neg_sorted_idx
+        ],
+    }
 
 def query_to_vector(query: str) -> np.ndarray:
     """Transform a text query into a normalized SVD vector."""
@@ -90,7 +147,7 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
         podcasts,
         key=lambda p: id_to_score.get(str(p.id), 0.0),
         reverse=True
-    )[:20]
+    )[:5]
 
     results = [{
         'id':            p.id,
@@ -103,8 +160,11 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
         'website_url':   p.website_url,
         'author':        p.author,
         'score':         round(id_to_score.get(str(p.id), 0.0), 4),
-        'score_for_a':   round(float(cosine_similarity([vec_a], [embeddings[show_ids.index(str(p.id))]])[0][0]), 4) if str(p.id) in show_ids else 0,
-        'score_for_b':   round(float(cosine_similarity([vec_b], [embeddings[show_ids.index(str(p.id))]])[0][0]), 4) if str(p.id) in show_ids else 0,
+        'score_for_a':   round(float(cosine_similarity([vec_a], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
+        'score_for_b':   round(float(cosine_similarity([vec_b], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
+        'episode_count': p.episode_count,
+        'avg_episode_time': p.avg_duration_min,
+        'top_dimensions': get_top_dimensions(embeddings[show_id_to_idx[str(p.id)]]) if str(p.id) in show_id_to_idx else {'positive': [], 'negative': []},
         'popularity':    p.popularity_score,
     } for p in ranked]
 
