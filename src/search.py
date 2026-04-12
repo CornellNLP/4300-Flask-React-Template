@@ -1,6 +1,7 @@
 import heapq
 import json
 
+from config import INIT_JSON_PATH
 from preprocess import preprocess_query
 from similarity import get_similarity_scores
 
@@ -10,7 +11,7 @@ _PROCESSED_DATA = None
 def load_processed_data():
     global _PROCESSED_DATA
     if _PROCESSED_DATA is None:
-        with open("init.json", "r", encoding="utf-8") as f:
+        with INIT_JSON_PATH.open("r", encoding="utf-8") as f:
             _PROCESSED_DATA = json.load(f)
     return _PROCESSED_DATA
 

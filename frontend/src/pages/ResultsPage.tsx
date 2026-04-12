@@ -2,32 +2,43 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { SearchBar } from "../components/SearchBar";
 import { RestaurantCard, type Restaurant } from "../components/RestaurantCard";
-import { ArrowLeft } from "lucide-react";
+import { UtensilsCrossed, Pizza, Coffee, IceCream, Cake, Cookie, Croissant, Sandwich, Cherry } from "lucide-react";
 import dishcoveryLogo from "../assets/logo.png";
+
+const CITY_PLACEHOLDER = "City";
 
 export function ResultsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialQuery = searchParams.get("q") || "";
+  const initialCity = searchParams.get("city") || CITY_PLACEHOLDER;
   const [searchInput, setSearchInput] = useState(initialQuery);
+  const [selectedCity, setSelectedCity] = useState(initialCity);
   const [activeQuery, setActiveQuery] = useState(initialQuery);
+  const [activeCity, setActiveCity] = useState(initialCity);
   const [results, setResults] = useState<Restaurant[]>([]);
-
 
   // Update search query when URL changes
   useEffect(() => {
     const queryParam = searchParams.get("q") || "";
+    const cityParam = searchParams.get("city") || CITY_PLACEHOLDER;
     setSearchInput(queryParam);
+    setSelectedCity(cityParam);
     setActiveQuery(queryParam);
+    setActiveCity(cityParam);
 
-    if (!queryParam.trim()) {
+    const trimmedQuery = queryParam.trim();
+    const hasCity = cityParam !== CITY_PLACEHOLDER && cityParam.trim().length > 0;
+
+    if (!trimmedQuery || !hasCity) {
       setResults([]);
       return;
     }
 
     const fetchResults = async () => {
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(queryParam)}`);
+        const combinedQuery = `${cityParam} ${trimmedQuery}`.trim();
+        const response = await fetch(`/api/search?q=${encodeURIComponent(combinedQuery)}`);
         const data = await response.json();
         setResults(data.results || []);
       } catch {
@@ -42,53 +53,61 @@ export function ResultsPage() {
     setSearchInput(value);
   };
 
-  const handleSearchSubmit = () => {
-    const trimmed = searchInput.trim();
-    if (trimmed) {
-      navigate(`/results?q=${encodeURIComponent(trimmed)}`, { replace: true });
-    }
+  const handleCityChange = (value: string) => {
+    setSelectedCity(value);
+  };
+
+  const handleSearchSubmit = ({ city, query }: { city: string; query: string }) => {
+    navigate(`/results?city=${encodeURIComponent(city)}&q=${encodeURIComponent(query)}`, { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-rose-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-rose-50 to-pink-50 relative overflow-hidden">
+      {/* Floating food icons */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+        <Pizza className="size-16 absolute top-20 left-10 text-red-300 animate-bounce" style={{ animationDuration: '3s', animationDelay: '0s' }} />
+        <Coffee className="size-14 absolute top-40 right-20 text-rose-400 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+        <IceCream className="size-16 absolute bottom-32 left-32 text-pink-300 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+        <Cake className="size-14 absolute bottom-20 right-16 text-red-400 animate-bounce" style={{ animationDuration: '4.5s', animationDelay: '2s' }} />
+        <Cookie className="size-12 absolute top-1/3 left-1/4 text-rose-300 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1.5s' }} />
+        <Croissant className="size-14 absolute top-1/2 right-1/3 text-pink-400 animate-bounce" style={{ animationDuration: '3.8s', animationDelay: '0.8s' }} />
+        <Sandwich className="size-12 absolute bottom-1/3 left-1/3 text-red-300 animate-bounce" style={{ animationDuration: '4.2s', animationDelay: '1.2s' }} />
+        <Cherry className="size-16 absolute top-1/4 right-1/4 text-rose-400 animate-bounce" style={{ animationDuration: '3.3s', animationDelay: '0.3s' }} />
+      </div>
+
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-sm border-b-2 border-red-100 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white/90 backdrop-blur-sm border-b-2 border-red-100 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={() => navigate("/")}
-              className="p-2 hover:bg-red-100 rounded-full transition-colors"
-              aria-label="Back to home"
-            >
-              <ArrowLeft className="size-6 text-gray-600" />
-            </button>
-            <div className="flex items-center gap-3 flex-1">
-              <img src={dishcoveryLogo} alt="Dishcovery" className="size-14" />
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <img src={dishcoveryLogo} alt="Dishcovery" className="size-14 cursor-pointer" onClick={() => navigate("/")} />
               <div>
                 <h1 className="text-3xl text-gray-800">Dishcovery</h1>
-                <p className="text-sm text-red-600">Discover your next favorite restaurant</p>
+                <p className="text-sm text-red-600">Discover what fits your mood</p>
               </div>
             </div>
-          </div>
 
-          <SearchBar
-            value={searchInput}
-            onChange={handleInputChange}
-            onSubmit={handleSearchSubmit}
-            placeholder="Search for restaurants, cuisines, or vibes..."
-          />
+            <SearchBar
+              query={searchInput}
+              onQueryChange={handleInputChange}
+              city={selectedCity}
+              onCityChange={handleCityChange}
+              onSubmit={handleSearchSubmit}
+              placeholder="Search for restaurants, cuisines, or vibes..."
+            />
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
         <div className="max-w-4xl mx-auto">
           {/* Results */}
           <div>
             <div className="mb-6">
               <h2 className="text-lg text-gray-700">
-                {activeQuery
-                  ? `Found ${results.length} restaurant${results.length !== 1 ? "s" : ""} matching "${activeQuery}"`
+                {activeQuery && activeCity !== CITY_PLACEHOLDER
+                  ? `Found ${results.length} restaurant${results.length !== 1 ? "s" : ""} in ${activeCity} matching "${activeQuery}"`
                   : `Showing ${results.length} restaurants`}
               </h2>
             </div>
@@ -102,7 +121,7 @@ export function ResultsPage() {
             ) : (
               <div className="bg-white rounded-3xl p-12 text-center border-2 border-red-100 shadow-sm">
                 <div className="bg-gradient-to-br from-red-100 to-rose-100 size-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <img src={dishcoveryLogo} alt="Dishcovery" className="size-20" />
+                  <UtensilsCrossed className="size-10 text-red-600" />
                 </div>
                 <h3 className="text-xl text-gray-700 mb-2">No restaurants found</h3>
                 <p className="text-gray-500 mb-4">
