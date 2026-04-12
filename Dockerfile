@@ -5,7 +5,7 @@ WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
 
-RUN npm install
+RUN npm install --include=optional
 
 COPY frontend/ ./
 

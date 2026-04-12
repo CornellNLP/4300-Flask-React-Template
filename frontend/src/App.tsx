@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+// import { useState, useEffect } from 'react'
 import './App.css'
-import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
-import Chat from './Chat'
+// import SearchIcon from './assets/mag.png'
+// import { Episode } from './types'
+// import Chat from './Chat'
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 

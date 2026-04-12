@@ -1,20 +1,31 @@
-import json
 import heapq
+import json
+
 from preprocess import preprocess_query
 from similarity import get_similarity_scores
 
-def load_processed_data():
-    with open("src/init.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+_PROCESSED_DATA = None
 
-# gets top 10 restaurants based on similarity scores, returns a list of dicts with business info and match score
-def get_top_restaurants(processed_restaurants, similarity_scores, k = 10):
-    scored_results = []
+
+def load_processed_data():
+    global _PROCESSED_DATA
+    if _PROCESSED_DATA is None:
+        with open("init.json", "r", encoding="utf-8") as f:
+            _PROCESSED_DATA = json.load(f)
+    return _PROCESSED_DATA
+
+
+# gets top 10 restaurants by name, ensuring no duplicates, and returns them sorted by match score
+def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
+    best_by_name = {}
 
     for restaurant, score in zip(processed_restaurants, similarity_scores):
+        if score <= 0:
+            continue
+
         business = restaurant["business"]
 
-        scored_results.append({
+        entry = {
             "business_id": business["business_id"],
             "name": business["name"],
             "address": business.get("address"),
@@ -25,11 +36,19 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k = 10):
             "review_count": business.get("review_count"),
             "categories": business.get("categories"),
             "matchScore": float(score)
-        })
+        }
 
-    top_k = heapq.nlargest(k, scored_results, key=lambda x: x["matchScore"])
+        name = business["name"]
 
+        if name not in best_by_name:
+            best_by_name[name] = entry
+        else:
+            if entry["matchScore"] > best_by_name[name]["matchScore"]:
+                best_by_name[name] = entry
+
+    top_k = heapq.nlargest(k, best_by_name.values(), key=lambda x: x["matchScore"])
     return top_k
+
 
 def restaurant_search(query):
     if not query or not query.strip():
@@ -53,7 +72,7 @@ def restaurant_search(query):
         }
 
     city = query_info["city"]
-    food_item = query_info["food_item"]  # for later similarity use
+    food_item = query_info["food_item"]
 
     # filter restaurants by city
     city_restaurants = []
@@ -63,11 +82,17 @@ def restaurant_search(query):
         if business_city == city:
             city_restaurants.append(restaurant)
 
-    # temporary fake similarity scores (replace later)
-    similarity_scores = get_similarity_scores(food_item, city_restaurants)
+    scoring_query = food_item.strip() if food_item and food_item.strip() else query
+    similarity_scores = get_similarity_scores(scoring_query, city_restaurants)
 
     # get top results using get_top_restaurants function
     top_results = get_top_restaurants(city_restaurants, similarity_scores, k=10)
+
+    if not top_results:
+        return {
+            "error": "No matching restaurants found",
+            "results": []
+        }
 
     return {
         "error": None,

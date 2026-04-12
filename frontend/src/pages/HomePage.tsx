@@ -7,16 +7,14 @@ export function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  const handleSearch = (query: string) => {
+   const handleInputChange = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      navigate(`/results?q=${encodeURIComponent(query)}`);
-    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      navigate(`/results?q=${encodeURIComponent(searchQuery)}`);
+  const handleSearchSubmit = () => {
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      navigate(`/results?q=${encodeURIComponent(trimmed)}`);
     }
   };
 
@@ -36,13 +34,12 @@ export function HomePage() {
         </div>
 
         {/* Search bar */}
-        <div onKeyDown={handleKeyDown}>
           <SearchBar
             value={searchQuery}
-            onChange={handleSearch}
+            onChange={handleInputChange}
+            onSubmit={handleSearchSubmit}
             placeholder="Try 'Philadelphia casual ramen' or 'Nashville steak fancy'..."
           />
-        </div>
       </div>
     </div>
   );

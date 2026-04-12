@@ -2,43 +2,50 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { SearchBar } from "../components/SearchBar";
 import { RestaurantCard, type Restaurant } from "../components/RestaurantCard";
-import { ArrowLeft, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import dishcoveryLogo from "../assets/logo.png";
 
 export function ResultsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const initialQuery = searchParams.get("q") || "";
+  const [searchInput, setSearchInput] = useState(initialQuery);
+  const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [results, setResults] = useState<Restaurant[]>([]);
-  
+
 
   // Update search query when URL changes
   useEffect(() => {
-  const queryParam = searchParams.get("q") || "";
-  setSearchQuery(queryParam);
+    const queryParam = searchParams.get("q") || "";
+    setSearchInput(queryParam);
+    setActiveQuery(queryParam);
 
-  if (!queryParam.trim()) {
-    setResults([]);
-    return;
-  }
-
-  const fetchResults = async () => {
-    try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(queryParam)}`);
-      const data = await response.json();
-      setResults(data.results || []);
-    } catch {
+    if (!queryParam.trim()) {
       setResults([]);
-    }  
+      return;
+    }
+
+    const fetchResults = async () => {
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(queryParam)}`);
+        const data = await response.json();
+        setResults(data.results || []);
+      } catch {
+        setResults([]);
+      }
+    };
+
+    fetchResults();
+  }, [searchParams]);
+
+  const handleInputChange = (value: string) => {
+    setSearchInput(value);
   };
 
-  fetchResults();
-}, [searchParams]);
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    if (value.trim()) {
-      navigate(`/results?q=${encodeURIComponent(value)}`, { replace: true });
+  const handleSearchSubmit = () => {
+    const trimmed = searchInput.trim();
+    if (trimmed) {
+      navigate(`/results?q=${encodeURIComponent(trimmed)}`, { replace: true });
     }
   };
 
@@ -63,10 +70,11 @@ export function ResultsPage() {
               </div>
             </div>
           </div>
-          
+
           <SearchBar
-            value={searchQuery}
-            onChange={handleSearchChange}
+            value={searchInput}
+            onChange={handleInputChange}
+            onSubmit={handleSearchSubmit}
             placeholder="Search for restaurants, cuisines, or vibes..."
           />
         </div>
@@ -79,8 +87,8 @@ export function ResultsPage() {
           <div>
             <div className="mb-6">
               <h2 className="text-lg text-gray-700">
-                {searchQuery
-                  ? `Found ${results.length} restaurant${results.length !== 1 ? "s" : ""} matching "${searchQuery}"`
+                {activeQuery
+                  ? `Found ${results.length} restaurant${results.length !== 1 ? "s" : ""} matching "${activeQuery}"`
                   : `Showing ${results.length} restaurants`}
               </h2>
             </div>
@@ -94,7 +102,7 @@ export function ResultsPage() {
             ) : (
               <div className="bg-white rounded-3xl p-12 text-center border-2 border-red-100 shadow-sm">
                 <div className="bg-gradient-to-br from-red-100 to-rose-100 size-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <UtensilsCrossed className="size-10 text-red-600" />
+                  <img src={dishcoveryLogo} alt="Dishcovery" className="size-20" />
                 </div>
                 <h3 className="text-xl text-gray-700 mb-2">No restaurants found</h3>
                 <p className="text-gray-500 mb-4">

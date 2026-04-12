@@ -9,6 +9,7 @@ from gensim.models import Word2Vec
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
 
+
 def build_word2vec_corpus(restaurants: list[dict]) -> dict:
     documents = []
     tokenized_docs = []
@@ -95,19 +96,20 @@ def build_tfidf_corpus(restaurants: list[dict]) -> dict:
         
         # Add ambiance tags in the business into this as well so its not jts pure table lookup, the ambiance factored into the representation
         ambience_str = ""
-        attributes = biz.get("attributes", {})
-        ambience_raw = attributes.get("Ambience", {})
+        attributes = biz.get("attributes") or {}
+        ambience_raw = attributes.get("Ambience") or {}
+
         if isinstance(ambience_raw, str):
             try:
                 ambience_raw = ast.literal_eval(ambience_raw)
             except:
                 ambience_raw = {}
 
-        if not ambience_raw:  # ← handles None, empty string, empty dict
+        if not isinstance(ambience_raw, dict):
             ambience_raw = {}
 
         ambience_terms = [k for k, v in ambience_raw.items() if v is True]
-        ambience_str = " ".join(ambience_terms*3) #join 3 times to make ambiance more important? do we wanna do that since we wanna emphasize our ambiance aspect
+        ambience_str = " ".join(ambience_terms * 3)
         
         documents.append(f"{name} {categories} {reviews} {ambience_str}")
  
