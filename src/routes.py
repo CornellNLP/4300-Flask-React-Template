@@ -1,61 +1,53 @@
-"""
-Routes: React app serving and episode search API.
-
-To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
-"""
+# Routes: React app serving and Wikipedia rabbit-hole search API.
 import json
 import os
 from flask import send_from_directory, request, jsonify
 from models import db, Postings
 from utils import generate_rabbit_hole, load_data
 
-
-# ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
-# USE_LLM = True
-# ─────────────────────────────────────────────────────────────────────────────
 
 load_data()
 
-def json_search(query):
-    return
-
 def register_routes(app):
+
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve(path):
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
-        else:
-            return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(app.static_folder, 'index.html')
 
     @app.route("/api/config")
     def config():
         return jsonify({"use_llm": USE_LLM})
 
-    @app.route("/api/episodes")
-    def episodes_search():
-        text = request.args.get("title", "")
-        return jsonify(json_search(text))
-
     @app.route('/api/rabbithole', methods=['GET'])
     def rabbithole():
-        start_article = request.args.get('article', '')
-        keywords = request.args.get('keywords', '')
+        start_article = request.args.get('article', '').strip()
+        keywords      = request.args.get('keywords', '').strip()
+        scoring_mode  = request.args.get('scoring_mode', 'tfidf')   # tfidf and svd
+        num_branches  = int(request.args.get('num_branches', 3))
+        path_length   = int(request.args.get('path_length', 5))
+        diversity_lam = float(request.args.get('diversity_lambda', 0.6))
+
         if not start_article and not keywords:
             return jsonify([])
-        
-        pathway = generate_rabbit_hole(
+
+        if scoring_mode not in ('tfidf', 'svd'):
+            scoring_mode = 'tfidf'
+
+        branches = generate_rabbit_hole(
             start_article=start_article,
             additional_keywords=keywords,
             postings_model=Postings,
-            path_length=5,
-            diversity_lambda=1,
+            path_length=path_length,
+            diversity_lambda=diversity_lam,
+            scoring_mode=scoring_mode,
+            num_branches=num_branches,
         )
-        return jsonify(pathway)
-    
+        return jsonify(branches)
+
     if USE_LLM:
         from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
-
-    
+        register_chat_route(app, lambda q: [])

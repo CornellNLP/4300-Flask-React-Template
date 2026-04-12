@@ -68,7 +68,7 @@ def load_data():
         print(e)
         print("Error: pls have the world_map.json in the data folder!")
 
-def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5):
+def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, scoring_mode="tfidf", num_branches=3, branch_seeds=None):
     """
     Returns list of articles to discover
     """
@@ -145,14 +145,21 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
             pathway.append(best_doc)
             candidates.remove(best_doc)
     
-    # 3. Format output
-    res = []
+    # 3. Format output 
+    # Changed to branch nodes as frontend expects many branch nodes for each rabbit hole. 
+    branch_nodes = []
+    
+    description = "A unique thematic cluster." 
+
     for doc_id in pathway:
         title = REVERSE_DOC_MAP.get(doc_id, f"Unknown ID {doc_id}")
-        res.append({
-            "id": doc_id,        # already IS the wiki ID
+        branch_nodes.append({
+            "id": doc_id,
             "title": title,
-            "score": round(doc_scores[doc_id], 2)
+            "score": round(doc_scores[doc_id], 4), 
+            "branch": 0,                           
+            "description": description            
         })
         print(doc_id)
-    return res
+        
+    return [branch_nodes]
