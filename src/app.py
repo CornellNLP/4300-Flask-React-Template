@@ -20,7 +20,7 @@ gunicorn_logger = logging.getLogger('gunicorn.info')
 logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
 
-db_path = os.path.join(project_root, 'data/inverted_index2.db')
+db_path = os.path.join(project_root, 'inverted_index2.db')
 logger.info(f"DB PATH: {db_path}")
 logger.info(f"Exists? {os.path.exists(db_path)}")
 print("DB PATH:", db_path)

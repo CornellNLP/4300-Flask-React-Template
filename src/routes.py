@@ -3,6 +3,7 @@ import json
 import os
 from flask import send_from_directory, request, jsonify
 from models import db, Postings
+from utils import generate_rabbit_hole_svd
 from utils import generate_rabbit_hole, load_data
 
 USE_LLM = False
@@ -37,15 +38,17 @@ def register_routes(app):
         if scoring_mode not in ('tfidf', 'svd'):
             scoring_mode = 'tfidf'
 
-        branches = generate_rabbit_hole(
-            start_article=start_article,
-            additional_keywords=keywords,
-            postings_model=Postings,
-            path_length=path_length,
-            diversity_lambda=diversity_lam,
-            scoring_mode=scoring_mode,
-            num_branches=num_branches,
-        )
+        if scoring_mode == 'tfidf':
+            branches = generate_rabbit_hole(
+                start_article=start_article,
+                additional_keywords=keywords,
+                postings_model=Postings,
+                path_length=path_length,
+                diversity_lambda=1,
+                num_branches=num_branches,
+            )
+        else:
+            branches = generate_rabbit_hole_svd(start_article, path_length=path_length, num_branches=num_branches)
         return jsonify(branches)
 
     if USE_LLM:

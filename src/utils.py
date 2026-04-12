@@ -14,7 +14,11 @@ stemmed_stopwords = list({stemmer.stem(w) for w in ENGLISH_STOP_WORDS}) \
 
 DOC_MAP = {}
 REVERSE_DOC_MAP = {}
-WORLD_MAP = {}
+WORD_MAP = {}
+DOC_EMBEDDINGS = np.zeros(1)
+TERM_EMBEDDINGS = np.zeros(1)
+DOC_IDS_SVD = {}
+
 logger = logging.getLogger(__name__)
 gunicorn_logger = logging.getLogger('gunicorn.info')
 logger.handlers = gunicorn_logger.handlers
@@ -46,9 +50,13 @@ project_root = os.path.dirname(current_directory)
 DATA_DIR = os.path.join(project_root, 'data')
 
 def load_data():
-    global DOC_MAP, REVERSE_DOC_MAP, WORLD_MAP
+    global DOC_MAP, REVERSE_DOC_MAP, WORD_MAP, DOC_EMBEDDINGS, TERM_EMBEDDINGS, DOC_IDS_SVD
     doc_path = os.path.join(DATA_DIR, "doc_map2.json")
-    world_path = os.path.join(DATA_DIR, "word_map2.json")
+    word_path = os.path.join(DATA_DIR, "word_map2.json")
+    doc_embeddings_path_1 = os.path.join(DATA_DIR, "svd_scipy", "doc_embeddings1.npy")
+    doc_embeddings_path_2 = os.path.join(DATA_DIR, "svd_scipy", "doc_embeddings2.npy")
+    term_embeddings_path = os.path.join(DATA_DIR, "svd_scipy", "term_embeddings.npy")
+    doc_ids_path = os.path.join(DATA_DIR, "svd_scipy", "doc_ids.txt")
 
     try:
         with open(doc_path, "r") as f:
@@ -62,13 +70,23 @@ def load_data():
         print("Error: boi pls put doc_map.json in <root>/data")
 
     try:
-        with open(world_path, "r") as f:
-            WORLD_MAP = json.load(f)
+        with open(word_path, "r") as f:
+            WORD_MAP = json.load(f)
     except FileNotFoundError as e:
         print(e)
         print("Error: pls have the world_map.json in the data folder!")
 
-def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, scoring_mode="tfidf", num_branches=3, branch_seeds=None):
+    arr1 = np.load(doc_embeddings_path_1, allow_pickle=True)
+    arr2 = np.load(doc_embeddings_path_2, allow_pickle=True)
+    DOC_EMBEDDINGS = np.concatenate([arr1, arr2], axis=0)
+    TERM_EMBEDDINGS = np.load(term_embeddings_path)
+
+    with open(doc_ids_path) as f:
+        for line in f:
+            i, name = line.strip().split("\t", 1)
+            DOC_IDS_SVD[int(i)] = name
+
+def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, num_branches=3, branch_seeds=None):
     """
     Returns list of articles to discover
     """
@@ -88,7 +106,7 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     doc_vectors = defaultdict(dict)
 
     for token in unique_tokens:
-        term_id = WORLD_MAP.get(token)
+        term_id = WORD_MAP.get(token)
         if term_id is not None:
             record = postings_model.query.filter_by(term_id=term_id).first()
             if record and record.postings:
@@ -148,8 +166,8 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     # 3. Format output 
     # Changed to branch nodes as frontend expects many branch nodes for each rabbit hole. 
     branch_nodes = []
-    
-    description = "A unique thematic cluster." 
+
+    description = "A unique thematic cluster."
 
     for doc_id in pathway:
         title = REVERSE_DOC_MAP.get(doc_id, f"Unknown ID {doc_id}")
@@ -163,3 +181,53 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
         print(doc_id)
         
     return [branch_nodes]
+
+
+def generate_rabbit_hole_svd(start_article, path_length=5, num_branches=3):
+    global TERM_EMBEDDINGS, DOC_EMBEDDINGS, DOC_IDS_SVD
+
+    tokens = stem_tokenizer(start_article)
+    unique_tokens = list(set(tokens))
+
+    num_terms = TERM_EMBEDDINGS.shape[0]
+    vec = np.zeros(num_terms, dtype=np.float32)
+
+    for w in unique_tokens:
+        if w in WORD_MAP:
+            vec[WORD_MAP[w]] += 1.0
+
+    q_emb = vec @ TERM_EMBEDDINGS
+
+    q_emb /= np.linalg.norm(q_emb) + 1e-8
+
+    scores = DOC_EMBEDDINGS @ q_emb
+
+    top_idx = np.argsort(scores)[-(path_length*num_branches):][::-1]
+
+    np.random.shuffle(top_idx)
+
+    branch_nodes = []
+
+    description = "A unique thematic cluster."
+
+    for i in range(0, path_length*(num_branches-1), path_length):
+        nodes = top_idx[i:i+path_length]
+        temp = []
+        for node in nodes:
+            temp.append(
+                {
+                    "id": int(node),
+                    "title": DOC_IDS_SVD[node],
+                    "score": round(float(scores[node]), 4),
+                    "branch": int(i/path_length)+1,
+                    "description": description
+                }
+            )
+        branch_nodes.append(temp)
+
+    return branch_nodes
+
+
+
+
+
