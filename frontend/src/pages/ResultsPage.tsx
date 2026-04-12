@@ -162,6 +162,7 @@ export function ResultsPage() {
               onRatingChange={handleRatingChange}
               price={priceFilter}
               onPriceChange={handlePriceChange}
+              autoSubmitOnFilterChange
               onSubmit={handleSearchSubmit}
               placeholder="Search for restaurants, cuisines, or vibes..."
             />

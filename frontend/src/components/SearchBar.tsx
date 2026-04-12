@@ -28,6 +28,7 @@ interface SearchBarProps {
   price: string;
   onPriceChange: (value: string) => void;
   onSubmit?: (payload: { city: string; query: string; rating: number; price: string }) => void;
+  autoSubmitOnFilterChange?: boolean;
   placeholder?: string;
 }
 
@@ -41,27 +42,76 @@ export function SearchBar({
   onRatingChange,
   price,
   onPriceChange,
+  autoSubmitOnFilterChange = false,
   placeholder,
 }: SearchBarProps) {
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
 
   const prices = ["Price", "$", "$$", "$$$", "$$$$"];
-  const suggestions = ["Nashville cozy matcha", "romantic Italian", "trendy sushi", "casual brunch"];
+  const suggestions = ["Nashville cozy matcha", "Tampa romantic Italian", "Philadelphia trendy sushi"];
 
   const trimmedQuery = query.trim();
   const isCitySelected = city !== CITY_PLACEHOLDER && city !== "";
   const canSubmit = isCitySelected && trimmedQuery.length > 0;
 
+  const submitWith = (nextCity: string, nextQuery: string, nextRating: number = rating, nextPrice: string = price) => {
+    if (!onSubmit) return;
+    const cleanQuery = nextQuery.trim();
+    const hasCity = nextCity !== CITY_PLACEHOLDER && nextCity !== "";
+    if (!hasCity || cleanQuery.length === 0) return;
+    onSubmit({ city: nextCity, query: cleanQuery, rating: nextRating, price: nextPrice });
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (canSubmit && onSubmit) {
-      onSubmit({ city, query: trimmedQuery, rating, price });
-    }
+    submitWith(city, trimmedQuery, rating, price);
   };
+
+  const orderedCities = useMemo(
+    () => CITY_OPTIONS.filter((c) => c !== CITY_PLACEHOLDER).sort((a, b) => b.length - a.length),
+    []
+  );
 
   const handleSuggestionClick = (suggestion: string) => {
     setSelectedSuggestion(suggestion);
-    onQueryChange(suggestion);
+    let nextCity = city;
+    let nextQuery = suggestion;
+    const match = orderedCities.find((c) => suggestion.toLowerCase().startsWith(c.toLowerCase()));
+    if (match) {
+      nextCity = match;
+      const remainder = suggestion.slice(match.length).trimStart();
+      if (remainder) {
+        nextQuery = remainder;
+      }
+      onCityChange(match);
+    }
+
+    const resetRating = 0;
+    const resetPrice = "Price";
+    if (rating !== resetRating) {
+      onRatingChange(resetRating);
+    }
+    if (price !== resetPrice) {
+      onPriceChange(resetPrice);
+    }
+
+    onQueryChange(nextQuery);
+    submitWith(nextCity, nextQuery, resetRating, resetPrice);
+  };
+
+  const maybeAutoSubmit = (nextRating: number, nextPrice: string) => {
+    if (!autoSubmitOnFilterChange) return;
+    submitWith(city, query, nextRating, nextPrice);
+  };
+
+  const handleRatingInput = (value: number) => {
+    onRatingChange(value);
+    maybeAutoSubmit(value, price);
+  };
+
+  const handlePriceInput = (value: string) => {
+    onPriceChange(value);
+    maybeAutoSubmit(rating, value);
   };
 
   const normalizedCity = useMemo(() => {
@@ -123,7 +173,7 @@ export function SearchBar({
                 max="5"
                 step="0.5"
                 value={rating}
-                onChange={(e) => onRatingChange(parseFloat(e.target.value))}
+                onChange={(e) => handleRatingInput(parseFloat(e.target.value))}
                 className="w-full h-2 bg-red-100 rounded-full appearance-none cursor-pointer
                   [&::-webkit-slider-thumb]:appearance-none
                   [&::-webkit-slider-thumb]:w-5
@@ -157,7 +207,7 @@ export function SearchBar({
           <div className="relative">
             <select
               value={price}
-              onChange={(e) => onPriceChange(e.target.value)}
+              onChange={(e) => handlePriceInput(e.target.value)}
               className="appearance-none pl-3 pr-8 py-2 rounded-full border-2 border-red-200 bg-white text-sm text-gray-700 cursor-pointer hover:border-red-300 transition-colors"
             >
               {prices.map((price) => (

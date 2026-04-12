@@ -46,7 +46,7 @@ export function HomePage() {
 
           <h1 className="text-7xl mb-4 text-white" style={{ fontFamily: 'Alfa Slab One, cursive', WebkitTextStroke: '0.5px #f43f5e', textShadow: '0 0 0 transparent' }}>Dishcovery</h1>
           <p className="text-xl text-red-600 mb-2">Discover what fits your mood</p>
-          <p className="text-gray-500">Search by cuisine, mood, location, or what you're craving</p>
+          <p className="text-gray-500">Search by location, cuisine, mood, or what you're craving</p>
         </div>
 
         {/* Search bar */}
@@ -60,7 +60,7 @@ export function HomePage() {
           price={priceFilter}
           onPriceChange={setPriceFilter}
           onSubmit={handleSearchSubmit}
-          placeholder="Try 'cozy Italian' or 'spicy ramen'..."
+          placeholder="Try 'casual brunch' or 'latenight pizza'..."
         />
       </div>
     </div>
