@@ -9,10 +9,20 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from embeddings.features import CANONICAL_FEATURE_COLUMNS, DESCRIPTION_DISCRIMINATIVE_FEATURES
 from embeddings.store import get_player_vector, load_player_metadata
+from src.player_search import (
+    career_start_year_for_embedding_player,
+    nationality_filter_from_text,
+    nationality_normalized_for_embedding_player,
+    normalize_text,
+    passes_max_age_under,
+    query_max_age_under,
+    reference_year_for_queries,
+    region_nationality_allowlist_from_text,
+)
 
 
 POSITION_KEYWORDS = {
-    "Forward": ("striker", "strikers", "forward", "forwards"),
+    "Forward": ("striker", "strikers", "forward", "forwards", "winger", "wingers"),
     "Midfielder": ("midfielder", "midfielders"),
     "Defender": ("defender", "defenders"),
     "Goalkeeper": ("goalkeeper", "goalkeepers", "keeper", "keepers"),
@@ -39,7 +49,7 @@ def _batched_cosine(query_vector: np.ndarray, candidate_matrix: np.ndarray, batc
 
 
 def parse_similarity_query(query_text: str) -> dict[str, Any]:
-    """Parse a free-text similarity query into position and era filters."""
+    """Parse a free-text similarity query into position, nationality, and era filters."""
     normalized = query_text.casefold()
     filters: dict[str, Any] = {}
 
@@ -48,11 +58,25 @@ def parse_similarity_query(query_text: str) -> dict[str, Any]:
             filters["position"] = position
             break
 
+    nationality_region = region_nationality_allowlist_from_text(query_text)
+    if nationality_region:
+        filters["nationality_region"] = nationality_region
+    else:
+        nationality = nationality_filter_from_text(query_text)
+        if nationality:
+            filters["nationality"] = nationality
+            filters["nationality_normalized"] = normalize_text(nationality)
+
     decade_match = re.search(r"\b((?:19|20)\d0)s\b", normalized)
     if decade_match:
         start = int(decade_match.group(1))
         filters["era_start"] = start
         filters["era_end"] = start + 9
+
+    max_age_under = query_max_age_under(query_text)
+    if max_age_under is not None:
+        filters["max_age_under"] = max_age_under
+        filters["reference_year"] = reference_year_for_queries()
 
     return filters
 
@@ -126,6 +150,7 @@ def find_similar_players(
         results.append(
             {
                 "player": player_meta.get("display_name", normalized_name),
+                "lookup_key": normalized_name,
                 "score": float(similarities[idx]),
                 "position": player_meta.get("primary_position", "Unknown"),
             }
@@ -145,6 +170,10 @@ def find_players_by_description(
     """Find players matching a free-text description via filtered prototype similarity."""
     filters = parse_similarity_query(query_text)
     filtered_names: list[str] = []
+    nat_key = filters.get("nationality_normalized")
+    nat_region = filters.get("nationality_region")
+    max_age_under = filters.get("max_age_under")
+    ref_year = int(filters.get("reference_year") or reference_year_for_queries())
     for name in player_index:
         meta = player_metadata.get(name, {})
         if filters.get("position") and meta.get("primary_position") != filters["position"]:
@@ -154,6 +183,17 @@ def find_players_by_description(
         if era_start is not None and era_end is not None:
             years = meta.get("season_years", [])
             if not any(era_start <= year <= era_end for year in years):
+                continue
+        pnat = nationality_normalized_for_embedding_player(name, meta)
+        if nat_region:
+            if pnat not in nat_region:
+                continue
+        elif nat_key:
+            if pnat != nat_key:
+                continue
+        if max_age_under is not None:
+            start = career_start_year_for_embedding_player(name, meta)
+            if not passes_max_age_under(max_age_under, ref_year, start):
                 continue
         filtered_names.append(name)
 
@@ -177,6 +217,7 @@ def find_players_by_description(
         results.append(
             {
                 "player": meta.get("display_name", normalized_name),
+                "lookup_key": normalized_name,
                 "score": float(similarities[local_idx]),
                 "position": meta.get("primary_position", "Unknown"),
             }

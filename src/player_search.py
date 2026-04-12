@@ -3,6 +3,7 @@ import difflib
 import os
 import re
 import unicodedata
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 
@@ -25,7 +26,7 @@ LEAGUE_SOURCES = (
 )
 
 POSITION_GROUPS = {
-    "Forward": ("forward", "forwards", "striker", "strikers", "fw", "st", "cf"),
+    "Forward": ("forward", "forwards", "striker", "strikers", "winger", "wingers", "fw", "st", "cf"),
     "Defender": ("defender", "defenders", "back", "backs", "cb", "lb", "rb", "df"),
     "Midfielder": ("midfielder", "midfielders", "midfield", "mf", "cm", "am", "dm"),
     "Goalkeeper": ("goalkeeper", "goalkeepers", "keeper", "keepers", "gk"),
@@ -59,6 +60,74 @@ NATIONALITY_KEYWORDS = {
 
 YEAR_PATTERN = re.compile(r"(19|20)\d{2}")
 
+# No birth dates in league CSVs; earliest season is a lower bound on career start.
+# If a player was at least this age in their first recorded season, their current age is at least
+# (reference_year - career_start_year + MIN_SENIOR_DEBUT_AGE). Exclude when that is >= max_age_under.
+MIN_SENIOR_DEBUT_AGE = 16
+DEFAULT_YOUNG_MAX_AGE = 23
+
+# Canonical country names; normalized keys must match `nationality_normalized` in CSV rows.
+_AFRICA_COUNTRY_NAMES: tuple[str, ...] = (
+    "Algeria",
+    "Angola",
+    "Benin",
+    "Botswana",
+    "Burkina Faso",
+    "Burundi",
+    "Cameroon",
+    "Cape Verde",
+    "Central African Republic",
+    "Chad",
+    "Comoros",
+    "Congo",
+    "Congo DR",
+    "DR Congo",
+    "Democratic Republic of the Congo",
+    "Côte d'Ivoire",
+    "Cote d'Ivoire",
+    "Ivory Coast",
+    "Djibouti",
+    "Egypt",
+    "Equatorial Guinea",
+    "Eritrea",
+    "Eswatini",
+    "Ethiopia",
+    "Gabon",
+    "Gambia",
+    "Ghana",
+    "Guinea",
+    "Guinea-Bissau",
+    "Kenya",
+    "Lesotho",
+    "Liberia",
+    "Libya",
+    "Madagascar",
+    "Malawi",
+    "Mali",
+    "Mauritania",
+    "Mauritius",
+    "Morocco",
+    "Mozambique",
+    "Namibia",
+    "Niger",
+    "Nigeria",
+    "Rwanda",
+    "São Tomé and Príncipe",
+    "Senegal",
+    "Seychelles",
+    "Sierra Leone",
+    "Somalia",
+    "South Africa",
+    "South Sudan",
+    "Sudan",
+    "Tanzania",
+    "Togo",
+    "Tunisia",
+    "Uganda",
+    "Zambia",
+    "Zimbabwe",
+)
+
 
 def normalize_text(value: Optional[str]) -> str:
     if not value:
@@ -66,6 +135,11 @@ def normalize_text(value: Optional[str]) -> str:
     normalized = unicodedata.normalize("NFKD", value)
     without_marks = "".join(ch for ch in normalized if not unicodedata.combining(ch))
     return " ".join(without_marks.casefold().split())
+
+
+AFRICA_NATIONALITY_NORMALIZED = frozenset(
+    normalize_text(n) for n in _AFRICA_COUNTRY_NAMES if normalize_text(n)
+)
 
 
 def safe_float(value: Any) -> Optional[float]:
@@ -125,6 +199,8 @@ def primary_position(value: Optional[str]) -> Optional[str]:
     if "midfielder" in normalized or normalized in {"mf", "cm", "am", "dm"}:
         return "Midfielder"
     if "forward" in normalized or normalized in {"fw", "st", "cf"}:
+        return "Forward"
+    if "winger" in normalized:
         return "Forward"
     return value.strip()
 
@@ -304,6 +380,76 @@ def serialize_player(player: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def query_max_age_under(query: str) -> Optional[int]:
+    """
+    Parse an exclusive age ceiling (e.g. 'under 23' -> 23 means age must be < 23).
+    'young' without a number defaults to DEFAULT_YOUNG_MAX_AGE.
+    """
+    text = normalize_text(query)
+    if not text:
+        return None
+    for pattern in (
+        r"\bunder\s+(\d{1,2})\b",
+        r"\bbelow\s+(\d{1,2})\b",
+        r"\byounger\s+than\s+(\d{1,2})\b",
+        r"\bage\s+(\d{1,2})\s+or\s+younger\b",
+    ):
+        m = re.search(pattern, text)
+        if m:
+            n = int(m.group(1))
+            if 1 <= n <= 99:
+                return n
+    if re.search(r"\byoung\b", text):
+        return DEFAULT_YOUNG_MAX_AGE
+    return None
+
+
+def reference_year_for_queries() -> int:
+    return date.today().year
+
+
+def passes_max_age_under(
+    max_age_under: Optional[int],
+    reference_year: int,
+    career_start_year: Optional[int],
+) -> bool:
+    if max_age_under is None:
+        return True
+    if career_start_year is None:
+        return False
+    youngest_plausible_now = reference_year - int(career_start_year) + MIN_SENIOR_DEBUT_AGE
+    return youngest_plausible_now < max_age_under
+
+
+def region_nationality_allowlist_from_text(query: str) -> Optional[frozenset[str]]:
+    """If the query names a region (e.g. Africa), return allowed nationality_normalized values."""
+    text = normalize_text(query)
+    if not text:
+        return None
+    if re.search(r"\b(africa|african)\b", text):
+        return AFRICA_NATIONALITY_NORMALIZED
+    return None
+
+
+def nationality_filter_from_text(query: str) -> Optional[str]:
+    """Detect a canonical nationality from free text (keywords or 'from <country>')."""
+    text = normalize_text(query)
+    if not text:
+        return None
+    if region_nationality_allowlist_from_text(query):
+        return None
+    for keyword, nationality in NATIONALITY_KEYWORDS.items():
+        if re.search(rf"\b{re.escape(keyword)}\b", text):
+            return nationality
+    from_match = re.search(
+        r"\bfrom ([a-z]+(?: [a-z]+)?)(?=$|\b(?:in|during|between|with|and)\b|\d)",
+        text,
+    )
+    if from_match:
+        return from_match.group(1).title()
+    return None
+
+
 def parse_query(query: str) -> Dict[str, Any]:
     text = normalize_text(query)
     filters: Dict[str, Any] = {"sort_by": "goals"}
@@ -311,14 +457,13 @@ def parse_query(query: str) -> Dict[str, Any]:
     if not text:
         return filters
 
-    for keyword, nationality in NATIONALITY_KEYWORDS.items():
-        if re.search(rf"\b{re.escape(keyword)}\b", text):
+    nationality_region = region_nationality_allowlist_from_text(query)
+    if nationality_region:
+        filters["nationality_region"] = nationality_region
+    else:
+        nationality = nationality_filter_from_text(query)
+        if nationality:
             filters["nationality"] = nationality
-            break
-    if "nationality" not in filters:
-        from_match = re.search(r"\bfrom ([a-z]+(?: [a-z]+)?)(?=$|\b(?:in|during|between|with|and)\b|\d)", text)
-        if from_match:
-            filters["nationality"] = from_match.group(1).title()
 
     matched_positions: List[str] = []
     for position, keywords in POSITION_GROUPS.items():
@@ -347,18 +492,31 @@ def parse_query(query: str) -> Dict[str, Any]:
     elif re.search(r"\b(best|top)\b", text):
         filters["sort_by"] = "goals"
 
+    max_age_under = query_max_age_under(query)
+    if max_age_under is not None:
+        filters["max_age_under"] = max_age_under
+        filters["reference_year"] = reference_year_for_queries()
+
     return filters
 
 
 def boolean_search(filters: Dict[str, Any], players: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     results = players
 
-    nationality = filters.get("nationality")
-    if nationality:
-        nationality_key = normalize_text(nationality)
+    nationality_region = filters.get("nationality_region")
+    if nationality_region:
         results = [
-            player for player in results if player.get("nationality_normalized") == nationality_key
+            player
+            for player in results
+            if player.get("nationality_normalized") in nationality_region
         ]
+    else:
+        nationality = filters.get("nationality")
+        if nationality:
+            nationality_key = normalize_text(nationality)
+            results = [
+                player for player in results if player.get("nationality_normalized") == nationality_key
+            ]
 
     positions = filters.get("positions")
     if positions:
@@ -372,6 +530,19 @@ def boolean_search(filters: Dict[str, Any], players: List[Dict[str, Any]]) -> Li
             player
             for player in results
             if any(season_start <= year <= season_end for year in player.get("season_years", []))
+        ]
+
+    max_age_under = filters.get("max_age_under")
+    if max_age_under is not None:
+        ref_y = int(filters.get("reference_year") or reference_year_for_queries())
+        results = [
+            player
+            for player in results
+            if passes_max_age_under(
+                max_age_under,
+                ref_y,
+                career_start_year_for_normalized_key(player.get("normalized_name") or ""),
+            )
         ]
 
     sort_by = filters.get("sort_by") or "goals"
@@ -415,6 +586,70 @@ def load_player_index() -> Dict[str, Any]:
 
 
 PLAYER_INDEX = load_player_index()
+
+
+def career_start_year_for_normalized_key(normalized_name: str) -> Optional[int]:
+    """
+    Earliest calendar year seen in league rows. Premier League CSV rows are often
+    career totals with no season_range, so we may only see another league's first year;
+    single recent year + huge totals is treated as an unknown early start (veteran).
+    """
+    rows = PLAYER_INDEX["players_by_name"].get(normalized_name)
+    if not rows:
+        return None
+    years = [y for r in rows for y in (r.get("season_years") or [])]
+    if not years:
+        return None
+    ref_y = reference_year_for_queries()
+    mn, mx = min(years), max(years)
+    total_apps = sum(safe_int(r.get("appearances")) or 0 for r in rows)
+    total_goals = sum(safe_int(r.get("goals")) or 0 for r in rows)
+    year_span = mx - mn
+    # Incomplete history: one recent season in data but massive totals (e.g. PL aggregate + one abroad year).
+    if (
+        mn == mx
+        and mn >= ref_y - 2
+        and (total_apps >= 100 or total_goals >= 35)
+    ):
+        return ref_y - 25
+    # Few seasons in the extract vs very high minutes (e.g. only recent league years for a veteran).
+    if year_span <= 4 and mn >= ref_y - 8 and total_apps >= 115:
+        return ref_y - 25
+    return mn
+
+
+def career_start_year_for_embedding_player(
+    normalized_player_key: str, embedding_meta: Dict[str, Any]
+) -> Optional[int]:
+    """Earliest season year: prefer live CSV index; embedding JSON can be incomplete."""
+    from_csv = career_start_year_for_normalized_key(normalized_player_key)
+    if from_csv is not None:
+        return from_csv
+    start = embedding_meta.get("career_start_year")
+    if start is not None:
+        return int(start)
+    sy = embedding_meta.get("season_years") or []
+    return min(sy) if sy else None
+
+
+def nationality_normalized_for_embedding_player(
+    normalized_player_key: str, embedding_meta: Dict[str, Any]
+) -> str:
+    """
+    Normalized nationality for an embedding index key: prefer embedding metadata,
+    else fall back to the live CSV player index (same key as normalized_name).
+    """
+    stored = embedding_meta.get("nationality_normalized")
+    if stored:
+        return stored
+    nat = embedding_meta.get("nationality")
+    if nat:
+        return normalize_text(str(nat))
+    rows = PLAYER_INDEX["players_by_name"].get(normalized_player_key)
+    if not rows:
+        return ""
+    first = rows[0]
+    return first.get("nationality_normalized") or normalize_text(first.get("nationality"))
 
 
 def find_player_by_name(name: str) -> Optional[List[Dict[str, Any]]]:

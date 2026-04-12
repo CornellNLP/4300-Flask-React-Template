@@ -4,7 +4,7 @@ import Chat from "./Chat";
 import Logo from "./components/Logo";
 import SearchBar from "./components/SearchBar";
 import PlayerGrid from "./components/PlayerGrid";
-import { PlayerCardData, PlayerStats } from "./types";
+import { PlayerCardData, PlayerStats, SearchResponse, SvdLegendEntry } from "./types";
 
 const EXAMPLE_QUERIES = [
   "best brazilian wingers",
@@ -77,28 +77,35 @@ function QueryCarousel({ onSelect }: { onSelect: (q: string) => void }): JSX.Ele
 }
 // for stef to run deployed backend locally
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-interface SearchResponse {
-  results: PlayerStats[];
-}
+
 type SearchStatus = "idle" | "loading" | "populated" | "empty" | "error";
+
+type SvdCompareState = {
+  without: PlayerCardData[];
+  with: PlayerCardData[];
+  legend: SvdLegendEntry[];
+};
+
 function toCardData(results: PlayerStats[]): PlayerCardData[] {
   return results.map((player, index) => ({
-    key: `${player.name}-${player.team ?? "unknown"}-${player.league ?? "unknown"}`,
+    key: `${player.name}-${player.team ?? "unknown"}-${player.league ?? "unknown"}-${index}`,
     rank: index + 1,
     name: player.name,
     team: player.team,
     position: player.position,
     nationality: player.nationality,
-    goals: player.goals, // will be populated later
-    appearances: player.appearances, // will be populated later
+    goals: player.goals,
+    appearances: player.appearances,
     image: player.image,
+    similarity_score: player.similarity_score ?? undefined,
+    svd_explain: player.svd_explain,
   }));
 }
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [rawPlayers, setRawPlayers] = useState<PlayerStats[]>([]);
   const [players, setPlayers] = useState<PlayerCardData[]>([]);
+  const [svdCompare, setSvdCompare] = useState<SvdCompareState | null>(null);
   const [status, setStatus] = useState<SearchStatus>("idle");
   useEffect(() => {
     const loadConfig = async (): Promise<void> => {
@@ -116,8 +123,8 @@ function App(): JSX.Element {
   const runSearch = async (term: string): Promise<void> => {
     const trimmed = term.trim();
     if (trimmed === "") {
-      setRawPlayers([]);
       setPlayers([]);
+      setSvdCompare(null);
       setStatus("idle");
       return;
     }
@@ -125,20 +132,32 @@ function App(): JSX.Element {
     try {
       const response = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(trimmed)}`);
       if (!response.ok) {
-        setRawPlayers([]);
         setPlayers([]);
+        setSvdCompare(null);
         setStatus("error");
         return;
       }
       const data: SearchResponse = await response.json();
       const results = Array.isArray(data.results) ? data.results : [];
-      setRawPlayers(results);
       const nextPlayers = toCardData(results);
       setPlayers(nextPlayers);
+      if (
+        data.svd_available &&
+        data.results_without_svd != null &&
+        data.results_svd != null
+      ) {
+        setSvdCompare({
+          without: toCardData(data.results_without_svd),
+          with: toCardData(data.results_svd),
+          legend: data.svd_latent_dimensions ?? [],
+        });
+      } else {
+        setSvdCompare(null);
+      }
       setStatus(nextPlayers.length > 0 ? "populated" : "empty");
     } catch {
-      setRawPlayers([]);
       setPlayers([]);
+      setSvdCompare(null);
       setStatus("error");
     }
   };
@@ -169,7 +188,44 @@ function App(): JSX.Element {
       {status === "error" && (
         <p className="search-feedback">Could not load results. Please try again.</p>
       )}
-      <PlayerGrid players={players} />
+      {svdCompare != null ? (
+        <div className="svd-compare-wrap">
+          <p className="svd-compare-note">
+            <strong>SVD comparison.</strong> Left: rankings by cosine similarity in the original scaled stat
+            vectors. Right: same query prototype projected with TruncatedSVD, then cosine similarity in latent
+            space. Expand a card on the right for per-dimension q×p explainability (positive vs negative latent
+            alignment).
+          </p>
+          <div className="svd-compare-grid">
+            <div className="svd-compare-col">
+              <h2>Without SVD (original feature space)</h2>
+              <PlayerGrid players={svdCompare.without} />
+            </div>
+            <div className="svd-compare-col">
+              <h2>With SVD (latent space)</h2>
+              <PlayerGrid players={svdCompare.with} />
+            </div>
+          </div>
+          {svdCompare.legend.length > 0 && (
+            <details className="svd-legend">
+              <summary>Latent dimensions — interpretation from Vᵀ loadings</summary>
+              <ul className="svd-legend-list">
+                {svdCompare.legend.map((e) => (
+                  <li key={e.dim}>
+                    <strong>Dim {e.dim}</strong>
+                    {e.explained_variance_ratio != null &&
+                      ` (variance explained ${(e.explained_variance_ratio * 100).toFixed(2)}%)`}
+                    : strongest +weights on {e.top_positive_loadings.join(", ")}; strongest −weights on{" "}
+                    {e.top_negative_loadings.join(", ")}.
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      ) : (
+        <PlayerGrid players={players} />
+      )}
       {useLlm && <Chat onSearchTerm={handleChatSearch} />}
     </div>
   );

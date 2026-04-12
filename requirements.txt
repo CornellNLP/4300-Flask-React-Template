@@ -7,8 +7,8 @@ gunicorn==25.0.3
 python-dotenv==1.0.1
 numpy>=2.2.0,<3
 pandas>=2.3.0,<3
-scikit-learn>=1.6.0,<2
-joblib>=1.5.0,<2
-rapidfuzz>=3.13.0,<4
+scikit-learn>=1.6.0,<1.7
+joblib==1.5.3
+rapidfuzz==3.13.0
 git+https://github.com/MrPeterss/infosci-spark-client.git
 praw>=7.7.0,<8

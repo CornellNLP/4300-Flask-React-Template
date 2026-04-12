@@ -426,6 +426,133 @@
   cursor: not-allowed;
 }
 
+/* SVD comparison (raw vs latent space) */
+.svd-compare-wrap {
+  width: 100%;
+  max-width: 1400px;
+  margin-top: 28px;
+}
+
+.svd-compare-note {
+  font-size: 14px;
+  color: #1a3d2e;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  line-height: 1.45;
+}
+
+.svd-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .svd-compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.svd-compare-col {
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  padding: 16px 14px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.svd-compare-col h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f2e1f;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.svd-legend {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-width: 1400px;
+  width: 100%;
+}
+
+.svd-legend summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #0f2e1f;
+}
+
+.svd-legend-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: #214035;
+  line-height: 1.5;
+}
+
+.svd-explain {
+  margin-top: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(25, 63, 47, 0.12);
+  font-size: 12px;
+  color: #214035;
+}
+
+.svd-explain summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.svd-explain-note {
+  margin: 8px 0;
+  opacity: 0.92;
+  line-height: 1.4;
+}
+
+.svd-explain-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .svd-explain-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.svd-explain-heading {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: #0f2e1f;
+}
+
+.svd-explain-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.svd-explain-list li {
+  margin-bottom: 8px;
+}
+
+.svd-dim {
+  font-weight: 600;
+}
+
+.svd-loadings {
+  font-size: 11px;
+  opacity: 0.88;
+  margin-top: 2px;
+}
+
 /* Responsive */
 @media (max-width: 980px) {
   .player-grid {
