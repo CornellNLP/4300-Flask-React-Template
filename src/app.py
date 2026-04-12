@@ -138,7 +138,8 @@ def init_db():
                         label=row.get('label'),
                         score=0.0,
                         safety_score=100.0,
-                        flagged_ingredients=[]
+                        flagged_ingredients=[],
+                        good_ingredients=[]
                     )
 
                     db.session.add(product)
