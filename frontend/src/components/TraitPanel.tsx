@@ -24,15 +24,51 @@ const lifeRanges = [
 ]
 
 const groups = [
-  "Foundation Stock Service",
-  "Herding Group",
-  "Hound Group",
-  "Miscellaneous Class",
-  "Non-Sporting Group",
-  "Sporting Group",
-  "Terrier Group",
-  "Toy Group",
-  "Working Group"
+  {
+    label: "Foundation Stock Service",
+    value: "Foundation Stock Service",
+    desc: "Breeds not yet fully recognized by the AKC"
+  },
+  {
+    label: "Herding Group",
+    value: "Herding Group",
+    desc: "Dogs bred to control livestock (e.g., Border Collies)"
+  },
+  {
+    label: "Hound Group",
+    value: "Hound Group",
+    desc: "Scent or sight hunters used for tracking game"
+  },
+  {
+    label: "Miscellaneous Class",
+    value: "Miscellaneous Class",
+    desc: "Breeds nearing full AKC recognition"
+  },
+  {
+    label: "Non-Sporting Group",
+    value: "Non-Sporting Group",
+    desc: "Diverse breeds not tied to specific work roles"
+  },
+  {
+    label: "Sporting Group",
+    value: "Sporting Group",
+    desc: "Hunting dogs trained for retrieving and pointing"
+  },
+  {
+    label: "Terrier Group",
+    value: "Terrier Group",
+    desc: "Feisty dogs bred to hunt and kill vermin"
+  },
+  {
+    label: "Toy Group",
+    value: "Toy Group",
+    desc: "Small companion dogs bred for companionship"
+  },
+  {
+    label: "Working Group",
+    value: "Working Group",
+    desc: "Large breeds used for guarding, pulling, and rescue"
+  }
 ]
 
 const groomingOptions = [
@@ -88,7 +124,7 @@ function TraitPanel({
 
       {/* Row 1: Text input */}
       <div className="trait-section-card">
-        <p className="trait-section-label">Input traits</p>
+        <p className="trait-section-label">Input Traits</p>
         <textarea
           className="write-in-input"
           placeholder="ex: playful, loyal, quiet"
@@ -127,7 +163,7 @@ function TraitPanel({
         </div>
 
         <div className="trait-section-card">
-          <p className="trait-section-label">Life expectancy</p>
+          <p className="trait-section-label">Life Expectancy</p>
           <div className="trait-options">
             <RangeFilter
               label=""
@@ -143,19 +179,47 @@ function TraitPanel({
       {/* Row 3: Breed Group + Energy Level + Demeanor */}
       <div className="trait-form-grid-3">
         <div className="trait-section-card">
-          <p className="trait-section-label">Breed group</p>
-          <div className="trait-options">
-            <CheckboxFilter
-              trait="Group"
-              options={groups}
-              traitInput={traitInput}
-              toggleTraitValue={toggleTraitValue}
-            />
-          </div>
+
+  <div className="trait-section-card">
+  <p className="trait-section-label">Breed Group:{" "}
+    <span className="trait-definition">
+      Describes the dog's historical working role
+    </span>
+    </p>
+
+  <div className="trait-options breed-group-options">
+
+    {groups.map((g) => {
+      const isSelected = traitInput["Group"]?.includes(g.value)
+
+      return (
+        <div key={g.value} className="breed-group-row">
+
+          <span
+            className={`trait-pill ${isSelected ? "matched" : ""}`}
+            onClick={() => toggleTraitValue("Group", g.value)}
+          >
+            {g.label}
+          </span>
+
+          <span className="group-desc">
+            {g.desc}
+          </span>
+
         </div>
+      )
+    })}
+
+  </div>
+</div>
+</div>
 
         <div className="trait-section-card">
-          <p className="trait-section-label">Energy level</p>
+          <p className="trait-section-label">Energy Level:{" "}
+          <span className="trait-definition">
+            Reflects how much daily exercise and stimulation the dog typically needs
+          </span>
+          </p>
           <div className="trait-options">
             <CheckboxFilter
               trait="Energy Level"
@@ -167,7 +231,11 @@ function TraitPanel({
         </div>
 
         <div className="trait-section-card">
-          <p className="trait-section-label">Demeanor</p>
+          <p className="trait-section-label">Demeanor:{" "}
+          <span className="trait-definition">
+            Describes general personality style 
+          </span>
+          </p>
           <div className="trait-options">
             <CheckboxFilter
               trait="Demeanor"
@@ -182,7 +250,11 @@ function TraitPanel({
       {/* Row 4: Grooming + Trainability + Shedding */}
       <div className="trait-form-grid-3">
         <div className="trait-section-card">
-          <p className="trait-section-label">Grooming</p>
+          <p className="trait-section-label">Grooming:{" "}
+          <span className="trait-definition">
+            Describe how much coat maintenance (brushing, trimming, bathing) is required.
+          </span>
+          </p>
           <div className="trait-options">
             <CheckboxFilter
               trait="Grooming Frequency"
@@ -194,7 +266,11 @@ function TraitPanel({
         </div>
 
         <div className="trait-section-card">
-          <p className="trait-section-label">Trainability</p>
+          <p className="trait-section-label">Trainability:{" "}
+          <span className="trait-definition">
+            Reflects how quickly the dog learns commands & responds to training
+          </span>
+          </p>
           <div className="trait-options">
             <CheckboxFilter
               trait="Trainability"
@@ -206,7 +282,11 @@ function TraitPanel({
         </div>
 
         <div className="trait-section-card">
-          <p className="trait-section-label">Shedding</p>
+          <p className="trait-section-label">Shedding:{" "}
+          <span className="trait-definition">
+            Indicates how much loose fur the breed typically loses throughout the year
+          </span>
+          </p>
           <div className="trait-options">
             <CheckboxFilter
               trait="Shedding"

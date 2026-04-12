@@ -106,6 +106,41 @@ def parse_range(range_str):
 def safe(val):
     return None if pd.isna(val) else val
 
+def get_matching_traits(row, trait_input):
+    matches = []
+
+    for trait, col in CATEGORY_COLUMN_MAP.items():
+        selected_values = as_list(trait_input.get(trait, []))
+        if not selected_values:
+            continue
+
+        row_value = "" if pd.isna(row.get(col)) else str(row[col]).lower()
+
+        for selected in selected_values:
+            selected_clean = str(selected).strip().lower()
+            if selected_clean in row_value:
+                matches.append(selected)
+
+    return matches
+
+def get_text_matches(row, query):
+    if not query:
+        return []
+
+    text = " ".join([
+        str(row.get("description", "")),
+        str(row.get("temperament", "")),
+    ]).lower()
+
+    # only meaningful words (remove tiny/common words)
+    query_words = [
+        w for w in query.lower().split()
+        if len(w) > 3
+    ]
+
+    matches = [word for word in query_words if word in text]
+
+    return matches
 
 def compute_structured_jaccard(row, trait_input):
     range_score_total = 0
@@ -240,19 +275,64 @@ def register_routes(app):
             filter_score = compute_structured_jaccard(row, trait_input)
             text_score = float(text_scores[idx]) if text_scores is not None else None
 
-            if has_structured and has_text:
-                final_score = 0.6 * text_score + 0.4 * filter_score
-            elif has_text:
-                final_score = text_score
-            else:
-                final_score = filter_score
-
             breed_name = row["breed"]
             picture_name = picture_map.get(normalize_breed_name(breed_name), "")
+            matching_traits = get_matching_traits(row, trait_input)
+            matching_words = get_text_matches(row, write_in)
+
+            # ---------------- TEXT SCORE (binary 0 or 1) ----------------
+            text_words = set((write_in or "").lower().split())
+            text_words = {w for w in text_words if len(w) > 0}
+
+            text_text = (str(row["description"]) + " " + str(row["temperament"])).lower()
+
+            text_score = 100.0 if any(w in text_text for w in text_words) else 0.0
+
+
+            # ---------------- CATEGORY SCORE ----------------
+            selected_traits = {
+                k: v for k, v in trait_input.items() if len(as_list(v)) > 0
+            }
+
+            total_categories = len(selected_traits)
+
+            matched_categories = 0
+
+            for trait, values in selected_traits.items():
+                col = CATEGORY_COLUMN_MAP.get(trait)
+                if not col:
+                    continue
+
+                row_value = "" if pd.isna(row.get(col)) else str(row[col]).lower()
+
+                for v in as_list(values):
+                    if str(v).strip().lower() in row_value:
+                        matched_categories += 1
+                        break  # only count once per category
+
+
+            category_score = (
+                100.0
+                if total_categories == 0
+                else (matched_categories / total_categories) * 100
+            )
+
+
+            # ---------------- FINAL SCORE RULES ----------------
+            if text_score == 100 and category_score == 100:
+                final_score = 100
+
+            elif text_score == 100 and category_score == 0:
+                final_score = 60
+
+            else:
+                final_score = 0.6 * text_score + 0.4 * category_score
 
             results.append({
                 "breed": breed_name,
-                "score": round(float(final_score) * 100, 1),
+                "score": round(float(final_score), 1),
+                "matching_traits": matching_traits,
+                "matching_words": matching_words,
                 "text_score": round(float(text_score) * 100, 1) if text_score is not None else None,
                 "filter_score": round(float(filter_score) * 100, 1) if filter_score is not None else None,
                 "description": safe(row["description"]),

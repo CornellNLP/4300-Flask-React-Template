@@ -133,6 +133,19 @@ body {
   margin: 0;
 }
 
+.trait-section-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.trait-definition {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-dark);
+  opacity: 0.85;
+}
+
 /* ── Checkbox pills ────────────────────────────────────────────────────── */
 .trait-options {
   display: flex;
@@ -167,6 +180,75 @@ body {
   display: none;
 }
 
+.trait-section-label {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 6px;
+  font-family: 'Fredoka', sans-serif;
+  letter-spacing: 0.2px;
+}
+
+.group-row-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.breed-group-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* each row = pill + description */
+.breed-group-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* make sure pills behave exactly like other pills */
+.breed-group-row .trait-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 13px;
+  font-size: 15px;
+  border-radius: var(--pill-radius);
+  border: 1.5px solid var(--pill-unsel-border);
+  background: var(--pill-unsel-bg);
+  color: var(--pill-unsel-text);
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+/* selected state matches other pills */
+.breed-group-row .trait-pill.matched {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+  font-weight: 500;
+}
+
+.group-desc {
+  font-size: 14px;
+  font-weight: 400;
+  color: #0A1A3B;
+  opacity: 0.85;
+  font-family: 'Fredoka', sans-serif;
+  letter-spacing: 0.2px;
+}
+
 .trait-options label:has(input:checked) {
   background: var(--blue);
   border-color: var(--blue);
@@ -177,6 +259,24 @@ body {
 .trait-options label span {
   line-height: 1;
   white-space: nowrap;
+}
+
+
+.trait-pill.matched {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+  font-weight: 500;
+}
+
+.trait-pill.matched strong {
+  color: var(--white);
+}
+
+mark {
+  background: #FFE7A3;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
 /* ── Write-in textarea ────────────────────────────────────────────────── */
@@ -269,6 +369,28 @@ body {
 .match-paw-image {
   height: 36px;
   opacity: 0.8;
+}
+
+.match-section {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.match-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.match-chip {
+  background: var(--blue-light);
+  border: 1px solid var(--border);
+  color: var(--ink-light);
+  border-radius: var(--pill-radius);
+  padding: 3px 10px;
+  font-size: 12.5px;
 }
 
 /* ── Results ─────────────────────────────────────────────────────────── */
@@ -386,7 +508,7 @@ body {
 
 .trait-pill strong {
   font-weight: 500;
-  color: var(--ink);
+  color: inherit;
 }
 
 .dog-temperament {

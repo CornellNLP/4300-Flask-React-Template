@@ -8,12 +8,15 @@ import MatchImg from './pictures/match_title.png'
 type DogMatch = {
   breed: string
   score: number
+  matching_traits?: string[]
+  matching_words?: string[]
   description: string
   temperament: string
   group: string
   energy: string
   shedding: string
   trainability: string
+  grooming: string
   demeanor: string
   picture_name: string
 
@@ -101,8 +104,59 @@ function App(): JSX.Element {
     ([_, values]) => values.length > 0
   )
 
+  const selectedRanges = (traitInput: Record<string, Array<number | string>>) => {
+    const ranges: Record<string, Array<string>> = {}
+
+    if (traitInput['Height']?.length) ranges['Height'] = traitInput['Height'].map(String)
+    if (traitInput['Weight']?.length) ranges['Weight'] = traitInput['Weight'].map(String)
+    if (traitInput['Life Expectancy']?.length) ranges['Life Expectancy'] = traitInput['Life Expectancy'].map(String)
+
+    return ranges
+  }
+  const rangePrefs = selectedRanges(traitInput)
+
   const hasSubmittedInput =
     selectedTraitEntries.length > 0 || submittedWriteIn.trim() !== ''
+
+  const normalize = (w: string) =>
+    w.toLowerCase().replace(/[^a-z]/g, '')
+
+  const highlightText = (text: string, words: string[]) => {
+    if (!words || words.length === 0) return text
+
+    const normalizedTargets = words
+      .map(normalize)
+      .filter(Boolean)
+
+    // split text into words but KEEP original display
+    const parts = text.split(/(\b)/)
+
+    return parts.map((part, i) => {
+      const clean = normalize(part)
+
+      const isMatch = normalizedTargets.some(target =>
+        clean === target || clean.startsWith(target)
+      )
+
+      return isMatch ? <mark key={i}>{part}</mark> : part
+    })
+  }
+
+  const rangeMatches = (
+  trait: 'Height' | 'Weight' | 'Life Expectancy',
+  value: number | null,
+  ranges: Record<string, string[]>
+) => {
+  if (!ranges[trait] || value == null) return false
+
+  const v = value
+
+  return ranges[trait].some((r) => {
+    const [low, high] = r.split('-').map(Number)
+    if (Number.isNaN(low) || Number.isNaN(high)) return false
+    return v >= low && v <= high
+  })
+}
 
   if (useLlm === null) return <></>
 
@@ -222,24 +276,88 @@ function App(): JSX.Element {
                       </div>
 
                       <div className="traits">
-                        <span className="trait-pill">
+                        <span className={`trait-pill ${
+                          rangeMatches('Height', dog.avg_height, rangePrefs) ? 'matched' : ''
+                        }`}>
                           <strong>Height</strong> {dog.avg_height != null ? Math.round(dog.avg_height) : 'N/A'} cm
                         </span>
-                        <span className="trait-pill">
+
+                        <span className={`trait-pill ${
+                          rangeMatches('Weight', dog.avg_weight, rangePrefs) ? 'matched' : ''
+                        }`}>
                           <strong>Weight</strong> {dog.avg_weight != null ? Math.round(dog.avg_weight) : 'N/A'} kg
                         </span>
-                        <span className="trait-pill">
+
+                        <span className={`trait-pill ${
+                          rangeMatches('Life Expectancy', dog.avg_expectancy, rangePrefs) ? 'matched' : ''
+                        }`}>
                           <strong>Lifespan</strong> {dog.avg_expectancy ?? 'N/A'} yrs
                         </span>
-                        <span className="trait-pill">{dog.group}</span>
-                        <span className="trait-pill">{dog.energy}</span>
-                        <span className="trait-pill">{dog.shedding}</span>
-                        <span className="trait-pill">{dog.trainability}</span>
-                        <span className="trait-pill">{dog.demeanor}</span>
+
+                        <span className={`trait-pill ${
+                          dog.matching_traits?.some(t =>
+                            dog.group?.toLowerCase().includes(t.toLowerCase())
+                          ) ? 'matched' : ''
+                        }`}>
+                          {dog.group}
+                        </span>
+
+                        <span className={`trait-pill ${
+                          dog.matching_traits?.some(t =>
+                            dog.energy?.toLowerCase().includes(t.toLowerCase())
+                          ) ? 'matched' : ''
+                        }`}>
+                          {dog.energy}
+                        </span>
+
+                        <span className={`trait-pill ${
+                          dog.matching_traits?.some(t =>
+                            dog.shedding?.toLowerCase().includes(t.toLowerCase())
+                          ) ? 'matched' : ''
+                        }`}>
+                          {dog.shedding}
+                        </span>
+
+                        <span className={`trait-pill ${
+                          dog.matching_traits?.some(t =>
+                            dog.trainability?.toLowerCase().includes(t.toLowerCase())
+                          ) ? 'matched' : ''
+                        }`}>
+                          {dog.trainability}
+                        </span>
+
+                        <span className={`trait-pill ${
+                          dog.matching_traits?.some(t =>
+                            dog.demeanor?.toLowerCase().includes(t.toLowerCase())
+                          ) ? 'matched' : ''
+                        }`}>
+                          {dog.demeanor}
+                        </span>
                       </div>
 
-                      <p className="dog-temperament">{dog.temperament}</p>
-                      <p className="dog-description">{dog.description}</p>
+                      <p className="dog-temperament">
+                        {highlightText(dog.temperament, dog.matching_words || [])}
+                      </p>
+                      <p className="dog-description">
+                        {highlightText(dog.description, dog.matching_words || [])}
+                      </p>
+
+                      {(dog.matching_traits?.length || dog.matching_words?.length) && (
+                        <div className="match-reason">
+                          <div className="match-section">Matches Your Preference(s):</div>
+
+                          <div className="match-body">
+                            {[...(dog.matching_traits || []), ...(dog.matching_words || [])]
+                              .filter((v, i, arr) => arr.indexOf(v) === i)
+                              .slice(0, 5)
+                              .map((item, i) => (
+                                <span key={i} className="match-chip">
+                                  {item}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
