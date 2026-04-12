@@ -1,5 +1,6 @@
 import ast
 import collections
+import difflib
 import json
 import math
 import os
@@ -111,6 +112,23 @@ def rank_restaurants(query: str, corpus: dict) -> list[dict]:
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
+def _correct_query(query: str, vectorizer) -> str:
+    """
+    Replace words not in the TF-IDF vocabulary with their closest match.
+    Words already in the vocabulary pass through unchanged.
+    Words with no close match (cutoff=0.75) are kept as-is.
+    """
+    vocab = list(vectorizer.vocabulary_.keys())
+    corrected = []
+    for word in query.lower().split():
+        if word in vectorizer.vocabulary_:
+            corrected.append(word)
+        else:
+            matches = difflib.get_close_matches(word, vocab, n=1, cutoff=0.75)
+            corrected.append(matches[0] if matches else word)
+    return " ".join(corrected)
+
+
 def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
     """
     Convenience function for search.py.
@@ -129,7 +147,8 @@ def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
         return []
  
     corpus = build_tfidf_corpus(restaurants)
-    query_vec = vectorize_query(query, corpus["vectorizer"])
+    corrected_query = _correct_query(query, corpus["vectorizer"])
+    query_vec = vectorize_query(corrected_query, corpus["vectorizer"])
     scores = sklearn_cosine(query_vec, corpus["tfidf_matrix"]).flatten()
     return [round(float(s), 6) for s in scores]
  
