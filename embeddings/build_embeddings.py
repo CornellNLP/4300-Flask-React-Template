@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from embeddings.features import build_feature_matrix
+from embeddings.features import CANONICAL_FEATURE_COLUMNS, build_feature_matrix
 from embeddings.preprocess import preprocess_player_stats
 from embeddings.similarity import find_similar_players
 from embeddings.store import load_embeddings, save_embeddings
@@ -21,7 +21,13 @@ def main() -> None:
     matrix, player_index, player_metadata, scalers = build_feature_matrix(player_df, metadata)
 
     LOGGER.info("Saving embeddings and metadata")
-    save_embeddings(matrix, player_index, player_metadata, scalers)
+    save_embeddings(
+        matrix,
+        player_index,
+        player_metadata,
+        scalers,
+        feature_column_names=list(CANONICAL_FEATURE_COLUMNS),
+    )
 
     LOGGER.info("Reloading embeddings for smoke test")
     loaded_matrix, loaded_index = load_embeddings()

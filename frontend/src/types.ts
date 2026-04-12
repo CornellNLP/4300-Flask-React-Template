@@ -1,3 +1,24 @@
+export interface SvdDimensionExplain {
+  dim: number
+  query_activation: number
+  player_activation: number
+  contribution: number
+  top_positive_loadings: string[]
+  top_negative_loadings: string[]
+}
+
+export interface SvdExplain {
+  positive_dimensions: SvdDimensionExplain[]
+  negative_dimensions: SvdDimensionExplain[]
+}
+
+export interface SvdLegendEntry {
+  dim: number
+  top_positive_loadings: string[]
+  top_negative_loadings: string[]
+  explained_variance_ratio?: number
+}
+
 export interface PlayerStats {
   player_id?: string | null
   name: string
@@ -19,6 +40,7 @@ export interface PlayerStats {
   shot_on_target_ratio: number | null
   similarity_score?: number | null
   search_mode?: string | null
+  svd_explain?: SvdExplain
 }
 
 export interface PlayerCardData {
@@ -28,10 +50,19 @@ export interface PlayerCardData {
   team: string | null
   position: string | null
   nationality: string | null
-  //wages: number | null // ideally not null once we have the data
-  //age: number | null // ideally not null once we have the data
   goals: number | null
   appearances: number | null
   image: string | null
+  similarity_score?: number | null
+  svd_explain?: SvdExplain
+}
+
+export interface SearchResponse {
+  mode?: string
+  results: PlayerStats[]
+  results_svd?: PlayerStats[] | null
+  results_without_svd?: PlayerStats[] | null
+  svd_available?: boolean
+  svd_latent_dimensions?: SvdLegendEntry[]
 }
 
