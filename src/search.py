@@ -1,3 +1,4 @@
+import ast
 import heapq
 import json
 import os
@@ -53,6 +54,18 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
         business = restaurant["business"]
         price_tier, price_label = get_price_info(business)
 
+        # Extract ambience tags from attributes
+        ambience_raw = (business.get("attributes") or {}).get("Ambience") or {}
+        if isinstance(ambience_raw, str):
+            try:
+                ambience_raw = ast.literal_eval(ambience_raw)
+            except Exception:
+                ambience_raw = {}
+        if isinstance(ambience_raw, dict):
+            ambience = [k for k, v in ambience_raw.items() if v is True]
+        else:
+            ambience = []
+
         entry = {
             "business_id": business["business_id"],
             "name": business["name"],
@@ -66,6 +79,7 @@ def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
             "hours": business.get("hours"),
             "priceTier": price_tier,
             "priceRange": price_label,
+            "ambience": ambience,
             "matchScore": float(score)
         }
 

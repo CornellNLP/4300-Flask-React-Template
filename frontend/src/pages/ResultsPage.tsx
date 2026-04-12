@@ -4,6 +4,7 @@ import { SearchBar } from "../components/SearchBar";
 import { RestaurantCard, type Restaurant } from "../components/RestaurantCard";
 import { UtensilsCrossed, Pizza, Coffee, IceCream, Cake, Cookie, Croissant, Sandwich, Cherry } from "lucide-react";
 import dishcoveryLogo from "../assets/logo.png";
+import { generateMatchExplanation, getQueryAwareTags } from "../utils/matchExplanation";
 
 const CITY_PLACEHOLDER = "City";
 
@@ -86,7 +87,41 @@ export function ResultsPage() {
         const response = await fetch(`/api/search?q=${encodeURIComponent(combinedQuery)}`);
         const data = await response.json();
         const list: Restaurant[] = data.results || [];
-        const filtered = list.filter((restaurant) => restaurantMatchesFilters(restaurant, ratingParam, priceParam));
+
+        const enriched = list.map((restaurant) => {
+          const categoriesList = Array.isArray(restaurant.categories)
+            ? restaurant.categories
+            : typeof restaurant.categories === "string"
+              ? restaurant.categories.split(",").map((s) => s.trim()).filter(Boolean)
+              : [];
+
+          const ambienceTags = restaurant.ambience ?? [];
+          const allTags = [...ambienceTags, ...categoriesList];
+
+          const rating = restaurant.rating ?? restaurant.stars ?? 0;
+          const price = restaurant.priceRange;
+          const score = restaurant.matchScore ?? 0;
+
+          const matchExplanation = generateMatchExplanation(
+            restaurant.name,
+            allTags,
+            trimmedQuery,
+            rating,
+            price,
+            score,
+            ratingParam > 0 ? ratingParam : undefined,
+          );
+
+          const queryTags = getQueryAwareTags(allTags, trimmedQuery);
+
+          return {
+            ...restaurant,
+            matchExplanation,
+            ambience: queryTags.length > 0 ? queryTags : ambienceTags.length > 0 ? ambienceTags : undefined,
+          };
+        });
+
+        const filtered = enriched.filter((restaurant) => restaurantMatchesFilters(restaurant, ratingParam, priceParam));
         setResults(filtered);
       } catch {
         setResults([]);
