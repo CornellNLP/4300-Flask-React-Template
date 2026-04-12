@@ -142,5 +142,9 @@ for col in ["primary_category", "category", "secondary_category"]:
     else:
         print(f"\nColumn not found: {col}")
 
-
+# Preprocess skin condition CSV to ensure consistent formatting
+df = pd.read_csv('ingredients_skin_conditions.csv')
+df['Good_Ingredients'] = df['Good_Ingredients'].str.lower()
+df['Bad_Ingredients'] = df['Bad_Ingredients'].str.lower()
+df.to_csv('ingredients_skin_conditions.csv', index=False)
 
