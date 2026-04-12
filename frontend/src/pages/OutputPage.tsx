@@ -62,8 +62,8 @@ function DimSparkline({
         })}
       </div>
       <div className="sparkline-legend">
-        <span className="legend-dot doc-dot" /> recipe
-        <span className="legend-dot query-dot" /> query
+        <span className="legend-dot doc-dot" /> this recipe
+        <span className="legend-dot query-dot" /> your input
         <span className="legend-dot shared-dot" /> overlap
       </div>
     </div>

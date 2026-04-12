@@ -2,6 +2,9 @@
   --color-bg: #fffef9;
   --color-accent: #d43c00;
   --color-text: #000;
+  --color-sparkline-doc: #f1bf68;
+  --color-sparkline-query: #df9380;
+  --color-sparkline-shared: #d43c00;
   --font-display: "Alatsi", sans-serif;
   --font-body: "Source Serif 4", "Source Serif Pro", Georgia, serif;
   --space-page-x: clamp(1rem, 5vw, 10.625rem);
@@ -388,21 +391,24 @@
 .sparkline-bar {
   width: 5px;
   border-radius: 1px 1px 0 0;
-  background: #ddd4be;
+  background: var(--color-sparkline-doc);
   flex-shrink: 0;
   transition: background 0.2s;
 }
 
 .sparkline-bar.shared {
-  background: var(--color-accent);
+  background: var(--color-sparkline-shared);
+  opacity: 0.8;
 }
 
 .query-bar {
-  background: #c5bba8;
+  background: var(--color-sparkline-query);
+  opacity: 0.8;
 }
 
 .query-bar.shared {
-  background: #a02e00;
+  background: var(--color-sparkline-shared);
+  opacity: 0.8;
 }
 
 .sparkline-legend {
@@ -414,7 +420,7 @@
   font-size: 0.58rem;
   letter-spacing: 0.05em;
   color: var(--color-muted);
-  opacity: 0.6;
+  opacity: 0.8;
   text-transform: uppercase;
 }
 
@@ -427,15 +433,15 @@
 }
 
 .doc-dot {
-  background: #ddd4be;
+  background: var(--color-sparkline-doc);
 }
 
 .query-dot {
-  background: #c5bba8;
+  background: var(--color-sparkline-query);
 }
 
 .shared-dot {
-  background: var(--color-accent);
+  background: var(--color-sparkline-shared);
 }
 
 /* Playlist  */

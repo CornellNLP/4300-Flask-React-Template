@@ -108,6 +108,7 @@ def build_svd_index(data, k=40):
  
     return vectorizer, docs_normed, words_normed, s, index_to_word
 
+# for a given vector and a list of dimension indices, what does each dimension mean in plain English
 def _dim_info(vec, dim_indices, words_normed, index_to_word, top_keywords):
     """Build dimension info objects for a list of dimension indices."""
     info = []
@@ -138,6 +139,7 @@ def query_svd(query, data, vectorizer, docs_normed, words_normed, index_to_word,
         return []
  
     query_tfidf = vectorizer.transform([query]).toarray()
+    # because words_normed maps from word-space to latent-space, multiplying it by query_tfidf => 40-dimensional query vector in the same latent space as the recipes
     raw = query_tfidf.dot(words_normed)
  
     if raw.shape[0] == 0 or np.linalg.norm(raw) == 0:
@@ -147,10 +149,13 @@ def query_svd(query, data, vectorizer, docs_normed, words_normed, index_to_word,
     if query_vec.ndim == 0:
         query_vec = np.array([float(query_vec)])
  
+    # gives a similarity score for every recipe
     sims = docs_normed.dot(query_vec)
     top_indices = np.argsort(-sims)[:top_n]
  
+    # get top latent dimensions for query
     query_top_dim_idx = np.argsort(np.abs(query_vec))[::-1][:top_dims].tolist()
+    # get dimensrion info from indices
     query_dim_info = _dim_info(query_vec, query_top_dim_idx, words_normed, index_to_word, top_keywords)
  
     results = []
