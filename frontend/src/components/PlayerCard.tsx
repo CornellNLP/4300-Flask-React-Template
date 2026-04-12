@@ -39,6 +39,53 @@ function PlayerCard({ data, onFullStatsClick }: PlayerCardProps): JSX.Element {
         <span className="label">Appearances</span>
         <span className="value">{data.appearances}</span>
       </div>
+      {data.similarity_score != null && (
+        <div className="player-info-row">
+          <span className="label">Similarity</span>
+          <span className="value">{data.similarity_score.toFixed(3)}</span>
+        </div>
+      )}
+      {data.svd_explain != null && (
+        <details className="svd-explain">
+          <summary>SVD explainability (latent dimensions)</summary>
+          <p className="svd-explain-note">
+            Each term is q<sub>d</sub>×p<sub>d</sub> before cosine normalization. Same sign on dimension d →
+            positive product (reinforces the match); opposite signs → negative product.
+          </p>
+          <div className="svd-explain-cols">
+            <div>
+              <strong className="svd-explain-heading">Strongest positive q×p</strong>
+              <ul className="svd-explain-list">
+                {data.svd_explain.positive_dimensions.map((d) => (
+                  <li key={`p-${d.dim}`}>
+                    <span className="svd-dim">Dim {d.dim}</span>: q={d.query_activation.toFixed(2)}, p=
+                    {d.player_activation.toFixed(2)}, q×p={d.contribution.toFixed(3)}
+                    <div className="svd-loadings">
+                      +V<sup>T</sup>: {d.top_positive_loadings.join(", ")} · −V<sup>T</sup>:{" "}
+                      {d.top_negative_loadings.join(", ")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <strong className="svd-explain-heading">Strongest negative q×p</strong>
+              <ul className="svd-explain-list">
+                {data.svd_explain.negative_dimensions.map((d) => (
+                  <li key={`n-${d.dim}`}>
+                    <span className="svd-dim">Dim {d.dim}</span>: q={d.query_activation.toFixed(2)}, p=
+                    {d.player_activation.toFixed(2)}, q×p={d.contribution.toFixed(3)}
+                    <div className="svd-loadings">
+                      +V<sup>T</sup>: {d.top_positive_loadings.join(", ")} · −V<sup>T</sup>:{" "}
+                      {d.top_negative_loadings.join(", ")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </details>
+      )}
       <button
         type="button"
         className="full-stats-btn"

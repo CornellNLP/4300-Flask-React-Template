@@ -8,7 +8,12 @@ from typing import Any
 
 import pandas as pd
 
-from src.player_search import normalize_text, primary_position
+from src.player_search import (
+    canonical_nationality,
+    first_non_empty,
+    normalize_text,
+    primary_position,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -117,13 +122,15 @@ def load_stats_csvs(csv_paths: list[str] | None = None) -> pd.DataFrame:
         if not os.path.exists(path):
             continue
         frame = pd.read_csv(path, low_memory=False)
-        frame = frame.assign(
-            _source_path=path,
-            _source_file=os.path.basename(path),
-            _row_number=range(1, len(frame) + 1),
-        )
+        n = len(frame)
+        meta = {
+            "_source_path": [path] * n,
+            "_source_file": [os.path.basename(path)] * n,
+            "_row_number": list(range(1, n + 1)),
+        }
         if "league" not in frame.columns:
-            frame["league"] = infer_league_name(path)
+            meta["league"] = [infer_league_name(path)] * n
+        frame = pd.concat([frame.reset_index(drop=True), pd.DataFrame(meta)], axis=1)
         frames.append(frame)
 
     if not frames:
@@ -179,6 +186,7 @@ def _warn_unparseable_season(row: pd.Series) -> None:
 def extract_season_years_for_row(row: pd.Series) -> list[int]:
     """Extract season start years from a row using actual season columns only."""
     years: list[int] = []
+    saw_nonempty_season_field = False
     for column in SEASON_COLUMNS:
         if column not in row.index:
             continue
@@ -188,10 +196,13 @@ def extract_season_years_for_row(row: pd.Series) -> list[int]:
         text = str(value).strip()
         if not text:
             continue
+        saw_nonempty_season_field = True
         years.extend(_extract_years_from_text(text))
 
     years = sorted(set(years))
-    if not years:
+    # No warning when all season fields are empty/NaN (e.g. aggregated Premier League CSV
+    # with no per-row season). Warn only when values were present but yielded no years.
+    if not years and saw_nonempty_season_field:
         _warn_unparseable_season(row)
     return years
 
@@ -235,6 +246,8 @@ def build_player_metadata(raw_df: pd.DataFrame, grouped_df: pd.DataFrame) -> dic
         season_years = sorted({year for values in group["season_years"] for year in values})
         positions_seen = sorted({value for value in group["position_canonical"].dropna().tolist() if value})
         leagues = sorted({value for value in group["league"].dropna().astype(str).tolist() if value})
+        nat_values = [v for v in group["nationality_canonical"].dropna().tolist() if v]
+        nationality = Counter(nat_values).most_common(1)[0][0] if nat_values else None
         metadata[normalized_name] = {
             "display_name": display_name,
             "primary_position": grouped_df.loc[normalized_name, "primary_position"],
@@ -243,6 +256,8 @@ def build_player_metadata(raw_df: pd.DataFrame, grouped_df: pd.DataFrame) -> dic
             "season_years": season_years,
             "career_start_year": min(season_years) if season_years else None,
             "career_end_year": max(season_years) if season_years else None,
+            "nationality": nationality,
+            "nationality_normalized": normalize_text(nationality) if nationality else "",
         }
     return metadata
 
@@ -251,24 +266,41 @@ def preprocess_player_stats(csv_paths: list[str] | None = None) -> tuple[pd.Data
     """Load, normalize, and aggregate player stats into one row per normalized player name."""
     raw_df = load_stats_csvs(csv_paths)
 
-    raw_df = raw_df.assign(
-        display_name=raw_df.apply(
-            lambda row: _select_first_present(row, PLAYER_NAME_COLUMNS) or "Unknown Player",
-            axis=1,
-        )
+    display_name = raw_df.apply(
+        lambda row: _select_first_present(row, PLAYER_NAME_COLUMNS) or "Unknown Player",
+        axis=1,
     )
-    raw_df = raw_df.assign(normalized_name=raw_df["display_name"].map(normalize_text))
+    raw_df = pd.concat(
+        [
+            raw_df,
+            pd.DataFrame(
+                {
+                    "display_name": display_name,
+                    "normalized_name": display_name.map(normalize_text),
+                },
+                index=raw_df.index,
+            ),
+        ],
+        axis=1,
+    )
     raw_df = raw_df[raw_df["normalized_name"] != ""].copy()
     raw_df["position_canonical"] = raw_df.apply(
         lambda row: primary_position(_select_first_present(row, POSITION_COLUMNS)),
         axis=1,
     )
+    raw_df["nationality_canonical"] = raw_df.apply(
+        lambda row: canonical_nationality(
+            first_non_empty(row.get("country"), row.get("nationality"))
+        ),
+        axis=1,
+    )
     raw_df["season_years"] = raw_df.apply(extract_season_years_for_row, axis=1)
 
     counting_columns, rate_columns = split_numeric_columns(raw_df)
-    for column in counting_columns + rate_columns:
-        raw_df[column] = pd.to_numeric(raw_df[column], errors="coerce")
-    raw_df[counting_columns + rate_columns] = raw_df[counting_columns + rate_columns].fillna(0)
+    stat_cols = counting_columns + rate_columns
+    if stat_cols:
+        raw_df[stat_cols] = raw_df[stat_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+    raw_df = raw_df.copy()
 
     aggregate_spec = {column: "sum" for column in counting_columns}
     aggregate_spec.update({column: "mean" for column in rate_columns})
@@ -285,8 +317,14 @@ def preprocess_player_stats(csv_paths: list[str] | None = None) -> tuple[pd.Data
     )
 
     grouped_df = grouped_meta.join(grouped_numeric, how="left").fillna(0)
-    for position in ("Forward", "Midfielder", "Defender", "Goalkeeper"):
-        grouped_df[f"pos_{position}"] = (grouped_df["primary_position"] == position).astype(int)
+    pos_cols = pd.DataFrame(
+        {
+            f"pos_{position}": (grouped_df["primary_position"] == position).astype(int)
+            for position in ("Forward", "Midfielder", "Defender", "Goalkeeper")
+        },
+        index=grouped_df.index,
+    )
+    grouped_df = pd.concat([grouped_df, pos_cols], axis=1)
 
     display_name_map = grouped_df["display_name"].to_dict()
     metadata = build_player_metadata(raw_df, grouped_df)
