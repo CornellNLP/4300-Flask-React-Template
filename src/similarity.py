@@ -361,7 +361,7 @@ def _correct_query(query: str, vectorizer) -> str:
     return " ".join(corrected)
 
 
-def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
+def get_similarity_scores(query: str, restaurants: list[dict], type: str = "bert") -> list[float]:
     """
     Convenience function for search.py.
     Given a query and a list of restaurant dicts (already filtered by city),
@@ -380,12 +380,10 @@ def get_similarity_scores(query: str, restaurants: list[dict]) -> list[float]:
         return []
     
     corpus = build_corpus(restaurants, model_type=type, field_weights=field_weights)
-    corrected_query = _correct_query(query, corpus["vectorizer"])
-
-    ranked_map = {
-        id(corpus["restaurants"][i]): i
-        for i in range(len(corpus["restaurants"]))
-    }
+    if type == "tfidf":
+        corrected_query = _correct_query(query, corpus["vectorizer"])
+    else:
+        corrected_query = query
  
     if type == "tfidf":      
         query_vec = vectorize_query_tfidf(corrected_query, corpus)
@@ -473,170 +471,3 @@ if __name__ == "__main__":
         print(f"\n📊 Top-5 Overlap: TF-IDF↔W2V={tfidf_w2v_overlap}, TF-IDF↔BERT={tfidf_bert_overlap}, W2V↔BERT={w2v_bert_overlap}")
         print()
    
-
-
- 
- 
-# if __name__ == "__main__":
-
-    # with open("src/init.json", "r", encoding="utf-8") as f:
-    #     all_restaurants = json.load(f)
-    
-    # city = "Philadelphia"
-    # top_k = 5
-    # test_queries = [
-    #     "casual takeout sushi",     
-    #     "fancy formal sushi",
-    #     "fancy formal japanese food",   
-    #     "romantic dinner",     
-    #     "authentic vietnamese", 
-    #     "quiet cheap lunch"
-    # ]
-    
-    # city_restaurants = [
-    #     r for r in all_restaurants
-    #     if r["business"].get("city", "").lower().strip() == city.lower()
-    # ]
-
-    # print(f"Loaded {len(city_restaurants)} restaurants in {city}\n")
-
-    # tfidf_corpus = build_tfidf_corpus(city_restaurants)
-    # word2vec_corpus = build_word2vec_corpus(city_restaurants)
-
-
-    
-    # for q in test_queries:
-    #     print(f"TF-IDF results for query: '{q}'")
-    #     ranked = rank_restaurants(q, tfidf_corpus, type="tfidf")
-    #     for r in ranked[:5]:  # show top 5
-    #         biz = r["business"]
-    #         print(f"  {r['score']:.4f}  {biz['name']} | {biz.get('categories', '')[:40]}")
-    #     ranked = rank_restaurants(q, word2vec_corpus, type="word2vec")
-    #     print(f"Word2Vec results for query: '{q}'")
-    #     for r in ranked[:5]:  # show top 5
-    #         biz = r["business"]
-    #         print(f"  {r['score']:.4f}  {biz['name']} | {biz.get('categories', '')[:40]}")
-    #     print()
-        
-        
-        
-        
-        
-        
-        
-#
-# def build_tfidf_corpus(restaurants: list[dict]) -> dict:
-#     """
-#     Pre-compute TF-IDF matrix for all restaurants.
-#     Call this once when the app starts (e.g. after loading init.json).
- 
-#     Each restaurant's document = combined_reviews + business name + categories,
-#     so name/category terms also contribute to similarity scoring.
- 
-#     Returns a corpus dict to pass into rank_restaurants().
-#     """
-#     documents = []
-#     for r in restaurants:
-#         biz = r.get("business", {})
-#         name       = biz.get("name", "")
-#         categories = biz.get("categories", "")
-#         reviews    = r.get("combined_reviews", "")
-        
-#         # Add ambiance tags in the business into this as well so its not jts pure table lookup, the ambiance factored into the representation
-#         ambience_str = ""
-#         attributes = biz.get("attributes") or {}
-#         ambience_raw = attributes.get("Ambience") or {}
-
-#         if isinstance(ambience_raw, str):
-#             try:
-#                 ambience_raw = ast.literal_eval(ambience_raw)
-#             except:
-#                 ambience_raw = {}
-
-#         if not isinstance(ambience_raw, dict):
-#             ambience_raw = {}
-
-#         ambience_terms = [k for k, v in ambience_raw.items() if v is True]
-#         ambience_str = " ".join(ambience_terms * 3)
-        
-#         documents.append(f"{name} {categories} {reviews} {ambience_str}")
- 
-#     vectorizer = TfidfVectorizer(
-#         stop_words="english",       # sklearn's built-in English stop list
-#         sublinear_tf=True,          # apply log(tf) scaling, helps with long reviews
-#         min_df=2,                   
-#         ngram_range=(1, 2),         
-#     )
- 
-#     tfidf_matrix = vectorizer.fit_transform(documents)
- 
-#     return {
-#         "vectorizer": vectorizer,
-#         "tfidf_matrix": tfidf_matrix,
-#         "restaurants": restaurants,
-#     }
-
- 
-# def vectorize_query(query: str, vectorizer: TfidfVectorizer):
-#     """
-#     Transform a raw user query string into a TF-IDF vector using the
-#     already-fitted vectorizer from the corpus.
- 
-#     Unknown terms (not seen during fit) are silently ignored by sklearn.
-#     """
-#     return vectorizer.transform([query])
-
-# def vectorize_query_word2vec(query: str, corpus: dict) -> np.ndarray:
-#     """
-#     Transform a user query into a Word2Vec + TF-IDF weighted vector.
-#     """
-#     tokens = re.findall(r'\b\w+\b', query.lower())
-    
-#     # Tokenize query for TF-IDF
-#     tfidf_vec = corpus["tfidf_vectorizer"].transform([query.lower()]).toarray().flatten()
-    
-#     return _compute_weighted_vector(
-#         tokens,
-#         corpus["word2vec_model"],
-#         corpus["tfidf_vectorizer"],
-#         tfidf_vec
-#     )
-
-# def _compute_weighted_vector(tokens: list[str], word2vec_model, tfidf_vectorizer, tfidf_weights: np.ndarray) -> np.ndarray:
-#     """
-#     Compute a single restaurant's vector:
-#     - Get Word2Vec vectors for each token
-#     - Weight by TF-IDF importance
-#     - Return weighted average (300d vector)
-#     """
-#     vectors = []
-#     weights = []
-    
-#     # Map tokens to TF-IDF weights
-#     tfidf_vocab = tfidf_vectorizer.get_feature_names_out()
-#     token_to_tfidf = {}
-#     for idx, weight in enumerate(tfidf_weights):
-#         if weight > 0:
-#             token_to_tfidf[tfidf_vocab[idx]] = weight
-    
-#     # Collect Word2Vec vectors for tokens in vocab
-#     for token in tokens:
-#         if token in word2vec_model.wv:
-#             vectors.append(word2vec_model.wv[token])
-#             # Use TF-IDF weight if available, else 1.0
-#             weight = token_to_tfidf.get(token, 0.1)
-#             weights.append(weight)
-    
-#     if not vectors:
-#         # Return zero vector if no valid tokens
-#         return np.zeros(word2vec_model.vector_size)
-    
-#     # Weighted average
-#     vectors = np.array(vectors)
-#     weights = np.array(weights)
-#     weights = weights / weights.sum()  # Normalize weights
-    
-#     return np.average(vectors, axis=0, weights=weights)
- 
- 
- 
