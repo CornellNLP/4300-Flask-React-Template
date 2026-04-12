@@ -25,12 +25,18 @@ Key IR techniques:
       deduped against primaryMuscles so a muscle listed in both fields is
       not double-weighted. See data/DATASETS.md for the full data audit.
 """
+import csv
 import json
 import os
 import re
+import sys
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# programs_kaggle_clean.csv has very long exercise-list fields; bump the csv
+# field size limit so the stdlib reader doesn't choke on them.
+csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 # ── Porter Stemmer ───────────────────
 # Implements Martin Porter's algorithm (1980).  Reduces inflected/derived forms
@@ -242,6 +248,8 @@ def _tokenize_and_stem(text):
     return [_stem(t) for t in tokens if t not in _STOP_WORDS and len(t) > 1]
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'exercises_free_db.json')
+PROGRAMS_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_cleaned.csv')
+PROGRAMS_SCHEDULE_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_kaggle_clean.csv')
 
 # ── Query expansion maps ─────────────────────────────────────────────────────
 # GOAL_TO_MUSCLES maps common fitness goal keywords to the muscle groups they
@@ -666,3 +674,194 @@ def search(query, k=5, equipment=None, max_level=None, injured_muscles=None):
         max_level=max_level,
         injured_muscles=injured_muscles,
     )
+
+
+# ── Program retrieval ────────────────────────────────────────────────────────
+# Separate TF-IDF index over the 2,598 unique workout programs in
+# programs_cleaned.csv. Uses the same tokenizer / stemmer / spell-correction
+# primitives as ExerciseSearcher so query preprocessing is identical across
+# the two search surfaces.
+
+PROGRAM_FIELD_WEIGHTS = {
+    "title": 3,
+    "goal": 3,
+    "exercises": 2,
+    "description": 1,
+}
+
+
+def _parse_json_list(raw):
+    """Parse a JSON-encoded list column from programs_cleaned.csv.
+
+    The CSV round-trips ``json.dumps`` lists (e.g. ``["Powerlifting",
+    "Bodybuilding"]``), so ``json.loads`` is the right parser. Falls back to
+    an empty list on any failure — downstream code treats missing fields as
+    empty space-joined strings.
+    """
+    if not raw:
+        return []
+    try:
+        val = json.loads(raw)
+        return val if isinstance(val, list) else []
+    except (ValueError, TypeError):
+        return []
+
+
+def _build_program_doc(row):
+    """Build a weighted TF-IDF document string for one program row.
+
+    Field weights mirror ``FIELD_WEIGHTS`` semantics: each field's text is
+    repeated ``weight`` times so the TF-IDF vectorizer upweights tokens from
+    high-priority fields. ``goal`` and ``exercises`` are JSON lists on disk
+    and are space-joined before repetition.
+    """
+    parts = []
+    fields = {
+        "title": row.get("title", "") or "",
+        "goal": " ".join(_parse_json_list(row.get("goal", ""))),
+        "exercises": " ".join(_parse_json_list(row.get("exercises", ""))),
+        "description": row.get("description", "") or "",
+    }
+    for field, weight in PROGRAM_FIELD_WEIGHTS.items():
+        text = fields[field]
+        if text:
+            parts.extend([text] * weight)
+    return " ".join(parts)
+
+
+def _to_float(val):
+    """Best-effort float coercion; returns None on failure or empty input."""
+    if val is None or val == "":
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _to_int(val):
+    """Best-effort int coercion via float (handles ``"1.0"`` from pandas)."""
+    f = _to_float(val)
+    return int(f) if f is not None else None
+
+
+class ProgramSearcher:
+    """TF-IDF index over workout programs from ``programs_cleaned.csv``.
+
+    Builds one document per program from the weighted concatenation of
+    title, goal, exercises, and description. At init, also eager-loads the
+    week/day/exercise breakdown from ``programs_kaggle_clean.csv`` into a
+    ``title -> list[schedule entry]`` dict so search results can carry a
+    full schedule for the UI to render. The schedule is **not** part of the
+    TF-IDF document — it's purely for display.
+
+    Attributes:
+        programs (list[dict]): Program rows from programs_cleaned.csv.
+        vectorizer (TfidfVectorizer): Fitted TF-IDF vectorizer sharing
+            ``_tokenize_and_stem`` with ``ExerciseSearcher``.
+        tfidf_matrix (scipy.sparse.csr_matrix): (n_programs, n_features).
+        schedule_by_title (dict[str, list[dict]]): Week/day exercise
+            breakdown per program title.
+        vocab_by_length (dict[int, list[str]]): Length-bucketed vocabulary
+            for fast Wagner-Fisher spell correction.
+    """
+
+    def __init__(self):
+        with open(PROGRAMS_CSV_PATH, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            self.programs = list(reader)
+
+        docs = [_build_program_doc(row) for row in self.programs]
+        self.vectorizer = TfidfVectorizer(
+            tokenizer=_tokenize_and_stem,
+            stop_words=None,
+            max_features=10000,
+        )
+        self.tfidf_matrix = self.vectorizer.fit_transform(docs)
+
+        self.vocab_by_length = {}
+        for term in self.vectorizer.vocabulary_:
+            self.vocab_by_length.setdefault(len(term), []).append(term)
+
+        # Eager-load the week/day schedule. One ~605k-row pass, grouped by
+        # title into a display-only dict. Not part of retrieval scoring.
+        self.schedule_by_title = {}
+        with open(PROGRAMS_SCHEDULE_CSV_PATH, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                title = row.get("title")
+                if not title:
+                    continue
+                entry = {
+                    "week": _to_int(row.get("week")),
+                    "day": _to_int(row.get("day")),
+                    "exercise_name": row.get("exercise_name", "") or "",
+                    "sets": _to_float(row.get("sets")),
+                    "reps": _to_float(row.get("reps")),
+                    "rep_type": row.get("rep_type") or None,
+                }
+                self.schedule_by_title.setdefault(title, []).append(entry)
+
+    def search(self, query, k=5):
+        """Rank programs against a natural-language query.
+
+        Mirrors ``ExerciseSearcher.search``: spell-correct each query token
+        against the program vocabulary, TF-IDF transform, cosine similarity
+        against the program matrix, then return the top-k non-zero scores
+        with their schedule payload attached.
+        """
+        raw_tokens = query.lower().split()
+        corrected_display = []
+        any_corrected = False
+
+        for raw in raw_tokens:
+            if raw in _STOP_WORDS or len(raw) <= 1:
+                corrected_display.append(raw)
+                continue
+            stemmed = _stem(raw)
+            corrected = _correct_token(stemmed, self.vocab_by_length)
+            if corrected != stemmed:
+                corrected_display.append(corrected)
+                any_corrected = True
+            else:
+                corrected_display.append(raw)
+
+        corrected_query = " ".join(corrected_display)
+        query_vec = self.vectorizer.transform([corrected_query])
+        scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
+
+        top_indices = np.argsort(scores)[::-1][:k]
+        results = []
+        for idx in top_indices:
+            if scores[idx] <= 0:
+                break
+            row = self.programs[idx]
+            title = row.get("title", "")
+            results.append({
+                "title": title,
+                "description": row.get("description", "") or "",
+                "goal": _parse_json_list(row.get("goal", "")),
+                "level": row.get("level_primary") or None,
+                "program_length_weeks": _to_float(row.get("program_length_weeks")),
+                "score": round(float(scores[idx]), 4),
+                "schedule": self.schedule_by_title.get(title, []),
+            })
+        return {
+            "results": results,
+            "corrected_query": corrected_query if any_corrected else None,
+        }
+
+
+_program_searcher = None
+
+
+def search_programs(query, k=5):
+    """Public entry point: search workout programs by natural-language query.
+
+    Lazily initializes a singleton ``ProgramSearcher`` on first call. Exposed
+    via ``POST /api/search_programs`` in ``routes.py``.
+    """
+    global _program_searcher
+    if _program_searcher is None:
+        _program_searcher = ProgramSearcher()
+    return _program_searcher.search(query, k=k)

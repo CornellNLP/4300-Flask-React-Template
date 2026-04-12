@@ -9,6 +9,7 @@ import csv
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
 from retrieval import search as retrieval_search
+from retrieval import search_programs as retrieval_search_programs
 
 EXERCISES_CSV = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'gym_exercises.csv')
 
@@ -107,6 +108,14 @@ def register_routes(app):
             injured_muscles=injured_muscles,
         )
         return jsonify(payload)
+
+    @app.route("/api/search_programs", methods=["POST"])
+    def search_programs_route():
+        data = request.get_json(force=True)
+        query = data.get("query", "")
+        if not query.strip():
+            return jsonify({"results": [], "corrected_query": None})
+        return jsonify(retrieval_search_programs(query, k=5))
 
     if USE_LLM:
         from llm_routes import register_chat_route

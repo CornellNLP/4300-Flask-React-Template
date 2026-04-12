@@ -22,6 +22,25 @@ export interface SearchRequest {
   injuries?: string[];
 }
 
+export interface ProgramScheduleEntry {
+  week: number | null;
+  day: number | null;
+  exercise_name: string;
+  sets: number | null;
+  reps: number | null;
+  rep_type: string | null;
+}
+
+export interface Program {
+  title: string;
+  description: string;
+  goal: string[];
+  level: string | null;
+  program_length_weeks: number | null;
+  score: number;
+  schedule: ProgramScheduleEntry[];
+}
+
 export const EQUIPMENT_OPTIONS: string[] = [
   'barbell',
   'dumbbell',

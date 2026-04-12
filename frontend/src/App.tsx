@@ -3,6 +3,8 @@ import './App.css'
 import SearchIcon from './assets/mag.png'
 import {
   Exercise,
+  Program,
+  ProgramScheduleEntry,
   EQUIPMENT_OPTIONS,
   DIFFICULTY_OPTIONS,
   MUSCLE_OPTIONS,
@@ -12,6 +14,7 @@ import bgImage from './assets/gym_background.png'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
+  const [activeTab, setActiveTab] = useState<'exercises' | 'programs'>('exercises')
   const [searchTerm, setSearchTerm] = useState<string>('')
   // const [episodes, setEpisodes] = useState<Episode[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -19,6 +22,9 @@ function App(): JSX.Element {
   const [difficulty, setDifficulty] = useState<string>('')
   const [injuries, setInjuries] = useState<string[]>([])
   const [showInjuries, setShowInjuries] = useState<boolean>(false)
+  const [programSearchTerm, setProgramSearchTerm] = useState<string>('')
+  const [programs, setPrograms] = useState<Program[]>([])
+  const [programsLoading, setProgramsLoading] = useState<boolean>(false)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -74,6 +80,51 @@ function App(): JSX.Element {
     if (searchTerm.trim() !== '') handleSearch(searchTerm, { injuries: next })
   }
 
+  const handleProgramSearch = async (value: string): Promise<void> => {
+    if (value.trim() === '') { setPrograms([]); return }
+    setProgramsLoading(true)
+    try {
+      const res = await fetch('/api/search_programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: value }),
+      })
+      const data = await res.json()
+      setPrograms(data.results)
+    } finally {
+      setProgramsLoading(false)
+    }
+  }
+
+  const formatReps = (entry: ProgramScheduleEntry): string => {
+    if (entry.sets == null || entry.reps == null) return ''
+    const sets = Number.isInteger(entry.sets) ? entry.sets : entry.sets.toFixed(1)
+    const reps = Number.isInteger(entry.reps) ? entry.reps : entry.reps.toFixed(1)
+    const suffix = entry.rep_type === 'seconds' ? 's' : ''
+    return ` — ${sets}×${reps}${suffix}`
+  }
+
+  const groupScheduleByWeekDay = (
+    schedule: ProgramScheduleEntry[],
+  ): Array<{ week: number | null; days: Array<{ day: number | null; entries: ProgramScheduleEntry[] }> }> => {
+    const weekMap = new Map<number | null, Map<number | null, ProgramScheduleEntry[]>>()
+    for (const entry of schedule) {
+      if (!weekMap.has(entry.week)) weekMap.set(entry.week, new Map())
+      const dayMap = weekMap.get(entry.week)!
+      if (!dayMap.has(entry.day)) dayMap.set(entry.day, [])
+      dayMap.get(entry.day)!.push(entry)
+    }
+    const sortKey = (v: number | null): number => v ?? Number.POSITIVE_INFINITY
+    return [...weekMap.entries()]
+      .sort((a, b) => sortKey(a[0]) - sortKey(b[0]))
+      .map(([week, dayMap]) => ({
+        week,
+        days: [...dayMap.entries()]
+          .sort((a, b) => sortKey(a[0]) - sortKey(b[0]))
+          .map(([day, entries]) => ({ day, entries })),
+      }))
+  }
+
   if (useLlm === null) return <></>
 
   return (
@@ -86,6 +137,25 @@ function App(): JSX.Element {
         <div className="site-description-box">
           <p className="site-description">Athletic Training Finder is a system that enables users to find the most optimal and efficient drills and/or exercises for their desired athletic, health, or fitness goals. Users can input a query describing their goals in their training and what they would like to improve, and this program will return a ranked list of relevant workout plans, drills, and routines relevant to their goals. In addition to this ranked list, users will also receive instructions for each exercise, as well as its relevance to the overall workout plan.</p>
         </div>
+        <div className="tab-bar">
+          <button
+            type="button"
+            className={`tab-button ${activeTab === 'exercises' ? 'active' : ''}`}
+            onClick={() => setActiveTab('exercises')}
+          >
+            Exercises
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${activeTab === 'programs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('programs')}
+          >
+            Workout Programs
+          </button>
+        </div>
+
+        {activeTab === 'exercises' && (
+        <>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input
@@ -154,6 +224,24 @@ function App(): JSX.Element {
             )}
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === 'programs' && (
+        <>
+        <div className="input-box" onClick={() => document.getElementById('program-search-input')?.focus()}>
+          <img src={SearchIcon} alt="search" />
+          <input
+            id="program-search-input"
+            placeholder='Search for a Program (e.g. "beginner powerlifting", "8 week bodybuilding split", etc.)'
+            value={programSearchTerm}
+            onChange={(e) => setProgramSearchTerm(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleProgramSearch(programSearchTerm) }}
+          />
+        </div>
+        <button className="search-btn" onClick={() => handleProgramSearch(programSearchTerm)}>Search</button>
+        </>
+        )}
       </div>
 
       {/* Show Results for Kardashians, Not Needed Anymore */}
@@ -168,6 +256,7 @@ function App(): JSX.Element {
       </div> */}
 
       {/* IN PROGRESS BY DYLAN: Made something decently usable for now, just need to add similarity measures and such */}
+      {activeTab === 'exercises' && (
       <div id="workout-answers">
         {exercises.map((exercise, index) => (
           <div key={index} className="episode-item">
@@ -189,6 +278,62 @@ function App(): JSX.Element {
           </div>
         ))}
       </div>
+      )}
+
+      {activeTab === 'programs' && programsLoading && (
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <p className="loading-text">
+          {programs.length === 0
+            ? 'Loading programs index... (first search may take up to ~25 seconds)'
+            : 'Searching programs...'}
+        </p>
+      </div>
+      )}
+
+      {activeTab === 'programs' && !programsLoading && (
+      <div id="workout-answers">
+        {programs.map((program, index) => (
+          <div key={index} className="episode-item">
+            <h3 className="exercise-title">{index + 1}. {program.title}</h3>
+            <p className="exercise-field"><strong>Score:</strong> {program.score.toFixed(4)}</p>
+            {program.level && <p className="exercise-field"><strong>Level:</strong> {program.level}</p>}
+            {program.program_length_weeks != null && (
+              <p className="exercise-field"><strong>Length:</strong> {program.program_length_weeks} weeks</p>
+            )}
+            {program.goal.length > 0 && (
+              <p className="exercise-field"><strong>Goals:</strong> {program.goal.join(', ')}</p>
+            )}
+            {program.description && (
+              <details className="exercise-instructions">
+                <summary><strong>Description</strong></summary>
+                <p>{program.description}</p>
+              </details>
+            )}
+            {program.schedule.length > 0 && (
+              <details className="exercise-instructions">
+                <summary><strong>Schedule</strong></summary>
+                {groupScheduleByWeekDay(program.schedule).map((weekGroup, wi) => (
+                  <div key={wi} className="schedule-week">
+                    <p><strong>Week {weekGroup.week ?? '?'}</strong></p>
+                    {weekGroup.days.map((dayGroup, di) => (
+                      <div key={di} className="schedule-day">
+                        <p><em>Day {dayGroup.day ?? '?'}</em></p>
+                        <ul>
+                          {dayGroup.entries.map((entry, ei) => (
+                            <li key={ei}>{entry.exercise_name}{formatReps(entry)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </details>
+            )}
+          </div>
+        ))}
+      </div>
+      )}
 
       {/* Chat (only when USE_LLM = True in routes.py) */}
       {useLlm && <Chat onSearchTerm={handleSearch} />}
