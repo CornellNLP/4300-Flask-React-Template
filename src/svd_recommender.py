@@ -94,6 +94,14 @@ AUDIO_HINTS: dict[str, list[float]] = {
     "empty":      [0.20, 0.20, 0.10, 0.30],
 }
 
+POS_WORDS = {
+    "happy","joyful","great","fun","awesome","love","excited","cheerful","upbeat"
+}
+
+NEG_WORDS = {
+    "sad","grief","lonely","depressed","pain","empty","broken","hopeless","numb"
+}
+
 
 # ---------------------------------------------------------------------------
 # data model
@@ -127,14 +135,30 @@ def _to_float(val: Any) -> float:
         return 0.0
 
 
-def _expand(query: str) -> str:
+def _weighted_query_counts(query: str) -> Counter:
     tokens = _tok(query)
-    extras: list[str] = []
+    weights = Counter()
+
+    # original tokens get full weight
+    for t in tokens:
+        weights[t] += 1.0
+
+    # expansions get reduced weight
     for t in tokens:
         if t in EXPANSIONS:
-            extras.extend(EXPANSIONS[t])
-    return (query + " " + " ".join(extras)) if extras else query
+            for e in EXPANSIONS[t]:
+                for et in _tok(e):
+                    weights[et] += 0.3   # <<< key line
 
+    return weights
+
+def _sentiment_score(tokens: list[str]) -> float:
+    pos = sum(1 for t in tokens if t in POS_WORDS)
+    neg = sum(1 for t in tokens if t in NEG_WORDS)
+    total = pos + neg
+    if total == 0:
+        return 0.0
+    return (pos - neg) / total
 
 def _randomized_svd(matrix: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Pure numpy randomized SVD. Returns U (n x k), S (k,), Vt (k x m)."""
@@ -263,7 +287,7 @@ class SvdSongRecommender:
             total = sum(counts.values()) or 1
             for term, cnt in counts.items():
                 if term in v_idx:
-                    matrix[di, v_idx[term]] = (cnt / total) * self.idf[term]
+                    matrix[di, v_idx[term]] = 1 + math.log(cnt) * self.idf[term]
             for j, val in enumerate(audio_vecs[di]):
                 matrix[di, n_tfidf + j] = val * AUDIO_SCALE
 
@@ -273,13 +297,11 @@ class SvdSongRecommender:
 
     def _query_latent(self, query: str) -> np.ndarray:
         """Project query into SVD latent space."""
-        expanded = _expand(query)
-        tokens = _tok(expanded)
-        if not tokens:
+        counts = _weighted_query_counts(query)
+        if not counts:
             return np.array([])
 
         v_idx = {t: i for i, t in enumerate(self.vocab)}
-        counts = Counter(tokens)
         total = sum(counts.values()) or 1
         n_tfidf = len(self.vocab)
         n_feat = n_tfidf + 4
@@ -288,7 +310,7 @@ class SvdSongRecommender:
 
         for term, cnt in counts.items():
             if term in self.idf and term in v_idx:
-                q_full[v_idx[term]] = (cnt / total) * self.idf[term]
+                q_full[v_idx[term]] = (1 + math.log(cnt)) * self.idf[term]
 
         hint = _audio_hint_for_query(query)
         if hint is not None:
@@ -302,6 +324,8 @@ class SvdSongRecommender:
         # ── Step 1: TF-IDF candidate retrieval (preserves lyric relevance) ──
         from recommender import get_recommender
         tfidf_results = get_recommender().recommend(query=query, top_k=CANDIDATE_POOL)
+        query_tokens = _tok(query)
+        sentiment = _sentiment_score(query_tokens)
 
         if not tfidf_results:
             return []
@@ -337,7 +361,7 @@ class SvdSongRecommender:
             svd_sim = 0.0
             if has_svd and idx is not None:
                 svd_sim = float(self.U[idx] @ q_lat)
-                svd_sim = max(svd_sim, 0.0)
+                svd_sim = (svd_sim + 1.0) / 2.0
 
             # direct audio similarity (1 - weighted distance)
             audio_sim = 0.5  # neutral default
@@ -348,7 +372,18 @@ class SvdSongRecommender:
             # ── weighted fusion ──
             # 45% lyrics (TF-IDF) + 30% audio + 25% SVD latent
             # this keeps "sad" lyrics relevant while correcting for audio mood
-            final = 0.45 * tfidf_norm + 0.30 * audio_sim + 0.25 * svd_sim
+            final = 0.65 * tfidf_norm + 0.20 * audio_sim + 0.15 * svd_sim
+
+            # push towards the more dominant emotion
+            final += 0.15 * sentiment * self.songs[idx].valence
+
+            # penalize wrong polarity
+            if sentiment < -0.3:
+                final -= 0.1 * self.songs[idx].valence
+            elif sentiment > 0.3:
+                final += 0.1 * self.songs[idx].valence
+            # clamp
+            final = max(0.0, min(1.0, final))
 
             scored.append((final, r))
 

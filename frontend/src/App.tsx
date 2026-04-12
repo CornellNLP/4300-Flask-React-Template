@@ -1,18 +1,58 @@
 import { FormEvent, useState } from 'react'
 import './App.css'
 import { SongRecommendation } from './types'
+import { FaSpotify } from 'react-icons/fa'
 
 function FeatureBar({ label, value, max, color, display }: {
   label: string; value: number; max: number; color: string; display?: string
 }) {
   const pct = Math.round((value / max) * 100)
+
+  function getLabel(label: string, v: number) {
+    if (label === "Energy") {
+      if (v < 0.3) return "Low"
+      if (v < 0.7) return "Medium"
+      return "High"
+    }
+  
+    if (label === "Valence") {
+      if (v < 0.3) return "Sad"
+      if (v < 0.7) return "Neutral"
+      return "Happy"
+    }
+  
+    if (label === "Danceability") {
+      if (v < 0.3) return "Still"
+      if (v < 0.7) return "Groovy"
+      return "Dancey"
+    }
+  
+    return ""
+  }
   return (
     <div className="feat">
       <span className="feat-label">{label}</span>
       <div className="feat-bar-bg">
-        <div className="feat-bar-fill" style={{ width: `${pct}%`, background: color }} />
+        <div className="feat-bar-fill"
+          style={{
+            width: `${pct}%`,
+            background: color,
+            opacity: 0.4 + 0.6 * (value / max)
+          }}
+        />
       </div>
-      <span className="feat-val">{display ?? value.toFixed(2)}</span>
+
+      <span className="feat-val">
+        <span className="feat-number">
+          {display ?? value.toFixed(2)}
+        </span>
+
+        {getLabel(label, value) && (
+          <span className="feat-text">
+            {" "}({getLabel(label, value)})
+          </span>
+        )}
+      </span>
     </div>
   )
 }
@@ -138,15 +178,26 @@ function App(): JSX.Element {
             <div className="card-actions">
               <span className="score-badge">{song.tfidf_score.toFixed(3)} match</span>
               <a className="spotify-btn" href={song.spotify_url} target="_blank" rel="noreferrer">
+                <span className="spotify-icon">
+                  <FaSpotify />
+                </span>
                 Spotify
               </a>
+              
             </div>
           </div>
           <div className="features-row">
-            <FeatureBar label="Danceability" value={song.danceability} max={1} color="#7F77DD" />
-            <FeatureBar label="Energy"       value={song.energy}       max={1} color="#1D9E75" />
-            <FeatureBar label="Valence"      value={song.valence}      max={1} color="#EF9F27" />
-            <FeatureBar label="Tempo"        value={song.tempo / 200}  max={1} color="#D85A30" display={`${Math.round(song.tempo)} BPM`} />
+          <FeatureBar label="Danceability" value={Math.pow(song.danceability, 0.8)} max={1} color="#7F77DD" />
+          <FeatureBar label="Energy"       value={Math.pow(song.energy, 0.7)}       max={1} color="#1D9E75" />
+          <FeatureBar label="Valence"      value={Math.pow(song.valence, 0.9)}      max={1} color="#EF9F27" />
+          <FeatureBar
+            label="Tempo"
+            value={song.tempo}
+            max={200}
+            color="#D85A30"
+            display={`${Math.round(song.tempo)} BPM`}
+          />
+
           </div>
           <p className="lyrics-preview">{song.lyrics_preview}</p>
           <button className="lyrics-toggle" onClick={() => toggleLyrics(song.id)}>
