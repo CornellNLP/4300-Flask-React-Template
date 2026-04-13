@@ -33,11 +33,13 @@ interface Sparkle {
 
 function SparkleCursor() {
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const [cursorPos, setCursorPos] = useState({ x: -999, y: -999 });
   const nextId = useRef(0);
   const lastPos = useRef({ x: -999, y: -999 });
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
+      setCursorPos({ x: e.clientX, y: e.clientY });
       const dx = e.clientX - lastPos.current.x;
       const dy = e.clientY - lastPos.current.y;
       if (Math.hypot(dx, dy) < 6) return;
@@ -78,6 +80,20 @@ function SparkleCursor() {
 
   return (
     <div className="sparkle-layer" style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "fixed",
+          left: cursorPos.x,
+          top: cursorPos.y,
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: "rgba(147, 197, 253, 0.6)",
+          boxShadow: "0 0 12px rgba(147, 197, 253, 0.8)",
+          transform: "translate(-50%, -50%)",
+          pointerEvents: "none",
+        }}
+      />
       {sparkles.map((s, i) => {
         const age = (Date.now() - s.born) / 650;
         const alpha = s.opacity * (1 - age * 0.8);
