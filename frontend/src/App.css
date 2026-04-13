@@ -313,6 +313,35 @@ body {
   opacity: 0.5;
 }
 
+/* Articles slider */
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.slider-label {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
+  color: var(--text-secondary, #ccc);
+  letter-spacing: 0.04em;
+}
+
+.slider-input {
+  width: 100%;
+  accent-color: #a5b4fc;
+  cursor: pointer;
+}
+
+.slider-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #aaa);
+  opacity: 0.7;
+}
+
 /* Loading dots */
 .dig-dots {
   display: inline-flex;

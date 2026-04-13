@@ -324,6 +324,7 @@ export default function App(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [scoringMode, setScoringMode] = useState<ScoringMode>("tfidf");
+  const [numArticles, setNumArticles] = useState(5);
   const [underground, setUnderground] = useState(false);
   const [activeBranch, setActiveBranch] = useState<number | null>(null);
 
@@ -342,7 +343,7 @@ export default function App(): JSX.Element {
       setUnderground(true);
       try {
         const res = await fetch(
-          `/api/rabbithole?article=${encodeURIComponent(article)}&scoring_mode=${scoringMode}`,
+          `/api/rabbithole?article=${encodeURIComponent(article)}&scoring_mode=${scoringMode}&path_length=${numArticles}`,
         );
         const data: ArticleNode[][] = await res.json();
         setBranches(data);
@@ -353,7 +354,7 @@ export default function App(): JSX.Element {
         setHasSearched(true);
       }
     },
-    [article, scoringMode],
+    [article, scoringMode, numArticles],
   );
 
   const handleSurface = () => {
@@ -396,6 +397,24 @@ export default function App(): JSX.Element {
               required
             />
             <AlgoToggle value={scoringMode} onChange={setScoringMode} />
+            <div className="slider-row">
+              <label htmlFor="num-articles-slider" className="slider-label">
+                Articles per tunnel: <strong>{numArticles}</strong>
+              </label>
+              <input
+                id="num-articles-slider"
+                type="range"
+                min={2}
+                max={10}
+                value={numArticles}
+                onChange={(e) => setNumArticles(Number(e.target.value))}
+                className="slider-input"
+              />
+              <div className="slider-range-labels">
+                <span>2</span>
+                <span>10</span>
+              </div>
+            </div>
             <button className="dig-btn" type="submit" disabled={loading}>
               {loading ? (
                 <span className="dig-dots">
