@@ -18,7 +18,7 @@ def load_processed_data():
     return _PROCESSED_DATA
 
 
-# gets top 10 restaurants by name, ensuring no duplicates, and returns them sorted by match score
+# gets top 10 restaurants by name, no duplicates, and returns them sorted by match score
 PRICE_MAP = {
     1: "$",
     2: "$$",

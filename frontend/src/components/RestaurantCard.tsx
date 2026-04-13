@@ -1,4 +1,4 @@
-import { MapPin, Star, DollarSign, UtensilsCrossed, Clock } from "lucide-react";
+import { Clock, DollarSign, MapPin, Star, UtensilsCrossed } from "lucide-react";
 
 export interface Restaurant {
   business_id: string;
@@ -15,6 +15,7 @@ export interface Restaurant {
   ambience?: string[];
   hours?: Record<string, string> | null;
   matchExplanation?: string;
+  relevantTags?: string[];
 }
 
 interface RestaurantCardProps {
@@ -51,10 +52,16 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
     ...categoriesList,
   ];
   const primaryCuisine = cuisineCandidates.find((cat) => cat && !GENERIC_CATEGORIES.has(cat));
-  const derivedTags =
-    restaurant.ambience && restaurant.ambience.length > 0
-      ? restaurant.ambience
-      : categoriesList.slice(1, 4);
+  // All displayable tags: ambience terms + every non-generic category that isn't already shown as the cuisine label in the row above.
+  const ambienceTags = restaurant.ambience ?? [];
+  const categoryTags = categoriesList.filter(
+    (cat) => !GENERIC_CATEGORIES.has(cat) && cat !== primaryCuisine,
+  );
+  const derivedTags = [...new Set([...ambienceTags, ...categoryTags])];
+
+  const relevantSet = new Set(
+    (restaurant.relevantTags ?? []).map((t) => t.toLowerCase()),
+  );
 
   const priceDisplay =
     restaurant.priceRange ??
@@ -145,19 +152,22 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
       {/* Tags / Pills */}
       <div className="flex flex-wrap gap-2">
-        {derivedTags.map((tag, index) => {
-          const pillStyles = [
+        {(() => {
+          const coloredStyles = [
             "px-3 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm",
             "px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-sm",
             "px-3 py-1 bg-pink-50 text-pink-700 border border-pink-200 rounded-full text-sm",
           ];
-          const styleIndex = index % pillStyles.length;
-          return (
-            <span key={index} className={pillStyles[styleIndex]}>
-              {tag}
-            </span>
-          );
-        })}
+          const dimStyle = "px-3 py-1 bg-white text-gray-400 border border-gray-200 rounded-full text-sm";
+          let colorIndex = 0;
+          return derivedTags.map((tag, index) => {
+            const isRelevant = relevantSet.size === 0 || relevantSet.has(tag.toLowerCase());
+            const className = isRelevant
+              ? coloredStyles[colorIndex++ % coloredStyles.length]
+              : dimStyle;
+            return <span key={index} className={className}>{tag}</span>;
+          });
+        })()}
       </div>
     </div>
   );

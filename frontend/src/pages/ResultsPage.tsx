@@ -112,12 +112,12 @@ export function ResultsPage() {
             ratingParam > 0 ? ratingParam : undefined,
           );
 
-          const queryTags = getQueryAwareTags(allTags, trimmedQuery);
+          const relevantTags = getQueryAwareTags(allTags, trimmedQuery);
 
           return {
             ...restaurant,
             matchExplanation,
-            ambience: queryTags.length > 0 ? queryTags : ambienceTags.length > 0 ? ambienceTags : undefined,
+            relevantTags,
           };
         });
 
