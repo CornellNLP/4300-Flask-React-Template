@@ -1,3 +1,4 @@
+from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
@@ -9,7 +10,6 @@ import re
 
 # Builds a TF-IDF index for recipes or playlists
 def build_tfidf_index(data, data_set_category):
-
     if data_set_category == "recipe":
         corpus = [
         f"{d.name} {d.description} {d.tags} {d.ingredients}"
@@ -35,7 +35,6 @@ def build_tfidf_index(data, data_set_category):
         name_vecs = name_vectorizer.fit_transform(name_corpus)
         song_vecs = song_vectorizer.fit_transform(song_corpus)
         return (name_vectorizer, song_vectorizer), (name_vecs, song_vecs)
-
 
 # Computes cosine-similarities between recipes and query vector
 def query_data(query, data, data_set_category, vectorizer, doc_by_vocab, name_weight):
@@ -76,25 +75,32 @@ def query_data(query, data, data_set_category, vectorizer, doc_by_vocab, name_we
     matches.sort(key=lambda x: x[1], reverse=True)
     list_desc = [x[0] for x in matches]
     return list_desc
-
-# SVD search with explainability for recipes
-def build_svd_index(data, k=40):
+def build_svd_index(data, playlists=None, k=40):
     """
     Build a Truncated SVD index for recipes.
+    Playlists are optional — if provided, vocabulary is fit on recipes + playlist enriched_text
     Returns: vectorizer, docs_normed, words_normed, singular_values, index_to_word
     """
-    corpus = [
+    recipe_corpus = [
         f"{d.name} {d.description} {d.tags} {d.ingredients}"
         for d in data
     ]
-    if len(corpus) == 0:
+    if len(recipe_corpus) == 0:
         return None, None, None, None, None
- 
-    min_df = 10 if len(corpus) >= 10 else 1
+
+    # fit vocabulary on combined corpus so playlist words aren't out-of-vocabulary
+    if playlists:
+        playlist_corpus = [p.enriched_text or "" for p in playlists]
+        combined_corpus = recipe_corpus + playlist_corpus
+    else:
+        combined_corpus = recipe_corpus
+
+    min_df = 10 if len(recipe_corpus) >= 10 else 1
     vectorizer = TfidfVectorizer(
         max_features=5000, stop_words='english', max_df=0.8, min_df=min_df, norm='l2'
     )
-    td_matrix = vectorizer.fit_transform(corpus)
+
+    td_matrix = vectorizer.fit_transform(combined_corpus)
  
     actual_k = min(k, min(td_matrix.shape) - 1)
     if actual_k < 1:
@@ -127,7 +133,7 @@ def _dim_info(vec, dim_indices, words_normed, index_to_word, top_keywords):
         })
     return info
 
-def query_svd(query, data, vectorizer, docs_normed, words_normed, index_to_word,
+def query_svd_recipes(query, data, vectorizer, docs_normed, words_normed, index_to_word,
               top_n=5, top_dims=3, top_keywords=6):
     """
     Query the SVD latent space and return results with explanation about why these were matched, including:
@@ -210,3 +216,40 @@ def query_svd(query, data, vectorizer, docs_normed, words_normed, index_to_word,
         })
  
     return results
+
+def query_svd_playlists(query, playlists, vectorizer, words_normed, top_n=3, name_weight=0.4):
+    """
+    Query the SVD recupe latent space and return results with playlist name weighted higher
+    """
+    if words_normed is None:
+        return []
+
+    # project query into recipe latent space
+    query_tfidf = vectorizer.transform([query]).toarray()
+    raw = query_tfidf.dot(words_normed)
+    if raw.shape[0] == 0 or np.linalg.norm(raw) == 0:
+        return []
+    query_vec = normalize(raw).squeeze()
+
+    # project each playlist's enriched_text into the same latent space
+    playlist_corpus = [p.enriched_text or "" for p in playlists]
+    playlist_tfidf = vectorizer.transform(playlist_corpus).toarray()
+    docs_normed = normalize(playlist_tfidf.dot(words_normed))
+
+    # svd cosine similarity in latent space
+    svd_sims = docs_normed.dot(query_vec)
+
+    # use existing playlist TF-IDF index for name scoring
+    (name_vectorizer, _), (name_vecs, _) = build_tfidf_index(playlists, "playlist")
+    name_query_vec = name_vectorizer.transform([query])
+    name_sims = cosine_similarity(name_query_vec, name_vecs).flatten()
+
+    # blend ame_weight on names, with the rest on SVD
+    sims = name_weight * name_sims + (1 - name_weight) * svd_sims
+    top_indices = np.argsort(-sims)[:top_n]
+
+    return [{
+        'name': playlists[i].name,
+        'songs': playlists[i].songs,
+        'artist': playlists[i].artists,
+    } for i in top_indices]

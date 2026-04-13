@@ -22,6 +22,7 @@ class Playlist(db.Model):
     name = db.Column(db.String(64), nullable=False)
     songs = db.Column(db.String(1028), nullable=False)
     artists = db.Column(db.String(1028), nullable=False) # len(songs) == len(artists)
+    enriched_text = db.Column(db.Text, nullable=True)  # playlist name + song titles + matched lyrics for SVD
 
     def __repr__(self):
         return f'Playlist {self.id}: {self.name}'

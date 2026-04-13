@@ -129,7 +129,7 @@ def svd_search_recipes(query, dietary_filters, course_filters):
         # Fallback to TF-IDF plain results
         return cosine_search_recipes(query, dietary_filters, course_filters)
  
-    return matching.query_svd(
+    return matching.query_svd_recipes(
         query, recipes, vectorizer, docs_normed, words_normed, index_to_word,
         top_n=5, top_dims=3, top_keywords=6
     )
@@ -143,6 +143,16 @@ def cosine_search_playlists(query):
     vectorizer, doc_by_vocab = matching.build_tfidf_index(playlists, "playlist")
     matches = matching.query_data(query, playlists, "playlist", vectorizer, doc_by_vocab, 0.7)
     return matches[: 3]
+
+def cosine_search_playlists_svd(query, recipes):
+    if not query or not query.strip():
+        query = "music"
+    playlists = db.session.query(Playlist).all()
+
+    vectorizer, _, words_normed, _, _ = matching.build_svd_index(recipes, playlists=playlists, k=40)
+    if vectorizer is None or words_normed is None:
+        return []
+    return matching.query_svd_playlists(query, playlists, vectorizer, words_normed)
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -178,7 +188,8 @@ def register_routes(app):
     @app.route("/api/playlists")
     def playlists_search():
         text = request.args.get("name", "")
-        return jsonify(cosine_search_playlists(text))
+        recipes = db.session.query(Recipe).all()
+        return jsonify(cosine_search_playlists_svd(text, recipes))
 
 
     if USE_LLM:

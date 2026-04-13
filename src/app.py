@@ -66,7 +66,7 @@ def init_playlists():
         print("Database already initialized with", Playlist.query.count(), 'playlists')
         return
 
-    file_path = os.path.join(current_directory, 'spotify_playlists.json')
+    file_path = os.path.join(current_directory, 'combined.json')
     with open(file_path, 'r') as file:
         data = json.load(file)
 
@@ -74,10 +74,13 @@ def init_playlists():
         try:
             songs = [track[0] for track in tracks]
             artists = [track[1] for track in tracks]
+            lyrics = [track[2] for track in tracks if track[2]]
+            enriched_text = f"{name} {' '.join(songs)} {' '.join(lyrics)}"
             playlist = Playlist(
                 name=name,
                 songs=','.join(songs),
-                artists=','.join(artists)
+                artists=','.join(artists),
+                enriched_text=enriched_text
             )
             db.session.add(playlist)
         except:
