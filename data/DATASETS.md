@@ -14,9 +14,12 @@ dump. Cleaning is reproducible via `data/clean_programs.py` (run under the
   `number_of_exercises` is actually per-workout-day). The stable program-level
   fields are `description`, `equipment`, `program_length`, `time_per_workout`.
 
-## `programs_kaggle_clean.csv` — cleaned step-by-step (USE THIS)
-Same granularity as raw (605,033 rows × 18 cols), but workable. This is the
-file to use when rendering week/day/exercise breakdowns.
+## `programs_kaggle_clean.csv` — cleaned step-by-step (analysis only)
+Same granularity as raw (605,033 rows × 18 cols), but workable. Useful for
+ad-hoc analysis or regenerating the program-level summary. **Not loaded by
+the backend** — the runtime schedule data lives in
+`programs_cleaned.csv → schedule_json` so the deployed app doesn't need
+this 292 MB file.
 
 Columns:
 
@@ -64,6 +67,7 @@ Columns:
 | `num_exercises` | count of unique `exercise_name` in the program |
 | `total_exercise_entries` | total row count in the full file for this title |
 | `exercises` | JSON list of unique `exercise_name` values (sorted) — useful as an IR text field |
+| `schedule_json` | JSON dict `{exercise_name: [[week, day, sets, reps, rep_type], ...]}`. Compact per-program week/day breakdown — replaces the runtime join against `programs_kaggle_clean.csv` so the backend doesn't need that 292 MB file. Read by `ProgramSearcher` to attach `schedule` to each search result. |
 | `created`, `last_edit` | first non-null timestamp |
 
 ### Distributions

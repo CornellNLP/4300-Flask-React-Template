@@ -121,6 +121,24 @@ def main() -> None:
                 return v
         return None
 
+    def build_schedule(group: pd.DataFrame) -> str:
+        sched: dict[str, list] = {}
+        for week, day, name, sets, reps, rep_type in zip(
+            group["week"], group["day"], group["exercise_name"],
+            group["sets"], group["reps_clean"], group["rep_type"],
+        ):
+            if pd.isna(name) or not str(name).strip():
+                continue
+            entry = [
+                None if pd.isna(week) else int(week),
+                None if pd.isna(day) else int(day),
+                None if pd.isna(sets) else float(sets),
+                None if pd.isna(reps) else float(reps),
+                rep_type if isinstance(rep_type, str) else "reps",
+            ]
+            sched.setdefault(str(name), []).append(entry)
+        return json.dumps(sched, separators=(",", ":"))
+
     grouped = df.groupby("title", sort=False)
     program_level = pd.DataFrame({
         "title": grouped["title"].first(),
@@ -134,6 +152,7 @@ def main() -> None:
         "num_days_per_week": grouped["day"].max().astype("Int64"),
         "total_exercise_entries": grouped.size(),
         "exercises": grouped["exercise_name"].apply(lambda s: sorted(set(s.dropna()))),
+        "schedule_json": grouped.apply(build_schedule),
         "created": grouped["created"].apply(first_non_null),
         "last_edit": grouped["last_edit"].apply(first_non_null),
     }).reset_index(drop=True)
@@ -155,6 +174,7 @@ def main() -> None:
         "num_weeks", "num_days_per_week",
         "num_exercises", "total_exercise_entries",
         "exercises",
+        "schedule_json",
         "created", "last_edit",
     ]]
 

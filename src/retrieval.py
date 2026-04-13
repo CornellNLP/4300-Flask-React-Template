@@ -40,8 +40,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 # clamped to min(n_samples, n_features) - 1 for safety.
 SVD_COMPONENTS = 100
 
-# programs_kaggle_clean.csv has very long exercise-list fields; bump the csv
-# field size limit so the stdlib reader doesn't choke on them.
+# programs_cleaned.csv has very long schedule_json / exercise-list fields;
+# bump the csv field size limit so the stdlib reader doesn't choke on them.
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 # ── Porter Stemmer ───────────────────
@@ -255,7 +255,6 @@ def _tokenize_and_stem(text):
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'exercises_free_db.json')
 PROGRAMS_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_cleaned.csv')
-PROGRAMS_SCHEDULE_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_kaggle_clean.csv')
 
 # ── Query expansion maps ─────────────────────────────────────────────────────
 # GOAL_TO_MUSCLES maps common fitness goal keywords to the muscle groups they
@@ -803,11 +802,12 @@ class ProgramSearcher:
     """TF-IDF index over workout programs from ``programs_cleaned.csv``.
 
     Builds one document per program from the weighted concatenation of
-    title, goal, exercises, and description. At init, also eager-loads the
-    week/day/exercise breakdown from ``programs_kaggle_clean.csv`` into a
+    title, goal, exercises, and description. The week/day/exercise
+    breakdown is read from each row's ``schedule_json`` column (compact
+    dict precomputed by ``data/clean_programs.py``) and expanded into a
     ``title -> list[schedule entry]`` dict so search results can carry a
-    full schedule for the UI to render. The schedule is **not** part of the
-    TF-IDF document — it's purely for display.
+    full schedule for the UI to render. The schedule is **not** part of
+    the TF-IDF document — it's purely for display.
 
     Attributes:
         programs (list[dict]): Program rows from programs_cleaned.csv.
@@ -841,24 +841,36 @@ class ProgramSearcher:
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
 
-        # Eager-load the week/day schedule. One ~605k-row pass, grouped by
-        # title into a display-only dict. Not part of retrieval scoring.
+        # Expand the precomputed schedule_json column on each program row
+        # into the display-only schedule dict. No second-file load — this
+        # data ships in programs_cleaned.csv. Not part of retrieval scoring.
         self.schedule_by_title = {}
-        with open(PROGRAMS_SCHEDULE_CSV_PATH, 'r', encoding='utf-8', newline='') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                title = row.get("title")
-                if not title:
-                    continue
-                entry = {
-                    "week": _to_int(row.get("week")),
-                    "day": _to_int(row.get("day")),
-                    "exercise_name": row.get("exercise_name", "") or "",
-                    "sets": _to_float(row.get("sets")),
-                    "reps": _to_float(row.get("reps")),
-                    "rep_type": row.get("rep_type") or None,
-                }
-                self.schedule_by_title.setdefault(title, []).append(entry)
+        for row in self.programs:
+            title = row.get("title")
+            if not title:
+                continue
+            raw = row.get("schedule_json") or ""
+            if not raw:
+                self.schedule_by_title[title] = []
+                continue
+            try:
+                sched = json.loads(raw)
+            except (ValueError, TypeError):
+                self.schedule_by_title[title] = []
+                continue
+            entries = []
+            for name, occurrences in sched.items():
+                for occ in occurrences:
+                    week, day, sets, reps, rep_type = (occ + [None] * 5)[:5]
+                    entries.append({
+                        "week": int(week) if week is not None else None,
+                        "day": int(day) if day is not None else None,
+                        "exercise_name": name,
+                        "sets": float(sets) if sets is not None else None,
+                        "reps": float(reps) if reps is not None else None,
+                        "rep_type": rep_type or None,
+                    })
+            self.schedule_by_title[title] = entries
 
     def search(self, query, k=5, method="tfidf"):
         """Rank programs against a natural-language query.
