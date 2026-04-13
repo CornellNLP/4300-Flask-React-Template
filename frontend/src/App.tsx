@@ -77,6 +77,20 @@ function App(): JSX.Element {
                   <span>Cosine: {song.cosine_score}%</span>
                   <span>SVD: {song.svd_score}%</span>
                 </p>
+                {song.svd_explanation && song.svd_explanation.length > 0 && (
+                  <div className="svd-explanation" style={{ marginTop: '0.5rem', fontSize: '0.82em', color: '#333', background: 'rgba(0,0,0,0.15)', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                    <strong>SVD Mood Analysis</strong>
+                    {song.svd_explanation.map((dim, i) => (
+                      <div key={i} style={{ marginTop: '0.25rem' }}>
+                        <span style={{ color: dim.strength >= 0 ? '#2d7a2d' : '#a83232' }}>
+                          <strong>Dimension {dim.dimension}</strong> (strength: {dim.strength})
+                        </span>
+                        <br />
+                        <span>Mood words: {dim.mood_words.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           }

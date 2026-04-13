@@ -44,7 +44,12 @@ def build_search_index():
         all_text.append(text)
 
     # Cosine similarity TF-IDF
-    vectorizer = TfidfVectorizer(stop_words='english')
+    custom_stopwords = list(TfidfVectorizer(stop_words='english').get_stop_words()) + [
+        'da', 'na', 'la', 'oh', 'ah', 'ooh', 'uh', 'yeah', 'hey', 'gonna',
+        'wanna', 'gotta', 'ain', 'don', 'cause', 'em', 'til', 'ya', 'yo',
+        'duh', 'ha', 'hm', 'mm', 'wa', 'ba', 'sha', 'ra', 'ta', 'pa', 'eh', 'oooh'
+    ]
+    vectorizer = TfidfVectorizer(stop_words=custom_stopwords)
     song_vectors = vectorizer.fit_transform(all_text)
 
     # SVD
@@ -140,28 +145,47 @@ def json_search(query, top_n=5, instrument="guitar", difficulty="all"):
         query = "Love"
 
     results = recommend_by_lyrics(query, top_n, instrument, difficulty)
-    svd_explanation = explain_svd(query)
+
+    # Get query's latent vector once
+    query_tfidf = vectorizer.transform([query])
+    query_latent = svd_model.transform(query_tfidf).flatten()
 
     matches = []
     for song in results:
+        song_idx = songs_data.index(song[0])
+        song_latent = lyrics_latent[song_idx]  # this specific song's latent vector
+
+        # Element-wise product: high where BOTH query and song activate the same dimension
+        combined_activation = query_latent * song_latent
+        top_dims = np.argsort(np.abs(combined_activation))[::-1][:3]
+
+        per_song_explanation = []
+        for dim in top_dims:
+            top_word_indices = np.argsort(svd_model.components_[dim])[::-1][:5]
+            top_words = [vectorizer.get_feature_names_out()[i] for i in top_word_indices]
+            per_song_explanation.append({
+                "dimension": int(dim),
+                "strength": round(float(combined_activation[dim]), 4),
+                "mood_words": top_words
+            })
+
         if instrument == "guitar":
             diff = song[0].guitar_difficulty
         else:
             diff = song[0].piano_difficulty
+
         matches.append({
             'title': song[0].title,
             'artist': song[0].artist,
-            'similarity': round(song[1], 2),  
-            'cosine_score': round(song[2], 2), 
-            'svd_score': round(song[3], 2),  
+            'similarity': round(song[1], 2),
+            'cosine_score': round(song[2], 2),
+            'svd_score': round(song[3], 2),
             'chords': song[0].chords,
-            'difficulty': diff
+            'difficulty': diff,
+            'svd_explanation': per_song_explanation  # unique per song now
         })
 
-    return {
-        'results': matches,
-        'svd_explanation': svd_explanation   # mood words for the query
-    }
+    return {'results': matches}
 
 def register_routes(app):
     with app.app_context():

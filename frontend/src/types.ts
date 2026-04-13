@@ -8,4 +8,9 @@ export interface Song {
   guitar_difficulty: number;
   piano_difficulty: number;
   difficulty: number;
+  svd_explanation: {
+    dimension: number;
+    strength: number;
+    mood_words: string[];
+  }[];
 }
