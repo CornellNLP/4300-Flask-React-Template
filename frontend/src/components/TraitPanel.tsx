@@ -27,47 +27,47 @@ const groups = [
   {
     label: "Foundation Stock Service",
     value: "Foundation Stock Service",
-    desc: "Breeds not yet fully recognized by the AKC"
+    desc: "Developing breeds recorded by the American Kennel Club (AKC) but not yet fully recognized"
   },
   {
     label: "Herding Group",
     value: "Herding Group",
-    desc: "Dogs bred to control livestock (e.g., Border Collies)"
+    desc: "Highly intelligent dogs bred to control and move livestock; often instinctively herd people"
   },
   {
     label: "Hound Group",
     value: "Hound Group",
-    desc: "Scent or sight hunters used for tracking game"
+    desc: "Dogs bred for hunting using scent or sight, known for endurance and tracking ability"
   },
   {
     label: "Miscellaneous Class",
     value: "Miscellaneous Class",
-    desc: "Breeds nearing full AKC recognition"
+    desc: "Breeds in the process of gaining full American Kennel Club (AKC) recognition"
   },
   {
     label: "Non-Sporting Group",
     value: "Non-Sporting Group",
-    desc: "Diverse breeds not tied to specific work roles"
+    desc: "A diverse mix of breeds with varied sizes, appearances, and temperaments"
   },
   {
     label: "Sporting Group",
     value: "Sporting Group",
-    desc: "Hunting dogs trained for retrieving and pointing"
+    desc: "Active, friendly hunting dogs skilled in retrieving, pointing, and field work"
   },
   {
     label: "Terrier Group",
     value: "Terrier Group",
-    desc: "Feisty dogs bred to hunt and kill vermin"
+    desc: "Bold, energetic dogs bred to hunt vermin; often feisty and strong-willed"
   },
   {
     label: "Toy Group",
     value: "Toy Group",
-    desc: "Small companion dogs bred for companionship"
+    desc: "Small companion dogs ideal for apartments; affectionate but often spirited"
   },
   {
     label: "Working Group",
     value: "Working Group",
-    desc: "Large breeds used for guarding, pulling, and rescue"
+    desc: "Large, intelligent dogs bred for jobs like guarding, pulling, and rescue"
   }
 ]
 

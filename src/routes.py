@@ -20,7 +20,6 @@ USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def json_search(query):
     if not query or not query.strip():
         query = "Kardashian"

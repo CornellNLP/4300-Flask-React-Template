@@ -339,11 +339,11 @@ function App(): JSX.Element {
             </div>
           ) : (
             <div className="query-preview-card">
-              <h3 className="query-preview-title">Submitted preferences</h3>
+              <h3 className="query-preview-title">Submitted Preferences</h3>
 
               {submittedWriteIn.trim() !== '' && (
                 <p className="query-preview-text">
-                  <strong>Additional notes:</strong> {submittedWriteIn}
+                  <strong>Inputted Trait(s):</strong> {submittedWriteIn}
                 </p>
               )}
 
