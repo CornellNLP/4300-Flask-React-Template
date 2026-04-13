@@ -25,20 +25,20 @@ def register_routes(app):
     @app.route("/api/recommendations")
     def recommendations():
         query = request.args.get("query", "")
-
+        mode = request.args.get("mode", "svd")
         if not query.strip():
             return jsonify([])
-
         try:
             top_k = int(request.args.get("top_k", "10"))
         except ValueError:
             top_k = 10
-
         top_k = max(1, min(top_k, 25))
 
-        matches = get_svd_recommender().recommend(
-            query=query,
-            top_k=top_k
-        )
+        if mode == "tfidf":
+            from recommender import get_recommender
+            matches = get_recommender().recommend(query=query, top_k=top_k)
+        else:
+            from svd_recommender import get_svd_recommender
+            matches = get_svd_recommender().recommend(query=query, top_k=top_k)
 
         return jsonify(matches)
