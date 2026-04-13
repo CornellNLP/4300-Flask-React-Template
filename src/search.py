@@ -1,3 +1,4 @@
+import ast
 import heapq
 import json
 import os
@@ -60,20 +61,34 @@ def get_top_restaurants(ranked_results, k=10):
             continue
 
         price_tier, price_label = get_price_info(business)
-        best_by_name[name] = {
-            "business_id":  business["business_id"],
-            "name":         name,
-            "address":      business.get("address"),
-            "city":         business["city"],
-            "state":        business.get("state"),
-            "postal_code":  business.get("postal_code"),
-            "stars":        business.get("stars"),
+
+        # Extract ambience tags from attributes
+        ambience_raw = (business.get("attributes") or {}).get("Ambience") or {}
+        if isinstance(ambience_raw, str):
+            try:
+                ambience_raw = ast.literal_eval(ambience_raw)
+            except Exception:
+                ambience_raw = {}
+        if isinstance(ambience_raw, dict):
+            ambience = [k for k, v in ambience_raw.items() if v is True]
+        else:
+            ambience = []
+
+        entry = {
+            "business_id": business["business_id"],
+            "name": business["name"],
+            "address": business.get("address"),
+            "city": business["city"],
+            "state": business.get("state"),
+            "postal_code": business.get("postal_code"),
+            "stars": business.get("stars"),
             "review_count": business.get("review_count"),
-            "categories":   business.get("categories"),
-            "hours":        business.get("hours"),
-            "priceTier":    price_tier,
-            "priceRange":   price_label,
-            "matchScore":   float(score),
+            "categories": business.get("categories"),
+            "hours": business.get("hours"),
+            "priceTier": price_tier,
+            "priceRange": price_label,
+            "ambience": ambience,
+            "matchScore": float(score)
         }
 
     return heapq.nlargest(k, best_by_name.values(), key=lambda x: x["matchScore"])
