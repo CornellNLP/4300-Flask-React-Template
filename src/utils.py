@@ -137,7 +137,7 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
     # print(len(candidates))
     pathway = []
     
-    for _ in range(path_length):
+    for _ in range(path_length*2):
         if not candidates:
             break
     
@@ -169,8 +169,14 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
 
     description = "A unique thematic cluster."
 
-    for doc_id in pathway:
-        title = REVERSE_DOC_MAP.get(doc_id, f"Unknown ID {doc_id}")
+    i = -1
+    while len(branch_nodes) < path_length:
+        i += 1
+        if pathway[i] not in REVERSE_DOC_MAP:
+            continue
+        title = REVERSE_DOC_MAP.get(pathway[i], f"Unknown ID {doc_id}")
+        if title.startswith("Unknown ID"):
+            continue
         branch_nodes.append({
             "id": doc_id,
             "title": title,
@@ -179,6 +185,7 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
             "description": description            
         })
         print(doc_id)
+
         
     return [branch_nodes]
 
