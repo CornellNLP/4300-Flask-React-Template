@@ -133,11 +133,9 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
 
     # 2.2: Do MMR
     candidates = list(doc_scores.keys())
-    # print(candidates)
-    # print(len(candidates))
     pathway = []
     
-    for _ in range(path_length*2):
+    for _ in range(path_length * num_branches * 2):
         if not candidates:
             break
     
@@ -164,30 +162,31 @@ def generate_rabbit_hole(start_article, additional_keywords, postings_model, pat
             candidates.remove(best_doc)
     
     # 3. Format output 
-    # Changed to branch nodes as frontend expects many branch nodes for each rabbit hole. 
     branch_nodes = []
-
     description = "A unique thematic cluster."
-
-    i = -1
-    while len(branch_nodes) < path_length:
-        i += 1
-        if pathway[i] not in REVERSE_DOC_MAP:
-            continue
-        title = REVERSE_DOC_MAP.get(pathway[i], f"Unknown ID {doc_id}")
-        if title.startswith("Unknown ID"):
-            continue
-        branch_nodes.append({
-            "id": doc_id,
-            "title": title,
-            "score": round(doc_scores[doc_id], 4), 
-            "branch": 0,                           
-            "description": description            
-        })
-        print(doc_id)
-
-        
-    return [branch_nodes]
+    
+    np.random.shuffle(pathway)
+    
+    for i in range(0, path_length*num_branches, path_length):
+        nodes = pathway[i:i+path_length]
+        temp = []
+        for doc_id in nodes:
+            if doc_id not in REVERSE_DOC_MAP:
+                continue
+            title = REVERSE_DOC_MAP.get(doc_id, f"Unknown ID {doc_id}")
+            if title.startswith("Unknown ID"):
+                continue
+            temp.append({
+                "id": doc_id,
+                "title": title,
+                "score": round(doc_scores[doc_id], 4),
+                "branch": int(i/path_length) + 1,
+                "description": description
+            })
+        if temp:
+            branch_nodes.append(temp)
+    
+    return branch_nodes
 
 
 def generate_rabbit_hole_svd(start_article, path_length=5, num_branches=3):
@@ -217,7 +216,7 @@ def generate_rabbit_hole_svd(start_article, path_length=5, num_branches=3):
 
     description = "A unique thematic cluster."
 
-    for i in range(0, path_length*(num_branches-1), path_length):
+    for i in range(0, path_length*(num_branches), path_length):
         nodes = top_idx[i:i+path_length]
         temp = []
         for node in nodes:
