@@ -7,6 +7,9 @@ import os
 import re
 
 import numpy as np
+from scipy.sparse.linalg import svds
+from scipy.sparse import csr_matrix
+from sklearn.preprocessing import normalize 
 from flask import send_from_directory, request, jsonify
 from streamlit import text
 
@@ -48,12 +51,12 @@ def _build_tfidf_l2_rows(tokenized_docs):
     tf = np.zeros_like(C)
     mask = C > 0
     tf[mask] = 1.0 + np.log(C[mask])
-    X = tf * idf[np.newaxis, :]
+    X_raw = tf * idf[np.newaxis, :]
 
-    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms = np.linalg.norm(X_raw, axis=1, keepdims=True)
     norms = np.where(norms == 0.0, 1.0, norms)
-    X = X / norms
-    return token_to_idx, idf, X
+    X_normed = X_raw / norms
+    return token_to_idx, idf, X_normed, X_raw
 
 
 def _query_tfidf_l2(tokenized_q, token_to_idx, idf):
@@ -72,50 +75,75 @@ def _query_tfidf_l2(tokenized_q, token_to_idx, idf):
         q = q / n
     return q
 
+def _build_svd(X_raw, k=40):
+    k = min(k, min(X_raw.shape) - 1)
+    docs_compressed, s, words_compressed = svds(csr_matrix(X_raw), k=k)
+    docs_compressed = docs_compressed[:, ::-1]
+    words_compressed = words_compressed[::-1, :].T  # (V, k)
+    return normalize(docs_compressed), normalize(words_compressed)
+
+
+def _query_svd(tokenized_q, token_to_idx, idf, words_normed):
+    V = idf.shape[0]
+    q = np.zeros(V, dtype=np.float64)
+    for t in tokenized_q:
+        j = token_to_idx.get(t)
+        if j is not None:
+            q[j] += 1.0
+    mask = q > 0
+    tf_q = np.zeros_like(q)
+    tf_q[mask] = 1.0 + np.log(q[mask])
+    q = tf_q * idf
+    q_svd = q @ words_normed  # project into latent space
+    n = np.linalg.norm(q_svd)
+    return q_svd / n if n > 0 else q_svd
 
 def _tfidf_index():
     global _tfidf_cache
     n = AitaPost.query.count()
     if _tfidf_cache is not None and _tfidf_cache[0] == n:
-        return _tfidf_cache[1], _tfidf_cache[2], _tfidf_cache[3], _tfidf_cache[4]
+        return _tfidf_cache[1:]
 
     posts = AitaPost.query.all()
-
     if not posts:
-        _tfidf_cache = (0, None, None, None, [])
-        return None, None, None, []
+        _tfidf_cache = (0, None, None, None, None, None, [])
+        return None, None, None, None, None, []
 
     tokenized = [_tokenize(_post_text(post)) for post in posts]
-    token_to_idx, idf, X = _build_tfidf_l2_rows(tokenized)
-    _tfidf_cache = (n, token_to_idx, idf, X, posts)
-    return token_to_idx, idf, X, posts
+    token_to_idx, idf, X_normed, X_raw = _build_tfidf_l2_rows(tokenized)
+    docs_svd_normed, words_svd_normed = _build_svd(X_raw)
+    _tfidf_cache = (n, token_to_idx, idf, X_normed, docs_svd_normed, words_svd_normed, posts)
+    return token_to_idx, idf, X_normed, docs_svd_normed, words_svd_normed, posts
 
 
-def json_search(query):
+def json_search(query, method='svd'):
     if not query or not query.strip():
         return []
 
-    token_to_idx, idf, X, posts = _tfidf_index()
-    if not posts or token_to_idx is None or idf.size == 0:
+    token_to_idx, idf, X_normed, docs_svd_normed, words_svd_normed, posts = _tfidf_index()
+    if not posts or token_to_idx is None:
         return []
 
-    q = _query_tfidf_l2(_tokenize(query), token_to_idx, idf)
-    sims = X @ q
-    order = np.argsort(sims)[::-1]
+    tokens = _tokenize(query)
+    if method == 'tfidf':
+        q = _query_tfidf_l2(tokens, token_to_idx, idf)
+        sims = X_normed @ q
+    else:
+        q = _query_svd(tokens, token_to_idx, idf, words_svd_normed)
+        sims = docs_svd_normed @ q
 
+    order = np.argsort(sims)[::-1]
     matches = []
     for idx in order[:20]:
         post = posts[int(idx)]
-        matches.append(
-            {
-                "id": post.id,
-                "submission_id": post.submission_id,
-                "title": post.title,
-                "selftext": post.selftext,
-                "score": post.score,
-                "similarity": float(sims[int(idx)]),
-            }
-        )
+        matches.append({
+            "id": post.id,
+            "submission_id": post.submission_id,
+            "title": post.title,
+            "selftext": post.selftext,
+            "score": post.score,
+            "similarity": float(sims[int(idx)]),
+        })
     return matches
 
 
@@ -134,8 +162,9 @@ def register_routes(app):
 
     @app.route("/api/search")
     def search():
-        text = request.args.get("query", "")
-        return jsonify(json_search(text))
+        query = request.args.get("query", "")
+        method = request.args.get("method", "svd")
+        return jsonify(json_search(query, method))
 
     if USE_LLM:
         from llm_routes import register_chat_route
