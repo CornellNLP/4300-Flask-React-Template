@@ -320,7 +320,6 @@ function AlgoToggle({
 export default function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null);
   const [article, setArticle] = useState("");
-  const [keywords, setKeywords] = useState("");
   const [branches, setBranches] = useState<ArticleNode[][]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -337,13 +336,13 @@ export default function App(): JSX.Element {
   const handleSearch = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
-      if (!article.trim() && !keywords.trim()) return;
+      if (!article.trim()) return;
       setLoading(true);
       setHasSearched(false);
       setUnderground(true);
       try {
         const res = await fetch(
-          `/api/rabbithole?article=${encodeURIComponent(article)}&keywords=${encodeURIComponent(keywords)}&scoring_mode=${scoringMode}`,
+          `/api/rabbithole?article=${encodeURIComponent(article)}&scoring_mode=${scoringMode}`,
         );
         const data: ArticleNode[][] = await res.json();
         setBranches(data);
@@ -354,7 +353,7 @@ export default function App(): JSX.Element {
         setHasSearched(true);
       }
     },
-    [article, keywords, scoringMode],
+    [article, scoringMode],
   );
 
   const handleSurface = () => {
@@ -389,25 +388,13 @@ export default function App(): JSX.Element {
           <p className="hero-sub">Enter a topic. Fall down the rabbit hole.</p>
 
           <form className="search-form" onSubmit={handleSearch}>
-            <div className="search-fields">
-              <div className="search-field">
-                <input
-                  className="search-input"
-                  placeholder="Starting article…"
-                  value={article}
-                  onChange={(e) => setArticle(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="search-field">
-                <input
-                  className="search-input"
-                  placeholder="Optional keywords…"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                />
-              </div>
-            </div>
+            <input
+              className="search-input"
+              placeholder="Starting article…"
+              value={article}
+              onChange={(e) => setArticle(e.target.value)}
+              required
+            />
             <AlgoToggle value={scoringMode} onChange={setScoringMode} />
             <button className="dig-btn" type="submit" disabled={loading}>
               {loading ? (
