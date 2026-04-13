@@ -31,8 +31,14 @@ import os
 import re
 import sys
 import numpy as np
+from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# Latent dimensions for TruncatedSVD (LSA) on top of the TF-IDF matrix.
+# Both searchers use this as their upper bound; actual n_components is
+# clamped to min(n_samples, n_features) - 1 for safety.
+SVD_COMPONENTS = 100
 
 # programs_kaggle_clean.csv has very long exercise-list fields; bump the csv
 # field size limit so the stdlib reader doesn't choke on them.
@@ -383,6 +389,45 @@ def _build_weighted_doc(ex):
     return " ".join(parts)
 
 
+def _fit_svd(tfidf_matrix, n_components=SVD_COMPONENTS, random_state=42):
+    """Fit a TruncatedSVD (LSA) over a TF-IDF matrix and row-normalize.
+
+    Returns ``(svd, svd_matrix_normed)`` where ``svd`` is the fitted
+    transformer (reused at query time to project a TF-IDF query vector
+    into the same latent space) and ``svd_matrix_normed`` is the
+    document-by-component matrix with each row scaled to unit L2 norm
+    so that cosine similarity at query time reduces to a single dot
+    product ``svd_matrix_normed @ q_normed.T``.
+
+    The caller is expected to L2-normalize the query vector before the
+    dot product — see ``_svd_scores``.
+
+    ``n_components`` is clamped to ``min(tfidf_matrix.shape) - 1`` so the
+    decomposition remains valid on small corpora or narrow vocabularies.
+    """
+    n_comp = min(n_components, min(tfidf_matrix.shape) - 1)
+    svd = TruncatedSVD(n_components=n_comp, random_state=random_state)
+    reduced = svd.fit_transform(tfidf_matrix)
+    norms = np.linalg.norm(reduced, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return svd, reduced / norms
+
+
+def _svd_scores(svd, svd_matrix_normed, query_vec):
+    """Score every document against a TF-IDF query vector in latent space.
+
+    Projects the (already TF-IDF transformed) query into the SVD space,
+    L2-normalizes it, then returns the 1-D cosine similarity array
+    against every row of ``svd_matrix_normed``. Because both sides are
+    unit-normalized, the dot product equals cosine similarity.
+    """
+    reduced = svd.transform(query_vec)
+    qnorm = np.linalg.norm(reduced)
+    if qnorm > 0:
+        reduced = reduced / qnorm
+    return (svd_matrix_normed @ reduced.T).flatten()
+
+
 def _wagner_fisher(s1, s2):
     """Compute the Levenshtein edit distance between two strings.
 
@@ -529,6 +574,11 @@ class ExerciseSearcher:
                                           max_features=10000)
         self.tfidf_matrix = self.vectorizer.fit_transform(docs)
 
+        # LSA layer: project exercises into a 100-dim latent space so
+        # semantically related terms cluster. Row-normalized once so
+        # cosine similarity at query time is a single dot product.
+        self.svd, self.svd_matrix_normed = _fit_svd(self.tfidf_matrix)
+
         # Build a length-bucketed vocabulary index for O(1) candidate lookup
         # during spell correction.  Keys are token lengths; values are lists of
         # all vocabulary terms of that length.
@@ -536,7 +586,7 @@ class ExerciseSearcher:
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
 
-    def search(self, query, k=5, equipment=None, max_level=None, injured_muscles=None):
+    def search(self, query, k=5, equipment=None, max_level=None, injured_muscles=None, method="tfidf"):
         """Rank exercises against a natural-language query.
 
         Steps:
@@ -589,7 +639,10 @@ class ExerciseSearcher:
 
         expanded = _expand_query(corrected_query)
         query_vec = self.vectorizer.transform([expanded])
-        scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
+        if method == "svd":
+            scores = _svd_scores(self.svd, self.svd_matrix_normed, query_vec)
+        else:
+            scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
 
         # Apply optional filters as a pre-ranking mask. Masked-out rows get a
         # negative score so they never enter the top-k.
@@ -647,7 +700,7 @@ class ExerciseSearcher:
 _searcher = None
 
 
-def search(query, k=5, equipment=None, max_level=None, injured_muscles=None):
+def search(query, k=5, equipment=None, max_level=None, injured_muscles=None, method="tfidf"):
     """Public entry point: search exercises by natural-language query.
 
     Lazily initializes a singleton ``ExerciseSearcher`` on first call, then
@@ -673,6 +726,7 @@ def search(query, k=5, equipment=None, max_level=None, injured_muscles=None):
         equipment=equipment,
         max_level=max_level,
         injured_muscles=injured_muscles,
+        method=method,
     )
 
 
@@ -779,6 +833,10 @@ class ProgramSearcher:
         )
         self.tfidf_matrix = self.vectorizer.fit_transform(docs)
 
+        # LSA layer over the 2,598 programs — same 100-dim projection
+        # as ExerciseSearcher so paraphrased queries can still rank.
+        self.svd, self.svd_matrix_normed = _fit_svd(self.tfidf_matrix)
+
         self.vocab_by_length = {}
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
@@ -802,13 +860,14 @@ class ProgramSearcher:
                 }
                 self.schedule_by_title.setdefault(title, []).append(entry)
 
-    def search(self, query, k=5):
+    def search(self, query, k=5, method="tfidf"):
         """Rank programs against a natural-language query.
 
         Mirrors ``ExerciseSearcher.search``: spell-correct each query token
-        against the program vocabulary, TF-IDF transform, cosine similarity
-        against the program matrix, then return the top-k non-zero scores
-        with their schedule payload attached.
+        against the program vocabulary, TF-IDF transform, score with either
+        raw TF-IDF cosine similarity (``method="tfidf"``) or the SVD
+        latent-space projection (``method="svd"``), then return the top-k
+        non-zero scores with their schedule payload attached.
         """
         raw_tokens = query.lower().split()
         corrected_display = []
@@ -828,7 +887,10 @@ class ProgramSearcher:
 
         corrected_query = " ".join(corrected_display)
         query_vec = self.vectorizer.transform([corrected_query])
-        scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
+        if method == "svd":
+            scores = _svd_scores(self.svd, self.svd_matrix_normed, query_vec)
+        else:
+            scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
 
         top_indices = np.argsort(scores)[::-1][:k]
         results = []
@@ -855,13 +917,14 @@ class ProgramSearcher:
 _program_searcher = None
 
 
-def search_programs(query, k=5):
+def search_programs(query, k=5, method="tfidf"):
     """Public entry point: search workout programs by natural-language query.
 
     Lazily initializes a singleton ``ProgramSearcher`` on first call. Exposed
-    via ``POST /api/search_programs`` in ``routes.py``.
+    via ``POST /api/search_programs`` in ``routes.py``. ``method`` selects
+    between raw TF-IDF cosine (``"tfidf"``) and LSA/SVD cosine (``"svd"``).
     """
     global _program_searcher
     if _program_searcher is None:
         _program_searcher = ProgramSearcher()
-    return _program_searcher.search(query, k=k)
+    return _program_searcher.search(query, k=k, method=method)

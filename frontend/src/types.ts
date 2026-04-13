@@ -15,11 +15,14 @@ export interface Exercise {
   instructions: string[];
 }
 
+export type SearchMethod = 'tfidf' | 'svd';
+
 export interface SearchRequest {
   query: string;
   equipment?: string[];
   difficulty?: string;
   injuries?: string[];
+  method?: SearchMethod;
 }
 
 export interface ProgramScheduleEntry {

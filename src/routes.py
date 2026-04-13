@@ -100,12 +100,16 @@ def register_routes(app):
         if injured_muscles == []:
             injured_muscles = None
 
+        raw_method = data.get("method")
+        method = raw_method if raw_method in ("tfidf", "svd") else "tfidf"
+
         payload = retrieval_search(
             query,
             k=5,
             equipment=equipment,
             max_level=max_level,
             injured_muscles=injured_muscles,
+            method=method,
         )
         return jsonify(payload)
 
@@ -115,7 +119,9 @@ def register_routes(app):
         query = data.get("query", "")
         if not query.strip():
             return jsonify({"results": [], "corrected_query": None})
-        return jsonify(retrieval_search_programs(query, k=5))
+        raw_method = data.get("method")
+        method = raw_method if raw_method in ("tfidf", "svd") else "tfidf"
+        return jsonify(retrieval_search_programs(query, k=5, method=method))
 
     if USE_LLM:
         from llm_routes import register_chat_route

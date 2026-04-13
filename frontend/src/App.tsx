@@ -5,6 +5,7 @@ import {
   Exercise,
   Program,
   ProgramScheduleEntry,
+  SearchMethod,
   EQUIPMENT_OPTIONS,
   DIFFICULTY_OPTIONS,
   MUSCLE_OPTIONS,
@@ -25,6 +26,8 @@ function App(): JSX.Element {
   const [programSearchTerm, setProgramSearchTerm] = useState<string>('')
   const [programs, setPrograms] = useState<Program[]>([])
   const [programsLoading, setProgramsLoading] = useState<boolean>(false)
+  const [exerciseMethod, setExerciseMethod] = useState<SearchMethod>('tfidf')
+  const [programMethod, setProgramMethod] = useState<SearchMethod>('tfidf')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -40,13 +43,14 @@ function App(): JSX.Element {
 
   const handleSearch = async (
     value: string,
-    overrides?: { equipment?: string[]; difficulty?: string; injuries?: string[] },
+    overrides?: { equipment?: string[]; difficulty?: string; injuries?: string[]; method?: SearchMethod },
   ): Promise<void> => {
     if (value.trim() === '') { setExercises([]); return }
     const eq = overrides?.equipment ?? selectedEquipment
     const diff = overrides?.difficulty ?? difficulty
     const inj = overrides?.injuries ?? injuries
-    const body: Record<string, unknown> = { query: value }
+    const meth = overrides?.method ?? exerciseMethod
+    const body: Record<string, unknown> = { query: value, method: meth }
     if (eq.length > 0) body.equipment = eq
     if (diff) body.difficulty = diff
     if (inj.length > 0) body.injuries = inj
@@ -80,20 +84,34 @@ function App(): JSX.Element {
     if (searchTerm.trim() !== '') handleSearch(searchTerm, { injuries: next })
   }
 
-  const handleProgramSearch = async (value: string): Promise<void> => {
+  const handleProgramSearch = async (
+    value: string,
+    overrides?: { method?: SearchMethod },
+  ): Promise<void> => {
     if (value.trim() === '') { setPrograms([]); return }
+    const meth = overrides?.method ?? programMethod
     setProgramsLoading(true)
     try {
       const res = await fetch('/api/search_programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: value }),
+        body: JSON.stringify({ query: value, method: meth }),
       })
       const data = await res.json()
       setPrograms(data.results)
     } finally {
       setProgramsLoading(false)
     }
+  }
+
+  const changeExerciseMethod = (next: SearchMethod): void => {
+    setExerciseMethod(next)
+    if (searchTerm.trim() !== '') handleSearch(searchTerm, { method: next })
+  }
+
+  const changeProgramMethod = (next: SearchMethod): void => {
+    setProgramMethod(next)
+    if (programSearchTerm.trim() !== '') handleProgramSearch(programSearchTerm, { method: next })
   }
 
   const formatReps = (entry: ProgramScheduleEntry): string => {
@@ -156,6 +174,22 @@ function App(): JSX.Element {
 
         {activeTab === 'exercises' && (
         <>
+        <div className="subtab-bar">
+          <button
+            type="button"
+            className={`subtab-button ${exerciseMethod === 'tfidf' ? 'active' : ''}`}
+            onClick={() => changeExerciseMethod('tfidf')}
+          >
+            TF-IDF
+          </button>
+          <button
+            type="button"
+            className={`subtab-button ${exerciseMethod === 'svd' ? 'active' : ''}`}
+            onClick={() => changeExerciseMethod('svd')}
+          >
+            SVD
+          </button>
+        </div>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input
@@ -229,6 +263,22 @@ function App(): JSX.Element {
 
         {activeTab === 'programs' && (
         <>
+        <div className="subtab-bar">
+          <button
+            type="button"
+            className={`subtab-button ${programMethod === 'tfidf' ? 'active' : ''}`}
+            onClick={() => changeProgramMethod('tfidf')}
+          >
+            TF-IDF
+          </button>
+          <button
+            type="button"
+            className={`subtab-button ${programMethod === 'svd' ? 'active' : ''}`}
+            onClick={() => changeProgramMethod('svd')}
+          >
+            SVD
+          </button>
+        </div>
         <div className="input-box" onClick={() => document.getElementById('program-search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input
