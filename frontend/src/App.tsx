@@ -232,7 +232,7 @@ function TunnelCanvas({ index, active }: { index: number; active: boolean }) {
       ),
     );
 
-    let frame = 0;
+    let frame = 8;
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
