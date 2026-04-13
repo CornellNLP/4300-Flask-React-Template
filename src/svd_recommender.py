@@ -75,6 +75,9 @@ EXPANSIONS: dict[str, list[str]] = {
     "overwhelmed":  ["drowning", "too much", "exhausted", "panic", "crushed"],
     "peaceful":     ["calm", "serene", "quiet", "still", "tranquil", "gentle"],
     "melancholy":   ["bittersweet", "wistful", "sorrow", "longing", "aching"],
+    "romantic":   ["love", "tender", "intimate", "adore", "devoted", "warmth", "cherish"],
+"loving":     ["romantic", "tender", "affection", "warmth", "adore", "devoted"],
+"love":       ["romantic", "tender", "intimate", "warmth", "adore", "longing"],
 }
  
 # expected audio profile per emotion: [danceability, energy, valence, tempo/200]
