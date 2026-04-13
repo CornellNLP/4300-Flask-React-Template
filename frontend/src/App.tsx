@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import * as d3 from "d3";
 import "./App.css";
 import Chat from "./Chat";
 import * as THREE from "three";
@@ -308,6 +309,238 @@ function ArticleCard({ node, depth }: { node: ArticleNode; depth: number }) {
   );
 }
 
+/* SVD Cluster Graph — SNAP-style force-directed network, SVD tab only */
+interface GNode extends d3.SimulationNodeDatum {
+  id: string;
+  label: string;
+  cluster: number;
+  theme: string;
+  weight: number;
+}
+interface GEdge extends d3.SimulationLinkDatum<GNode> {
+  source: string | GNode;
+  target: string | GNode;
+}
+interface GData {
+  nodes: GNode[];
+  edges: GEdge[];
+  themes: string[];
+}
+
+// One distinct colour per unique theme (max ~10 themes)
+const THEME_PALETTE = [
+  "#60a5fa", "#a78bfa", "#34d399", "#f87171", "#fbbf24",
+  "#38bdf8", "#f472b6", "#a3e635", "#fb923c", "#e879f9",
+];
+
+function SvdClusterGraph() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [gdata, setGdata] = useState<GData | null>(null);
+  const [tip, setTip] = useState<{ label: string; theme: string; color: string; x: number; y: number } | null>(null);
+
+  // Fetch once on mount
+  useEffect(() => {
+    fetch("/api/svd/graph?terms_per_theme=8")
+      .then((r) => r.json())
+      .then(setGdata);
+  }, []);
+
+  // Build / rebuild graph whenever data arrives — wait for real pixel dimensions
+  useEffect(() => {
+    if (!gdata || !svgRef.current) return;
+
+    const el = svgRef.current;
+
+    const build = (W: number, H: number) => {
+
+    const svg = d3.select(el);
+    svg.selectAll("*").remove();
+
+    const themeColor = (idx: number) => THEME_PALETTE[idx % THEME_PALETTE.length];
+
+    // Deep-copy so D3 can mutate x/y/vx/vy
+    const nodes: GNode[] = gdata.nodes.map((n) => ({ ...n }));
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+
+    const edges: GEdge[] = gdata.edges.map((e) => ({
+      source: byId.get(e.source as string) ?? e.source,
+      target: byId.get(e.target as string) ?? e.target,
+    }));
+
+    // Pre-position nodes near cluster centres arranged in a circle
+    const numClusters = gdata.themes.length;
+    const centres = gdata.themes.map((_, i) => {
+      const angle = (i / numClusters) * 2 * Math.PI - Math.PI / 2;
+      const r = Math.min(W, H) * 0.3;
+      return { x: W / 2 + r * Math.cos(angle), y: H / 2 + r * Math.sin(angle) };
+    });
+    nodes.forEach((n) => {
+      const c = centres[n.cluster];
+      n.x = c.x + (Math.random() - 0.5) * 70;
+      n.y = c.y + (Math.random() - 0.5) * 70;
+    });
+
+    const root = svg.append("g");
+
+    // Edges (drawn first so nodes sit on top)
+    const linkSel = root
+      .append("g")
+      .selectAll<SVGLineElement, GEdge>("line")
+      .data(edges)
+      .join("line")
+      .attr("stroke", (d) => themeColor((d.source as GNode).cluster))
+      .attr("stroke-opacity", 0.18)
+      .attr("stroke-width", 1.2);
+
+    // Node groups
+    const nodeG = root
+      .append("g")
+      .selectAll<SVGGElement, GNode>("g")
+      .data(nodes)
+      .join("g");
+
+    const nodeR = (d: GNode) => 5 + Math.sqrt(d.weight) * 9;
+
+    nodeG
+      .append("circle")
+      .attr("r", nodeR)
+      .attr("fill", (d) => themeColor(d.cluster))
+      .attr("fill-opacity", 0.78)
+      .attr("stroke", (d) => themeColor(d.cluster))
+      .attr("stroke-width", 1.5)
+      .attr("stroke-opacity", 0.45);
+
+    nodeG
+      .append("text")
+      .text((d) => d.label)
+      .attr("text-anchor", "middle")
+      .attr("dy", "0.35em")
+      .attr("font-size", "8.5px")
+      .attr("font-family", "Lato, sans-serif")
+      .attr("fill", "#fff")
+      .attr("fill-opacity", 0.88)
+      .attr("pointer-events", "none");
+
+    // Cluster theme labels — repositioned each tick
+    const clusterLabelSel = root
+      .append("g")
+      .selectAll<SVGTextElement, { theme: string; idx: number }>("text")
+      .data(gdata.themes.map((theme, idx) => ({ theme, idx })))
+      .join("text")
+      .attr("text-anchor", "middle")
+      .attr("font-size", "10px")
+      .attr("font-weight", "700")
+      .attr("font-family", "Lato, sans-serif")
+      .attr("letter-spacing", "0.07em")
+      .attr("fill", (d) => themeColor(d.idx))
+      .attr("fill-opacity", 0.7)
+      .attr("pointer-events", "none")
+      .text((d) => d.theme.toUpperCase());
+
+    // Hover
+    nodeG
+      .on("mouseenter", (event: MouseEvent, d: GNode) => {
+        setTip({ label: d.label, theme: d.theme, color: themeColor(d.cluster), x: event.clientX, y: event.clientY });
+        d3.select(event.currentTarget as Element)
+          .select("circle")
+          .attr("fill-opacity", 1)
+          .attr("r", nodeR(d) + 3);
+      })
+      .on("mousemove", (event: MouseEvent) =>
+        setTip((t) => (t ? { ...t, x: event.clientX, y: event.clientY } : null)),
+      )
+      .on("mouseleave", (event: MouseEvent, d: GNode) => {
+        setTip(null);
+        d3.select(event.currentTarget as Element)
+          .select("circle")
+          .attr("fill-opacity", 0.78)
+          .attr("r", nodeR(d));
+      });
+
+    // D3 force simulation (SNAP-style: repulsion + cluster attraction + link cohesion)
+    const sim = d3
+      .forceSimulation<GNode>(nodes)
+      .force(
+        "link",
+        d3.forceLink<GNode, GEdge>(edges).id((d) => d.id).distance(50).strength(0.35),
+      )
+      .force("charge", d3.forceManyBody<GNode>().strength(-130))
+      .force("collide", d3.forceCollide<GNode>((d) => nodeR(d) + 5))
+      .force("cluster", () => {
+        // Pull each node toward its theme-cluster centre
+        nodes.forEach((n) => {
+          const c = centres[n.cluster];
+          n.vx = (n.vx ?? 0) + (c.x - (n.x ?? 0)) * 0.045;
+          n.vy = (n.vy ?? 0) + (c.y - (n.y ?? 0)) * 0.045;
+        });
+      })
+      .on("tick", () => {
+        linkSel
+          .attr("x1", (d) => (d.source as GNode).x ?? 0)
+          .attr("y1", (d) => (d.source as GNode).y ?? 0)
+          .attr("x2", (d) => (d.target as GNode).x ?? 0)
+          .attr("y2", (d) => (d.target as GNode).y ?? 0);
+
+        nodeG.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+
+        // Recompute label positions from current node positions
+        clusterLabelSel.each(function (d) {
+          const members = nodes.filter((n) => n.cluster === d.idx);
+          const cx = d3.mean(members, (m) => m.x) ?? centres[d.idx].x;
+          const cy = (d3.min(members, (m) => (m.y ?? 0) - nodeR(m)) ?? centres[d.idx].y) - 10;
+          d3.select(this).attr("x", cx).attr("y", cy);
+        });
+      });
+
+      return () => { sim.stop(); };
+    };  // end build()
+
+    // Use ResizeObserver so we wait until the SVG has real layout dimensions
+    let cleanup: (() => void) | undefined;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) {
+        ro.disconnect();
+        cleanup = build(width, height) as (() => void) | undefined;
+      }
+    });
+    ro.observe(el);
+
+    // If already sized, fire immediately
+    if (el.clientWidth > 0 && el.clientHeight > 0) {
+      ro.disconnect();
+      cleanup = build(el.clientWidth, el.clientHeight) as (() => void) | undefined;
+    }
+
+    return () => { ro.disconnect(); cleanup?.(); };
+  }, [gdata]);
+
+  return (
+    <div className="svd-graph-wrap">
+      <div className="svd-graph-header">
+        <h3 className="svd-graph-title">SVD Semantic Clusters</h3>
+        <p className="svd-graph-sub">
+          Each cluster is a latent topic the SVD discovered. Terms that load
+          together explain why your results appear — hover a node to inspect it.
+        </p>
+      </div>
+      <div className="svd-graph-canvas">
+        {!gdata && <p className="svd-graph-loading">Building graph…</p>}
+        <svg ref={svgRef} className="svd-graph-svg" />
+        {tip && (
+          <div
+            className="svd-graph-tip"
+            style={{ left: tip.x + 14, top: tip.y - 32 }}
+          >
+            <strong style={{ color: tip.color }}>{tip.label}</strong>
+            <span className="svd-graph-tip-theme"> · {tip.theme}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* Algorithm Toggle */
 function AlgoToggle({
   value,
@@ -343,6 +576,17 @@ export default function App(): JSX.Element {
   const [numArticles, setNumArticles] = useState(5);
   const [underground, setUnderground] = useState(false);
   const [activeBranch, setActiveBranch] = useState<number | null>(null);
+  const [showSvdViz, setShowSvdViz] = useState(false);
+  const svdVizRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showSvdViz) {
+      // Give React one frame to mount/show the element before scrolling
+      requestAnimationFrame(() => {
+        svdVizRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [showSvdViz]);
 
   useEffect(() => {
     fetch("/api/config")
@@ -486,9 +730,19 @@ export default function App(): JSX.Element {
 
         <div className="dirt-seam" />
 
-        <button className="surface-btn" onClick={handleSurface}>
-          ↑ Back to Surface
-        </button>
+        <div className="ug-nav-btns">
+          <button className="surface-btn" onClick={handleSurface}>
+            ↑ Back to Surface
+          </button>
+          {scoringMode === "svd" && hasSearched && (
+            <button
+              className={`svd-viz-btn ${showSvdViz ? "active" : ""}`}
+              onClick={() => setShowSvdViz((v) => !v)}
+            >
+              SVD Visualization
+            </button>
+          )}
+        </div>
 
         {loading && (
           <div className="ug-loading">
@@ -539,6 +793,12 @@ export default function App(): JSX.Element {
               ))}
             </div>
           </section>
+        )}
+
+        {scoringMode === "svd" && showSvdViz && (
+          <div ref={svdVizRef}>
+            <SvdClusterGraph />
+          </div>
         )}
 
         {useLlm && (

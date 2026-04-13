@@ -118,6 +118,7 @@ dimension_themes = {
 DOC_MAP = {}
 REVERSE_DOC_MAP = {}
 WORD_MAP = {}
+WORD_ID_TO_TERM = {}
 DOC_EMBEDDINGS = np.zeros(1)
 TERM_EMBEDDINGS = np.zeros(1)
 SINGULAR_VALUES = np.zeros(1)
@@ -154,7 +155,7 @@ project_root = os.path.dirname(current_directory)
 DATA_DIR = os.path.join(project_root, 'data')
 
 def load_data():
-    global DOC_MAP, REVERSE_DOC_MAP, WORD_MAP, DOC_EMBEDDINGS, TERM_EMBEDDINGS, DOC_IDS_SVD, SINGULAR_VALUES
+    global DOC_MAP, REVERSE_DOC_MAP, WORD_MAP, WORD_ID_TO_TERM, DOC_EMBEDDINGS, TERM_EMBEDDINGS, DOC_IDS_SVD, SINGULAR_VALUES
     doc_path = os.path.join(DATA_DIR, "doc_map2.json")
     word_path = os.path.join(DATA_DIR, "word_map2.json")
     doc_embeddings_path_1 = os.path.join(DATA_DIR, "svd_scipy", "doc_embeddings1.npy")
@@ -177,6 +178,7 @@ def load_data():
     try:
         with open(word_path, "r") as f:
             WORD_MAP = json.load(f)
+            WORD_ID_TO_TERM = {v: k for k, v in WORD_MAP.items()}
     except FileNotFoundError as e:
         print(e)
         print("Error: pls have the world_map.json in the data folder!")
@@ -192,6 +194,56 @@ def load_data():
         for line in f:
             i, name = line.strip().split("\t", 1)
             DOC_IDS_SVD[int(i)] = name
+
+def get_svd_graph_data(terms_per_theme=8):
+    """
+    Returns SNAP-format graph data (nodes + edges) grouped by dimension_themes.
+    Each unique theme becomes a cluster; terms are aggregated across all dims
+    sharing that theme. Edges connect terms within the same theme cluster.
+    """
+    theme_to_dims = defaultdict(list)
+    for dim, theme in dimension_themes.items():
+        if dim < TERM_EMBEDDINGS.shape[1]:
+            theme_to_dims[theme].append(dim)
+
+    unique_themes = sorted(theme_to_dims.keys())
+    theme_to_idx = {t: i for i, t in enumerate(unique_themes)}
+
+    nodes = {}   # term -> node dict
+    edges = []
+
+    for theme, dims in theme_to_dims.items():
+        cluster_idx = theme_to_idx[theme]
+        term_scores = defaultdict(float)
+
+        for dim in dims:
+            col = TERM_EMBEDDINGS[:, dim]
+            top_idx = np.argsort(col)[::-1][: terms_per_theme * 3]
+            for i in top_idx:
+                term = WORD_ID_TO_TERM.get(int(i))
+                if term:
+                    term_scores[term] += float(col[i])
+
+        top_terms = sorted(term_scores.items(), key=lambda x: x[1], reverse=True)[:terms_per_theme]
+
+        cluster_ids = []
+        for term, score in top_terms:
+            if term not in nodes:
+                nodes[term] = {
+                    "id": term,
+                    "label": term,
+                    "cluster": cluster_idx,
+                    "theme": theme,
+                    "weight": round(score, 4),
+                }
+            cluster_ids.append(term)
+
+        # Edges: fully connect terms within the same theme cluster
+        for a in range(len(cluster_ids)):
+            for b in range(a + 1, len(cluster_ids)):
+                edges.append({"source": cluster_ids[a], "target": cluster_ids[b]})
+
+    return {"nodes": list(nodes.values()), "edges": edges, "themes": unique_themes}
 
 def generate_rabbit_hole(start_article, additional_keywords, postings_model, path_length=5, diversity_lambda=0.5, num_branches=3, branch_seeds=None):
     """

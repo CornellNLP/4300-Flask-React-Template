@@ -443,12 +443,18 @@ body {
 }
 
 /* Back to surface button */
-.surface-btn {
+.ug-nav-btns {
   position: fixed;
   top: 1.2rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.surface-btn {
   background: rgba(10, 6, 25, 0.7);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -461,14 +467,35 @@ body {
   color: var(--accent-blue);
   cursor: none;
   backdrop-filter: blur(12px);
-  transition:
-    background 0.2s,
-    box-shadow 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .surface-btn:hover {
   background: rgba(20, 12, 45, 0.85);
   box-shadow: 0 0 20px rgba(147, 197, 253, 0.2);
+}
+
+.svd-viz-btn {
+  background: rgba(165, 180, 252, 0.08);
+  border: 1px solid rgba(165, 180, 252, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1.4rem;
+  font-family: "Lato", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.85);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.svd-viz-btn:hover,
+.svd-viz-btn.active {
+  background: rgba(165, 180, 252, 0.2);
+  color: rgba(216, 201, 255, 1);
+  box-shadow: 0 0 18px rgba(165, 180, 252, 0.25);
 }
 
 /* Underground loading spinner */
@@ -710,4 +737,80 @@ body {
 ::selection {
   background: rgba(165, 180, 252, 0.3);
   color: var(--text-primary);
+}
+
+/* ── SVD Cluster Graph ─────────────────────────────────────────────────────── */
+.svd-graph-wrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 4.5rem 2rem 2rem; /* top pad clears the fixed nav buttons */
+  background: transparent;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.svd-graph-header {
+  margin-bottom: 0.8rem;
+  text-align: center;
+}
+
+.svd-graph-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.svd-graph-sub {
+  font-family: "Lato", sans-serif;
+  font-size: 0.78rem;
+  color: rgba(147, 197, 253, 0.5);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.svd-graph-canvas {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 9rem);
+}
+
+.svd-graph-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.svd-graph-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(147, 197, 253, 0.45);
+  font-family: "Lato", sans-serif;
+  font-size: 0.88rem;
+  pointer-events: none;
+}
+
+.svd-graph-tip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 300;
+  background: rgba(8, 4, 22, 0.92);
+  border: 1px solid rgba(165, 180, 252, 0.25);
+  border-radius: 8px;
+  padding: 0.3rem 0.8rem;
+  font-family: "Lato", sans-serif;
+  font-size: 0.82rem;
+  color: #fff;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.svd-graph-tip-theme {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.75rem;
 }
