@@ -114,6 +114,9 @@ def words_match(query_word, candidate_word):
         return False
     if query_word == candidate_word:
         return True
+    
+    if len(query_word) >= 4 and candidate_word.startswith(query_word):
+        return True
 
     distance_limit = 1 if max(len(query_word), len(candidate_word)) <= 5 else 2
     return levenshtein_distance(query_word, candidate_word) <= distance_limit
@@ -298,10 +301,17 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
     raw_query_tokens = tokenize_and_stem(normalized_query)
     query_tokens     = tokenize_and_stem(expanded_query)
 
+    # MIN_MATCH_SCORE = 0.1
+    # MIN_BASE_SIMILARITY = 0.2
+    # MIN_TFIDF_SIMILARITY = 0.01
+    # MIN_SVD_SIMILARITY = 0.1
+    
     MIN_MATCH_SCORE = 0.1
-    MIN_BASE_SIMILARITY = 0.2
-    MIN_TFIDF_SIMILARITY = 0.01
-    MIN_SVD_SIMILARITY = 0.1
+    # Lower thresholds for short/partial queries (likely incomplete input)
+    is_partial_query = len(normalized_query.split()) == 1 and len(normalized_query) <= 6
+    MIN_BASE_SIMILARITY = 0.05 if is_partial_query else 0.2
+    MIN_TFIDF_SIMILARITY = 0.001 if is_partial_query else 0.01
+    MIN_SVD_SIMILARITY = 0.02 if is_partial_query else 0.1
 
     products = Product.query.all()
     products = [p for p in products
@@ -321,7 +331,18 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
     corpus = [" ".join(tokenize_and_stem(product_full_text(p))) for p in products]
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform(corpus)
-    query_vec = vectorizer.transform([" ".join(query_tokens)])
+
+    vocab = vectorizer.vocabulary_
+    expanded_query_tokens = []
+    for token in query_tokens:
+        expanded_query_tokens.append(token)
+        if len(token) >= 4:
+            expanded_query_tokens.extend(v for v in vocab if v.startswith(token) and v != token)
+
+    query_vec = vectorizer.transform([" ".join(expanded_query_tokens)])  # was query_tokens
+
+
+    # query_vec = vectorizer.transform([" ".join(query_tokens)])
 
     tfidf_sim = cosine_similarity(query_vec, tfidf_matrix).flatten()
 
@@ -413,7 +434,9 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
 
         safety_score = max(0.0, 100.0 - sum((freq / max_chem_freq) * 2000 for name, freq in chem_freq if name.lower() in ingredients_lower) - len(avoided_hits) * 10)
 
-        p.flagged_ingredients = list({name for name, _ in chem_freq if name.lower() in ingredients_lower} | avoided_hits)
+        p.flagged_ingredients = list({name for name, _ in chem_freq if name.lower() in ingredients_lower})
+        p.avoided_ingredients = list(avoided_hits)  
+        # p.flagged_ingredients = list({name for name, _ in chem_freq if name.lower() in ingredients_lower} | avoided_hits)
         p.safety_score = safety_score
 
         # Ingredient alignment
@@ -479,13 +502,15 @@ def ranked_product_search(query, category='', min_price=None, max_price=None, mi
         "description": clean_product_description(p.description), 
         "ingredients": p.ingredients,
         "highlights": p.highlights, 
-        "is_new": p.new, 
-        "sephora_exclusive": p.sephora_exclusive,
-        "limited_edition": p.limited_edition, 
-        "out_of_stock": p.out_of_stock,
+        # "is_new": p.new, 
+        # "sephora_exclusive": p.sephora_exclusive,
+        # "limited_edition": p.limited_edition, 
+        # "out_of_stock": p.out_of_stock,
         "safety_score": getattr(p, 'safety_score', 100.0), 
         "score": s,
         "flagged_ingredients": p.flagged_ingredients,
+        "avoided_ingredients": getattr(p, 'avoided_ingredients', []),
+        "good_ingredients": getattr(p, 'good_ingredients', []),
         "url": f"https://www.sephora.com/product/{p.product_id}" if p.product_id else None,
     } for s, p in results]
 
@@ -516,7 +541,7 @@ def register_routes(app):
 
         top5 = sorted(parent_counts, key=lambda k: parent_counts[k], reverse=True)[:5]
 
-        print(sorted(parent_counts.items(), key=lambda k: k[1], reverse=True))
+        # print(sorted(parent_counts.items(), key=lambda k: k[1], reverse=True))
         return jsonify(top5)
 
     @app.route("/api/products/search")

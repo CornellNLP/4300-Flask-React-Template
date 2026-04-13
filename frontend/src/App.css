@@ -507,6 +507,32 @@ body {
   border: 1px solid #F0D5B0;
 }
 
+.ingredient-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ing-tag {
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.ing-good {
+  background: #d4edda;
+  /* color: #1a5c2a; */
+  /* border: 1px solid #a8d5b5; */
+}
+
+.ing-bad {
+  background: #fdecea;
+  /* color: #7a1f1f; */
+  /* border: 1px solid #f5c0bc; */
+}
+
 /* Match score */
 .match-score-label {
   font-size: 13px;

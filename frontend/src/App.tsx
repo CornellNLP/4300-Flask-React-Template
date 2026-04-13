@@ -179,10 +179,10 @@ function App(): JSX.Element {
               <div>
 
                 <div className="brand-safety-row">
-                <p className="product-brand">{product.brand}</p>
-                <div style={{ flexShrink: 0 }}>
-                  <SafetyBadge score={product.safety_score} />
-                </div>
+                  <p className="product-brand">{product.brand}</p>
+                  <div style={{ flexShrink: 0 }}>
+                    <SafetyBadge score={product.safety_score} />
+                  </div>
                 </div>
 
                 <div>
@@ -197,9 +197,19 @@ function App(): JSX.Element {
             {/* Unified pill row */}
             <div className="pill-row">
               <span className="badge badge-category">{product.category}</span>
-              {product.flagged_ingredients?.map((ing, i) => (
-                <span key={`flagged-${i}`} className="flagged-tag">{ing}</span>
-              ))}
+
+              {/* Ingredient signals row */}
+              {((product.good_ingredients?.length ?? 0) > 0 || (product.avoided_ingredients?.length ?? 0) > 0) && (
+                <div className="ingredient-row">
+                  {product.good_ingredients?.map((ing, i) => (
+                    <span key={`good-${i}`} className="ing-tag ing-good">✓ {ing}</span>
+                  ))}
+                  {product.avoided_ingredients?.map((ing, i) => (
+                    <span key={`avoided-${i}`} className="ing-tag ing-bad">✗ {ing}</span>
+                  ))}
+                </div>
+              )}
+              
             </div>
 
             {/* Rating + price row */}
@@ -220,6 +230,8 @@ function App(): JSX.Element {
               </span>
             </div>
 
+            
+
             {product.description && (
               <details className="description-dropdown">
                 <summary>Description</summary>
@@ -239,7 +251,7 @@ function App(): JSX.Element {
             className="show-more-button"
             onClick={() => setVisibleCount((current) => current + 60)}
           >
-            Show {products.length - visibleCount} more products 
+            Show {products.length - visibleCount} more products
           </button>
         )}
       </div>

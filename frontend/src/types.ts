@@ -18,6 +18,7 @@ export interface Product {
   score: number;
   safety_score: number;
   flagged_ingredients: string[];
+  avoided_ingredients?: string[];
   good_ingredients: string[];
   url: string | null;
 }
