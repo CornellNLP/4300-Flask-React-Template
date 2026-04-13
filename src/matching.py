@@ -2,7 +2,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from scipy.sparse.linalg import svds
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 import numpy as np
+import re
 
 
 # Builds a TF-IDF index for recipes or playlists
@@ -166,13 +168,28 @@ def query_svd(query, data, vectorizer, docs_normed, words_normed, index_to_word,
         doc_vec = docs_normed[idx]
         doc_top_dim_idx = np.argsort(np.abs(doc_vec))[::-1][:top_dims].tolist()
  
-        shared_dim_idx = list(set(query_top_dim_idx) & set(doc_top_dim_idx))
+        # shared_dim_idx = list(set(query_top_dim_idx) & set(doc_top_dim_idx))
+        joint_contribution = np.abs(query_vec) * np.abs(doc_vec)
+        shared_dim_idx = np.argsort(-joint_contribution)[:top_dims].tolist()
         shared_dim_info = _dim_info(doc_vec, shared_dim_idx, words_normed, index_to_word, top_keywords)
  
         # Surface query words that actually appear in the recipe
-        recipe_text = f"{recipe.name} {recipe.description} {recipe.tags} {recipe.ingredients}".lower()
-        query_words = [w.lower() for w in query.split() if len(w) > 2]
-        highlighted_keywords = [w for w in query_words if w in recipe_text]
+        # recipe_text = f"{recipe.name} {recipe.description} {recipe.tags} {recipe.ingredients}".lower()
+        recipe_text = re.sub(r"['\[\],]", " ",
+            f"{recipe.name} {recipe.description} {recipe.tags} {recipe.ingredients}"
+        ).lower()
+        
+        RECIPE_STOPWORDS = {"serve", "make", "add", "cook", "use", "place", "put", "mix", "combine", "using", "made", "party"}
+        
+        query_words = [
+            w.lower() for w in query.split() 
+            if len(w) > 2 
+            and w.lower() not in ENGLISH_STOP_WORDS 
+            and w.lower() not in RECIPE_STOPWORDS
+        ]
+        highlighted_keywords = list(dict.fromkeys(
+            w for w in query_words if w in recipe_text
+        ))
  
         link_suffix = recipe.name.lower().replace(' ', '-') + '-' + str(recipe.site_id)
         reconstructed_link = "https://www.food.com/recipe/" + link_suffix

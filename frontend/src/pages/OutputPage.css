@@ -256,14 +256,23 @@
   letter-spacing: 0.03em;
 }
 
-.svd-toggle-arrow {
+.svd-toggle-label {
   font-family: var(--font-body);
   font-size: 0.7rem;
+  font-style: italic;
+  font-weight: 400;
+  margin-right: -0.5rem;
+}
+
+.svd-toggle-arrow {
+  font-family: var(--font-body);
+  font-size: 0.6rem;
   font-style: italic;
   color: var(--color-muted);
   opacity: 0.7;
   white-space: nowrap;
   transition: opacity 0.15s;
+  margin-bottom: -0.1rem;
 }
 
 .svd-toggle:hover .svd-toggle-arrow {

@@ -79,6 +79,8 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
 
   const pct = Math.round(recipe.similarity * 100);
 
+  const maxMag = Math.max(...recipe.doc_dims.map(d => Math.abs(d.magnitude)));
+
   return (
     <div className="svd-panel">
       <button
@@ -95,7 +97,9 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
           </span>
           <span className="svd-score-label">{pct}% match</span>
         </span>
-        <span className="svd-toggle-arrow">{open ? "▲" : "▼"} why this recipe?</span>
+        <span className="svd-toggle-label">why this recipe?</span>
+        <span className="svd-toggle-arrow">{open ? "▲" : "▼"}</span>
+
       </button>
 
       {open && (
@@ -115,14 +119,14 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
           {/* Shared latent dimensions */}
           {recipe.shared_dims.length > 0 && (
             <div className="svd-section">
-              <p className="svd-section-label">shared latent concepts</p>
+              <p className="svd-section-label">Both your input and this recipe are strong in these dimensions</p>
               {recipe.shared_dims.map((dim) => (
                 <div key={dim.dim} className="svd-dim-row">
-                  <span className="svd-dim-label">dim {dim.dim}</span>
+                  <span className="svd-dim-label">dimension {dim.dim}</span>
                   <div className="svd-dim-bar-wrap">
                     <div
                       className="svd-dim-bar"
-                      style={{ width: `${Math.abs(dim.magnitude) * 100 * 4}%` }}
+                      style={{ width: `${(Math.abs(dim.magnitude) / maxMag) * 100}%` }}
                     />
                   </div>
                   <div className="svd-dim-keywords">
@@ -137,7 +141,7 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
 
           {/* Sparkline chart */}
           <div className="svd-section">
-            <p className="svd-section-label">latent space alignment (all {recipe.doc_magnitudes.length} dims)</p>
+            <p className="svd-section-label">Alignment with all {recipe.doc_magnitudes.length}  dimensions</p>
             <DimSparkline
               docMags={recipe.doc_magnitudes}
               queryMags={recipe.query_magnitudes}
@@ -147,10 +151,10 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
 
           {/* Top recipe-side dimensions */}
           <div className="svd-section">
-            <p className="svd-section-label">recipe's strongest concepts</p>
+            <p className="svd-section-label">this recipe's strongest concepts</p>
             {recipe.doc_dims.map((dim) => (
               <div key={dim.dim} className="svd-dim-row">
-                <span className="svd-dim-label">dim {dim.dim}</span>
+                <span className="svd-dim-label">dimension {dim.dim}</span>
                 <div className="svd-dim-keywords">
                   {dim.keywords.map((kw) => (
                     <span key={kw} className="svd-chip">{kw}</span>
