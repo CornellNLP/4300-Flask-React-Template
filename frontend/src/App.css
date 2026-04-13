@@ -67,17 +67,12 @@ body {
 }
 
 .search-bar button {
-  background: linear-gradient(
-    135deg,
-    #2e2845 0%,
-    #1a1624 100%
-  );
+  background: #7F77DD;
   height: 54px;
   padding: 0 28px;
   font-size: 16px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
-  background: #1a1624;
   border: none;
   border-radius: 10px;
   color: #f0eaf8;
@@ -86,7 +81,7 @@ body {
   transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 .search-bar button:hover {
-  background: #2e2845;
+  background: #6a62c4;
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }

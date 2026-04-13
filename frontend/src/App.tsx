@@ -126,7 +126,7 @@ function App(): JSX.Element {
       <header className="hero">
         <p className="eyebrow">Emotion · Song · Matching</p>  {/* ← add this line */}
         <h1>Lyra</h1>
-        <p>Describe how you're feeling and get songs that match your emotional state.</p>
+        <p>Describe how you're feeling and get songs that match your emotional state, both lyrically and sonically. </p>
       </header>
 
       <div className="search-bar">
