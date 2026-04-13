@@ -140,7 +140,7 @@ export function InputPage() {
     );
   };
 
-  const buildRecipeUrl = (name: string) => {
+  const buildRecipeUrl = (name: string, useSvd = true) => {
     const params = new URLSearchParams({
       name,
     });
@@ -153,7 +153,9 @@ export function InputPage() {
       params.set("courses", courses.join(","));
     }
 
-    return `/api/recipes?${params.toString()}`;
+    const endpoint = useSvd ? "/api/recipes/svd" : "/api/recipes";
+
+    return `${endpoint}?${params.toString()}`;
   };
 
   const handleSearch = async (value: string): Promise<void> => {
