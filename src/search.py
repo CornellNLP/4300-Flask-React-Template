@@ -4,9 +4,11 @@ import os
 
 from config import INIT_JSON_PATH
 from preprocess import preprocess_query
-from similarity import get_similarity_scores
+from similarity import build_corpus, rank_restaurants, DEFAULT_FIELD_WEIGHTS
 
 _PROCESSED_DATA = None
+_CORPUS_CACHE = {}
+SEARCH_SIMILARITY_MODEL = "bert"
 
 
 def load_processed_data():
@@ -43,89 +45,74 @@ def get_price_info(business):
     return price_tier, price_label
 
 
-def get_top_restaurants(processed_restaurants, similarity_scores, k=10):
+def get_top_restaurants(ranked_results, k=10):
+    """
+    Takes ranked_results from rank_restaurants() (already sorted by score),
+    deduplicates by name, returns top k.
+    """
     best_by_name = {}
+    for r in ranked_results:
+        business = r["business"]
+        name = business["name"]
+        score = r["score"]
 
-    for restaurant, score in zip(processed_restaurants, similarity_scores):
-        if score <= 0:
+        if name in best_by_name and best_by_name[name]["matchScore"] >= score:
             continue
 
-        business = restaurant["business"]
         price_tier, price_label = get_price_info(business)
-
-        entry = {
-            "business_id": business["business_id"],
-            "name": business["name"],
-            "address": business.get("address"),
-            "city": business["city"],
-            "state": business.get("state"),
-            "postal_code": business.get("postal_code"),
-            "stars": business.get("stars"),
+        best_by_name[name] = {
+            "business_id":  business["business_id"],
+            "name":         name,
+            "address":      business.get("address"),
+            "city":         business["city"],
+            "state":        business.get("state"),
+            "postal_code":  business.get("postal_code"),
+            "stars":        business.get("stars"),
             "review_count": business.get("review_count"),
-            "categories": business.get("categories"),
-            "hours": business.get("hours"),
-            "priceTier": price_tier,
-            "priceRange": price_label,
-            "matchScore": float(score)
+            "categories":   business.get("categories"),
+            "hours":        business.get("hours"),
+            "priceTier":    price_tier,
+            "priceRange":   price_label,
+            "matchScore":   float(score),
         }
 
-        name = business["name"]
-
-        if name not in best_by_name:
-            best_by_name[name] = entry
-        else:
-            if entry["matchScore"] > best_by_name[name]["matchScore"]:
-                best_by_name[name] = entry
-
-    top_k = heapq.nlargest(k, best_by_name.values(), key=lambda x: x["matchScore"])
-    return top_k
+    return heapq.nlargest(k, best_by_name.values(), key=lambda x: x["matchScore"])
 
 
 def restaurant_search(query):
     if not query or not query.strip():
-        return {
-            "error": "Missing search query",
-            "results": []
-        }
+        return {"error": "Missing search query", "results": []}
 
-    # load processed dataset
     processed_data = load_processed_data()
+    businesses = [r["business"] for r in processed_data]
 
-    # extract plain business dicts for query parsing
-    businesses = [restaurant["business"] for restaurant in processed_data]
-
-    # parse query (city + food)
     query_info = preprocess_query(query, businesses)
     if query_info["error"] is not None:
-        return {
-            "error": query_info["error"],
-            "results": []
-        }
+        return {"error": query_info["error"], "results": []}
 
     city = query_info["city"]
     food_item = query_info["food_item"]
 
-    # filter restaurants by city
-    city_restaurants = []
-    for restaurant in processed_data:
-        business = restaurant["business"]
-        business_city = business.get("city", "").lower().strip()
-        if business_city == city:
-            city_restaurants.append(restaurant)
+    city_restaurants = [
+        r for r in processed_data
+        if r["business"].get("city", "").lower().strip() == city
+    ]
+    if not city_restaurants:
+        return {"error": "No restaurants found in that city", "results": []}
 
+    # Use cached corpus for this city if available, otherwise build + cache it
+    if city not in _CORPUS_CACHE:
+        print(f"[search] Building {SEARCH_SIMILARITY_MODEL.upper()} corpus for {len(city_restaurants)} restaurants in {city}...")
+        _CORPUS_CACHE[city] = build_corpus(city_restaurants, model_type=SEARCH_SIMILARITY_MODEL)
+
+    corpus = _CORPUS_CACHE[city]
     scoring_query = food_item.strip() if food_item and food_item.strip() else query
-    similarity_scores = get_similarity_scores(scoring_query, city_restaurants)
 
-    # get top results using get_top_restaurants function
-    top_results = get_top_restaurants(city_restaurants, similarity_scores, k=10)
+    print(f"[search] Ranking restaurants for query: '{scoring_query}'...")
+    ranked_results = rank_restaurants(scoring_query, corpus, type=SEARCH_SIMILARITY_MODEL)
 
+    top_results = get_top_restaurants(ranked_results, k=10)
     if not top_results:
-        return {
-            "error": "No matching restaurants found",
-            "results": []
-        }
+        return {"error": "No matching restaurants found", "results": []}
 
-    return {
-        "error": None,
-        "results": top_results
-    }
+    return {"error": None, "results": top_results}

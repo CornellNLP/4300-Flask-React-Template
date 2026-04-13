@@ -1,12 +1,14 @@
 import ast
 import collections
 import difflib
+import hashlib
 import json
 import math
 import os
 import re
 import os
 import numpy as np
+import pickle
 import gensim.downloader as api
 from gensim.models import Word2Vec
 from tqdm import tqdm
@@ -29,7 +31,50 @@ For word2vec and bert, we compute *separate* cosine scores for:
 Then we combine them with configurable weights that default to
 prioritising ambience
 '''
+##SAVING AND LOADING PROCESSED DATA#####################################################################################
+BERT_CACHE_DIR = os.path.dirname(__file__)
 
+
+def _bert_cache_key(restaurants: list[dict], field_weights: dict) -> str:
+    payload = {
+        "business_ids": [r.get("business", {}).get("business_id") for r in restaurants],
+        "field_weights": field_weights,
+    }
+    encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:16]
+
+
+def _bert_cache_path(cache_key: str) -> str:
+    return os.path.join(BERT_CACHE_DIR, f"bert_cache_{cache_key}.pkl")
+
+
+def _save_bert_corpus(corpus: dict, cache_key: str):
+    """Save BERT corpus to disk, excluding the model itself (too large)."""
+    saveable = {
+        "model_type":    corpus["model_type"],
+        "field_vectors": corpus["field_vectors"],  # numpy arrays
+        "field_weights": corpus["field_weights"],
+        "restaurants":   corpus["restaurants"],
+    }
+    cache_path = _bert_cache_path(cache_key)
+    with open(cache_path, "wb") as f:
+        pickle.dump(saveable, f)
+    print(f"[similarity] BERT corpus cached to {cache_path}")
+
+
+def _load_bert_corpus(cache_key: str) -> dict | None:
+    """Load cached BERT corpus and reload the model."""
+    cache_path = _bert_cache_path(cache_key)
+    if not os.path.exists(cache_path):
+        return None
+    print(f"[similarity] Loading cached BERT corpus from {cache_path}...")
+    with open(cache_path, "rb") as f:
+        corpus = pickle.load(f)
+    # Still need to load the model for query-time encoding
+    from sentence_transformers import SentenceTransformer
+    corpus["bert_model"] = SentenceTransformer("all-MiniLM-L6-v2")
+    print("[similarity] BERT corpus loaded from cache ✓")
+    return corpus
 
 ##HELPERS#####################################################################################
  
@@ -53,6 +98,8 @@ def practical_text(attributes: dict) -> str:
     Use RestaurantsPriceRange2, NoiseLevel, GoodForMeal, RestaurantsTakeOut attributes in the json.
     This lets 'quiet cheap lunch' hit a meaningful field vector.
     """
+    if not attributes:
+        return ""
     tokens = []
     #price tags, e.g. "cheap cheap" for price 1, "expensive expensive" for price 4
     price = attributes.get("RestaurantsPriceRange2")
@@ -106,7 +153,7 @@ def extract_fields(restaurant: dict) -> dict:
     Return the four field strings used for both vectorization and late fusion.
     """
     biz = restaurant.get("business", {})
-    attrs = biz.get("attributes", {})
+    attrs = biz.get("attributes") or {}
  
     return {
         "ambience":  ambience_text(attrs),
@@ -243,6 +290,11 @@ def _compute_w2v_vector(tokens: list[str], w2v_model, tfidf_vectorizer: TfidfVec
  
 def _build_bert_corpus(restaurants: list[dict], field_weights: dict) -> dict:
     from sentence_transformers import SentenceTransformer
+
+    cache_key = _bert_cache_key(restaurants, field_weights)
+    cached = _load_bert_corpus(cache_key)
+    if cached is not None:
+        return cached
  
     print("[similarity] Loading BERT model (all-MiniLM-L6-v2)…")
     bert_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -260,13 +312,15 @@ def _build_bert_corpus(restaurants: list[dict], field_weights: dict) -> dict:
             convert_to_numpy=True,
         )
  
-    return {
+    corpus = {
         "model_type":    "bert",
         "bert_model":    bert_model,
-        "field_vectors": field_vectors,   # shape: {field: (N, 384)}
+        "field_vectors": field_vectors,
         "field_weights": field_weights,
         "restaurants":   restaurants,
-    }   
+    }
+    _save_bert_corpus(corpus, cache_key)
+    return corpus
     
 # Query vectorization
  
@@ -361,7 +415,7 @@ def _correct_query(query: str, vectorizer) -> str:
     return " ".join(corrected)
 
 
-def get_similarity_scores(query: str, restaurants: list[dict], type: str = "bert") -> list[float]:
+def get_similarity_scores(query: str, restaurants: list[dict], type: str = "word2vec", field_weights: dict | None = None,) -> list[float]:  
     """
     Convenience function for search.py.
     Given a query and a list of restaurant dicts (already filtered by city),
@@ -379,7 +433,7 @@ def get_similarity_scores(query: str, restaurants: list[dict], type: str = "bert
     if not restaurants:
         return []
     
-    corpus = build_corpus(restaurants, model_type=type, field_weights=field_weights)
+    corpus = build_corpus(restaurants, model_type=type, field_weights=field_weights)    
     if type == "tfidf":
         corrected_query = _correct_query(query, corpus["vectorizer"])
     else:
