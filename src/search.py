@@ -69,12 +69,9 @@ def get_top_restaurants(ranked_results, k=10):
                 ambience_raw = ast.literal_eval(ambience_raw)
             except Exception:
                 ambience_raw = {}
-        if isinstance(ambience_raw, dict):
-            ambience = [k for k, v in ambience_raw.items() if v is True]
-        else:
-            ambience = []
+        ambience = [k for k, v in ambience_raw.items() if v is True] if isinstance(ambience_raw, dict) else []
 
-        entry = {
+        best_by_name[name] = {
             "business_id": business["business_id"],
             "name": business["name"],
             "address": business.get("address"),
