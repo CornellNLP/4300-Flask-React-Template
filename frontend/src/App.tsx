@@ -49,6 +49,7 @@ type MatchResponse = {
   svd_matches: DogMatch[]
 }
 
+
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [traitInput, setTraitInput] = useState<Record<string, Array<number | string>>>({})
@@ -184,6 +185,18 @@ function App(): JSX.Element {
     return matchingTraits.some(t => dogValue.toLowerCase().includes(t.toLowerCase()))
   }
 
+  const hasText = (value?: string | null) => value != null && value.trim() !== ''
+
+  const renderTextPill = (value: string, matchingTraits?: string[]) => {
+    if (!hasText(value)) return null
+
+    return (
+      <span className={`trait-pill ${traitMatched(value, matchingTraits) ? 'matched' : ''}`}>
+        {value}
+      </span>
+    )
+  }
+
   const renderDogCard = (dog: DogMatch, showSvdExplainability: boolean) => {
     return (
       <div className="dog-card" key={dog.breed}>
@@ -216,29 +229,12 @@ function App(): JSX.Element {
                 <strong>Lifespan</strong> {dog.avg_expectancy ?? 'N/A'} yrs
               </span>
 
-              <span className={`trait-pill ${traitMatched(dog.group, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.group}
-              </span>
-
-              <span className={`trait-pill ${traitMatched(dog.grooming, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.grooming}
-              </span>
-
-              <span className={`trait-pill ${traitMatched(dog.energy, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.energy}
-              </span>
-
-              <span className={`trait-pill ${traitMatched(dog.shedding, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.shedding}
-              </span>
-
-              <span className={`trait-pill ${traitMatched(dog.trainability, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.trainability}
-              </span>
-
-              <span className={`trait-pill ${traitMatched(dog.demeanor, dog.matching_traits) ? 'matched' : ''}`}>
-                {dog.demeanor}
-              </span>
+              {renderTextPill(dog.group, dog.matching_traits)}
+              {renderTextPill(dog.grooming, dog.matching_traits)}
+              {renderTextPill(dog.energy, dog.matching_traits)}
+              {renderTextPill(dog.shedding, dog.matching_traits)}
+              {renderTextPill(dog.trainability, dog.matching_traits)}
+              {renderTextPill(dog.demeanor, dog.matching_traits)}
             </div>
 
             <p className="dog-temperament">
