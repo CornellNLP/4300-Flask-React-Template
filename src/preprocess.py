@@ -13,6 +13,7 @@ import pickle
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
+from sentence_transformers import SentenceTransformer
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 RESTAURANT_CSV = os.path.join(DATA_DIR, 'restaurants.csv')
@@ -22,6 +23,7 @@ OUTPUT_PATH = os.path.join(DATA_DIR, 'forkcast_index.pkl')
 
 SAMPLE_SIZE = 5000
 MAX_MENU_ITEMS_PER_RESTAURANT = 50  # stored; only 3 shown in UI
+EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
 
 DIETARY_KEYWORDS = {
     'vegan':       ['vegan', 'plant-based', 'plant based', 'dairy-free', 'dairy free'],
@@ -143,6 +145,13 @@ def build_index(use_sample_menus=False):
     tfidf_svd_matrix = svd.fit_transform(tfidf_matrix)
     print(f"SVD explained variance: {svd.explained_variance_ratio_.sum():.1%}")
 
+    print(f"Generating sentence embeddings ({EMBEDDING_MODEL})...")
+    embed_model = SentenceTransformer(EMBEDDING_MODEL)
+    embedding_matrix = embed_model.encode(
+        docs, show_progress_bar=True, batch_size=64, convert_to_numpy=True
+    )
+    print(f"Embedding matrix shape: {embedding_matrix.shape}")
+
     index = {
         'restaurants': restaurants.to_dict('records'),
         'menu_data': menu_data,
@@ -152,6 +161,8 @@ def build_index(use_sample_menus=False):
         'svd_model': svd,
         'tfidf_svd_matrix': tfidf_svd_matrix,
         'feature_names': vectorizer.get_feature_names_out().tolist(),
+        'embedding_matrix': embedding_matrix,
+        'embed_model_name': EMBEDDING_MODEL,
     }
 
     with open(OUTPUT_PATH, 'wb') as f:

@@ -29,6 +29,17 @@ def get_index():
     return _index
 
 
+_embed_model = None
+
+def get_embed_model(model_name: str = 'all-MiniLM-L6-v2'):
+    global _embed_model
+    if _embed_model is None:
+        from sentence_transformers import SentenceTransformer
+        print(f"Loading embedding model ({model_name})...")
+        _embed_model = SentenceTransformer(model_name)
+    return _embed_model
+
+
 # ── Query expansion ───────────────────────────────────────────────────────────
 SYNONYMS = {
     'spicy':       ['hot', 'fiery', 'spiced', 'chili', 'pepper', 'jalapeño'],
@@ -294,13 +305,19 @@ def search_restaurants(
     price_filter: str = '',
     limit: int = 10,
     use_svd: bool = False,
+    use_embeddings: bool = False,
     city: str = '',
     user_lat=None,
     user_lng=None,
     miles=None,
     dietary: list = None,
 ) -> dict:
-    mode = 'svd' if use_svd else 'tfidf'
+    if use_embeddings:
+        mode = 'embeddings'
+    elif use_svd:
+        mode = 'svd'
+    else:
+        mode = 'tfidf'
     if not query.strip():
         return {'results': [], 'meta': {'mode': mode, 'concepts': []}}
 
@@ -316,6 +333,16 @@ def search_restaurants(
             },
         }
 
+    if use_embeddings and 'embedding_matrix' not in idx:
+        return {
+            'results': [],
+            'meta': {
+                'mode': 'tfidf',
+                'concepts': [],
+                'error': 'Embedding index not found. Re-run: python src/preprocess.py',
+            },
+        }
+
     expanded = expand_query(query)
     query_vec = idx['vectorizer'].transform([expanded])
     concepts = get_svd_explanation(idx, query_vec) if use_svd else []
@@ -328,7 +355,11 @@ def search_restaurants(
         return {'results': [], 'meta': {'mode': mode, 'concepts': concepts}}
 
     # Similarity against the filtered subset
-    if use_svd:
+    if use_embeddings:
+        embed_model = get_embed_model(idx.get('embed_model_name', 'all-MiniLM-L6-v2'))
+        query_embedding = embed_model.encode([query], convert_to_numpy=True)
+        local_scores = cosine_similarity(query_embedding, idx['embedding_matrix'][filtered_indices]).flatten()
+    elif use_svd:
         query_transformed = idx['svd_model'].transform(query_vec)
         local_scores = cosine_similarity(query_transformed, idx['tfidf_svd_matrix'][filtered_indices]).flatten()
     else:
@@ -456,6 +487,7 @@ def register_routes(app):
         price = request.args.get('price', '').strip()
         limit = min(int(request.args.get('limit', 10)), 25)
         use_svd = request.args.get('svd', '0') == '1'
+        use_embeddings = request.args.get('embeddings', '0') == '1'
         city = request.args.get('city', '').strip()
         try:
             user_lat = float(request.args['lat']) if 'lat' in request.args else None
@@ -468,6 +500,7 @@ def register_routes(app):
         try:
             data = search_restaurants(
                 query, price_filter=price, limit=limit, use_svd=use_svd,
+                use_embeddings=use_embeddings,
                 city=city, user_lat=user_lat, user_lng=user_lng, miles=miles,
                 dietary=dietary,
             )

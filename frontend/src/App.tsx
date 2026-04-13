@@ -104,7 +104,7 @@ function App(): JSX.Element {
   const [priceFilter, setPriceFilter] = useState('')
   const [cityFilter, setCityFilter] = useState('')
   const [dietaryFilter, setDietaryFilter] = useState<string[]>([])
-  const [svdMode, setSvdMode] = useState(false)
+  const [searchMode, setSearchMode] = useState<'tfidf' | 'svd' | 'embeddings'>('tfidf')
 
   const [cities, setCities] = useState<string[]>([])
   const [results, setResults] = useState<Restaurant[]>([])
@@ -122,7 +122,7 @@ function App(): JSX.Element {
       .catch(() => {})
   }, [])
 
-  const doSearch = async (q: string, price: string, useSvd: boolean, city: string, dietary: string[]) => {
+  const doSearch = async (q: string, price: string, mode: 'tfidf' | 'svd' | 'embeddings', city: string, dietary: string[]) => {
     if (!q.trim()) {
       setResults([]); setSvdConcepts([])
       setSearched(false); setError(null); setSvdError(null)
@@ -133,7 +133,8 @@ function App(): JSX.Element {
       const params = new URLSearchParams({ q, ...(price ? { price } : {}) })
       if (city) params.set('city', city)
       if (dietary.length) params.set('dietary', dietary.join(','))
-      if (useSvd) params.set('svd', '1')
+      if (mode === 'svd') params.set('svd', '1')
+      if (mode === 'embeddings') params.set('embeddings', '1')
       const res = await fetch(`/api/search?${params}`)
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: SearchResponse = await res.json()
@@ -152,17 +153,17 @@ function App(): JSX.Element {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') doSearch(query, priceFilter, svdMode, cityFilter, dietaryFilter)
+    if (e.key === 'Enter') doSearch(query, priceFilter, searchMode, cityFilter, dietaryFilter)
   }
 
   const handlePriceChange = (p: string) => {
     setPriceFilter(p)
-    doSearch(query, p, svdMode, cityFilter, dietaryFilter)
+    doSearch(query, p, searchMode, cityFilter, dietaryFilter)
   }
 
   const handleCityChange = (city: string) => {
     setCityFilter(city)
-    if (searched && query.trim()) doSearch(query, priceFilter, svdMode, city, dietaryFilter)
+    if (searched && query.trim()) doSearch(query, priceFilter, searchMode, city, dietaryFilter)
   }
 
   const handleDietaryToggle = (value: string) => {
@@ -170,12 +171,15 @@ function App(): JSX.Element {
       ? dietaryFilter.filter((d) => d !== value)
       : [...dietaryFilter, value]
     setDietaryFilter(next)
-    if (searched && query.trim()) doSearch(query, priceFilter, svdMode, cityFilter, next)
+    if (searched && query.trim()) doSearch(query, priceFilter, searchMode, cityFilter, next)
   }
 
-  const handleSvdToggle = () => {
-    const next = !svdMode
-    setSvdMode(next)
+  const MODE_CYCLE: Array<'tfidf' | 'svd' | 'embeddings'> = ['tfidf', 'svd', 'embeddings']
+  const MODE_LABELS: Record<string, string> = { tfidf: 'TF-IDF', svd: 'SVD', embeddings: 'Embeddings' }
+
+  const handleModeToggle = () => {
+    const next = MODE_CYCLE[(MODE_CYCLE.indexOf(searchMode) + 1) % MODE_CYCLE.length]
+    setSearchMode(next)
     if (searched && query.trim()) doSearch(query, priceFilter, next, cityFilter, dietaryFilter)
   }
 
@@ -198,7 +202,7 @@ function App(): JSX.Element {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <button className="search-btn" onClick={() => doSearch(query, priceFilter, svdMode, cityFilter, dietaryFilter)}>
+          <button className="search-btn" onClick={() => doSearch(query, priceFilter, searchMode, cityFilter, dietaryFilter)}>
             Search
           </button>
         </div>
@@ -229,12 +233,12 @@ function App(): JSX.Element {
           </select>
 
           <button
-            className={`svd-toggle-btn ${svdMode ? 'active' : ''}`}
-            onClick={handleSvdToggle}
-            title="Switch between TF-IDF and SVD (Latent Semantic Analysis) search"
+            className={`svd-toggle-btn ${searchMode !== 'tfidf' ? 'active' : ''}`}
+            onClick={handleModeToggle}
+            title="Cycle between TF-IDF, SVD, and Embeddings search"
           >
             <span className="svd-toggle-indicator" />
-            {svdMode ? 'SVD' : 'TF-IDF'}
+            {MODE_LABELS[searchMode]}
           </button>
         </div>
         {/* Dietary filters */}
@@ -265,7 +269,7 @@ function App(): JSX.Element {
         )}
         {!loading && !error && !svdError && (
           <>
-            {svdMode && <ConceptPanel concepts={svdConcepts} />}
+            {searchMode === 'svd' && <ConceptPanel concepts={svdConcepts} />}
             {results.map((r, i) => <RestaurantCard key={i} r={r} />)}
           </>
         )}
