@@ -165,6 +165,55 @@ def _location_filter(restaurants: list, city: str, user_lat, user_lng, miles) ->
     return np.array(keep, dtype=int)
 
 
+# ── Dietary negative-keyword filter on menu items ────────────────────────────
+# Words whose presence disqualifies a menu item for the given dietary preference.
+_DIETARY_ITEM_BLOCKLIST: dict[str, set[str]] = {
+    'vegetarian': {
+        'beef', 'chicken', 'pork', 'lamb', 'turkey', 'bacon', 'ham', 'steak',
+        'brisket', 'chorizo', 'sausage', 'pepperoni', 'salami', 'prosciutto',
+        'duck', 'veal', 'venison', 'anchovy', 'anchovies', 'lard', 'gelatin',
+        'meatball', 'meatballs', 'pulled pork', 'carnitas', 'carne', 'meat',
+    },
+    'vegan': {
+        # everything vegetarian blocks, plus dairy/eggs
+        'beef', 'chicken', 'pork', 'lamb', 'turkey', 'bacon', 'ham', 'steak',
+        'brisket', 'chorizo', 'sausage', 'pepperoni', 'salami', 'prosciutto',
+        'duck', 'veal', 'venison', 'anchovy', 'anchovies', 'lard', 'gelatin',
+        'meatball', 'meatballs', 'pulled pork', 'carnitas', 'carne', 'meat',
+        'cheese', 'butter', 'cream', 'milk', 'egg', 'eggs', 'honey',
+        'whey', 'casein', 'mayonnaise', 'mayo',
+    },
+    'pescatarian': {
+        'beef', 'pork', 'lamb', 'turkey', 'bacon', 'ham', 'steak', 'brisket',
+        'chorizo', 'sausage', 'pepperoni', 'salami', 'prosciutto', 'duck',
+        'veal', 'venison', 'lard', 'meatball', 'meatballs', 'pulled pork',
+        'carnitas', 'carne',
+    },
+    'gluten-free': {
+        'bread', 'breadcrumbs', 'croutons', 'flour tortilla', 'pasta',
+        'noodles', 'ramen', 'udon', 'soy sauce', 'tempura', 'breaded',
+        'battered', 'wheat', 'barley', 'rye', 'malt',
+    },
+    'dairy-free': {
+        'cheese', 'butter', 'cream', 'milk', 'whey', 'casein', 'yogurt',
+        'parmesan', 'mozzarella', 'cheddar', 'feta', 'gouda', 'brie',
+        'ricotta', 'ghee', 'half-and-half',
+    },
+}
+
+
+def _item_passes_dietary(item: dict, dietary: list) -> bool:
+    """Return True if the menu item doesn't contain blocked ingredients for any active dietary filter."""
+    if not dietary:
+        return True
+    text = f"{item['name']} {item['description']}".lower()
+    for pref in dietary:
+        blocklist = _DIETARY_ITEM_BLOCKLIST.get(pref, set())
+        if any(bad in text for bad in blocklist):
+            return False
+    return True
+
+
 # ── Dietary filter ───────────────────────────────────────────────────────────
 
 def _dietary_filter(idx: dict, dietary: list) -> np.ndarray:
@@ -205,13 +254,14 @@ def get_svd_explanation(idx, query_vec, top_concepts: int = 3, top_terms: int = 
 # ── Menu item matching ────────────────────────────────────────────────────────
 
 def find_matching_items(items: list, query_words: set, original_query: str = '',
-                        max_items: int = 3) -> list:
+                        max_items: int = 3, dietary: list = None) -> list:
     """Return up to max_items menu items relevant to the query.
 
     Scoring:
       +10 per full-phrase match (e.g. 'ice cream' found verbatim)
       + 1 per individual query word match
     Only items with score > 0 are returned.
+    Items containing ingredients blocked by the active dietary filters are excluded.
     """
     if not items or not query_words:
         return []
@@ -226,6 +276,9 @@ def find_matching_items(items: list, query_words: set, original_query: str = '',
 
     scored = []
     for item in items:
+        # ── Dietary negative filter: skip items with blocked ingredients ──────
+        if not _item_passes_dietary(item, dietary or []):
+            continue
         text = f"{item['name']} {item['description']}".lower()
         score = sum(10 for p in phrases if p in text)
         score += sum(1 for w in query_words if w in text)
@@ -333,7 +386,14 @@ def search_restaurants(
         if price_filter and str(row.get('price_range', '')).strip() != price_filter:
             continue
 
-        matched = find_matching_items(all_items, query_words, original_query=query)
+        matched = find_matching_items(all_items, query_words, original_query=query, dietary=dietary)
+
+        # Fallback: if no query-matched items, surface the highest-rated menu item
+        # (first item in list, as stored order is preserved from source data).
+        # Only use items that pass the dietary filter so the fallback is always safe.
+        safe_items = [it for it in all_items if _item_passes_dietary(it, dietary or [])]
+        popular_dish = safe_items[0] if safe_items else None
+
         score = round(float(row.get('score') or 0), 1)
 
         result = {
@@ -346,12 +406,16 @@ def search_restaurants(
             'address':       row.get('full_address', ''),
             'similarity':    round(float(tfidf_score), 4),
             'matched_items': matched,
-            'popular_dish':  all_items[0] if not matched and all_items else None,
+            'popular_dish':  popular_dish,
+            'has_menu_items': bool(matched or popular_dish),
         }
         if dist is not None:
             result['distance_miles'] = dist
 
         results.append(result)
+
+    # ── Step 4: surface restaurants with menu items first ─────────────────────
+    results.sort(key=lambda r: (not r['has_menu_items'], -r['similarity']))
 
     return {'results': results, 'meta': {'mode': mode, 'concepts': concepts}}
 
