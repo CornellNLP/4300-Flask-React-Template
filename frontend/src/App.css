@@ -5,16 +5,25 @@
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: #f5f0e8;
-  color: #1a1624;
+  background: radial-gradient(
+      circle at 20% 20%,
+      #f3e8ff,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 30%,
+      #e0f2fe,
+      transparent 40%
+    ),
+    #f3e8ff;
+  min-height: 100%;
 }
-
 #root {
   width: 100%;
   min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, #f3e8ff, transparent 40%),
+    radial-gradient(circle at 80% 30%, #e0f2fe, transparent 40%),
+    #f0eef8;
 }
 
 .full-body-container {
@@ -51,9 +60,10 @@ body {
 
 .search-bar {
   display: flex;
+  align-items: center;
   gap: 8px;
+  width: 100%;
   margin-bottom: 1.5rem;
-  border-radius: 10px;
 }
 .search-bar input {
   flex: 1;
@@ -61,8 +71,10 @@ body {
   padding: 0 16px;
   font-size: 16px;
   font-family: 'DM Sans', sans-serif;
-  background: #ede8de;
-  border: 1px solid #d6cfc2;
+  background: rgba(255, 255, 255, 0.55); /* was #ede8de */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.8); /* was #d6cfc2 */
   border-radius: 10px;
   color: #1a1624;
   outline: none;
@@ -74,6 +86,11 @@ body {
   border-color: #534AB7;
 }
 .search-bar button {
+  background: linear-gradient(
+    135deg,
+    #2e2845 0%,
+    #1a1624 100%
+  );
   height: 54px;
   padding: 0 28px;
   font-size: 16px;
@@ -113,32 +130,46 @@ body {
 }
 
 #answer-box {
-  background: #eee9df;  
-  border: 1px solid #d6cfc2;
+  background: transparent;
+  border: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 
 .song-card {
-  background: #eee9df;
-  border: 1px solid #d6cfc2;
+  position: relative;
+  background: rgba(255, 255, 255, 0.62); /* was #eee9df */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.75); /* was #d6cfc2 */
   border-radius: 14px;
   padding: 1.5rem 1.75rem;
-  transition: 
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.song-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(200, 190, 255, 0.08) 40%,
+    rgba(173, 216, 230, 0.10) 70%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
 }
 
 .song-card:hover {
-  /* push the card a little bit out */
-  transform: translateY(-6px) scale(1.01); 
-  border-color: #b8b0a4;
-  background: #f3efe6;
+  transform: translateY(-6px) scale(1.01);
   box-shadow:
-    0 10px 25px rgba(0,0,0,0.08),
-    0 4px 10px rgba(0,0,0,0.05);
+    0 12px 40px rgba(0,0,0,0.10),
+    0 0 20px rgba(127, 119, 221, 0.18),
+    0 0 32px rgba(29, 158, 117, 0.10);
+  border-color: #c4beed;
 }
 
 .card-top {
@@ -193,8 +224,8 @@ body {
   font-family: 'DM Sans', sans-serif;
   font-weight: 500;
   border-radius: 8px;
-  background: #ede8de;   
-  border: 1px solid #d6cfc2;
+  background: #f3e8ff;   
+  border: 1px solid #d2b9ef;
   color: #534AB7;    
   text-decoration: none;
 }
@@ -314,6 +345,7 @@ body {
   display: inline-flex;
   margin-right: 6px;
 }
+
 
 /* testing button css settings, only for testing purposes */
 .mode-toggle {
