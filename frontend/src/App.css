@@ -65,26 +65,7 @@ body {
   width: 100%;
   margin-bottom: 1.5rem;
 }
-.search-bar input {
-  flex: 1;
-  height: 54px;
-  padding: 0 16px;
-  font-size: 16px;
-  font-family: 'DM Sans', sans-serif;
-  background: rgba(255, 255, 255, 0.55); /* was #ede8de */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.8); /* was #d6cfc2 */
-  border-radius: 10px;
-  color: #1a1624;
-  outline: none;
-}
-.search-bar input::placeholder {
-  color: #b0a89c;
-}
-.search-bar input:focus {
-  border-color: #534AB7;
-}
+
 .search-bar button {
   background: linear-gradient(
     135deg,
@@ -368,4 +349,47 @@ body {
 .mode-btn.active {
   background: #7F77DD;
   color: white;
+}
+
+.input-with-prefix {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 54px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 0 16px;
+  gap: 6px;
+}
+
+.input-with-prefix:focus-within {
+  border-color: #534AB7;
+}
+
+.input-prefix {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  font-style: italic;
+  font-weight: 500;
+  color: #1a1624;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.input-with-prefix input {
+  flex: 1;
+  height: 100%;
+  font-size: 16px;
+  font-family: 'DM Sans', sans-serif;
+  background: transparent;
+  border: none;
+  color: #1a1624;
+  outline: none;
+}
+
+.input-with-prefix input::placeholder {
+  color: #b0a89c;
 }

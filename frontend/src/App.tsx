@@ -130,14 +130,17 @@ function App(): JSX.Element {
       </header>
 
       <div className="search-bar">
-        <input
-          placeholder='Try: "I feel sad and need calm comfort songs"'
-          value={emotionInput}
-          onChange={(e) => setEmotionInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && fetchRecommendations(e)}
-          disabled={loading}
-          aria-label="Emotion input"
-        />
+<div className="input-with-prefix">
+  <span className="input-prefix">I feel...</span>
+  <input
+    placeholder="numb, like I'm watching life through glass"
+    value={emotionInput}
+    onChange={(e) => setEmotionInput(e.target.value)}
+    onKeyDown={(e) => e.key === 'Enter' && fetchRecommendations(e)}
+    disabled={loading}
+    aria-label="Emotion input"
+  />
+</div>
         <button onClick={fetchRecommendations} disabled={loading}>
           {loading ? < LoadingDots /> : 'Get Recommendations'}
         </button>
