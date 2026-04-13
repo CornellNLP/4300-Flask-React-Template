@@ -12,6 +12,8 @@ interface ArticleNode {
   score: number;
   branch: number;
   description?: string;
+  dimensions?: string[];
+  dimensionScores?: number[];
 }
 
 type ScoringMode = "tfidf" | "svd";
@@ -427,7 +429,6 @@ function SvdClusterGraph() {
       .selectAll<SVGTextElement, { theme: string; idx: number }>("text")
       .data(gdata.themes.map((theme, idx) => ({ theme, idx })))
       .join("text")
-      .attr("text-anchor", "middle")
       .attr("font-size", "10px")
       .attr("font-weight", "700")
       .attr("font-family", "Lato, sans-serif")
@@ -470,8 +471,19 @@ function SvdClusterGraph() {
         // Pull each node toward its theme-cluster centre
         nodes.forEach((n) => {
           const c = centres[n.cluster];
-          n.vx = (n.vx ?? 0) + (c.x - (n.x ?? 0)) * 0.045;
-          n.vy = (n.vy ?? 0) + (c.y - (n.y ?? 0)) * 0.045;
+          n.vx = (n.vx ?? 0) + (c.x - (n.x ?? 0)) * 0.04;
+          n.vy = (n.vy ?? 0) + (c.y - (n.y ?? 0)) * 0.04;
+        });
+      })
+      .force("bounds", () => {
+        // Keep nodes inside the canvas
+        const pad = 55;
+        nodes.forEach((n) => {
+          const r = nodeR(n);
+          if ((n.x ?? 0) - r < pad)       n.vx = (n.vx ?? 0) + 1.5;
+          if ((n.x ?? 0) + r > W - pad)   n.vx = (n.vx ?? 0) - 1.5;
+          if ((n.y ?? 0) - r < pad)       n.vy = (n.vy ?? 0) + 1.5;
+          if ((n.y ?? 0) + r > H - pad)   n.vy = (n.vy ?? 0) - 1.5;
         });
       })
       .on("tick", () => {
@@ -483,12 +495,48 @@ function SvdClusterGraph() {
 
         nodeG.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
 
-        // Recompute label positions from current node positions
+        // Recompute label positions — placed outward from graph centre
         clusterLabelSel.each(function (d) {
           const members = nodes.filter((n) => n.cluster === d.idx);
           const cx = d3.mean(members, (m) => m.x) ?? centres[d.idx].x;
-          const cy = (d3.min(members, (m) => (m.y ?? 0) - nodeR(m)) ?? centres[d.idx].y) - 10;
-          d3.select(this).attr("x", cx).attr("y", cy);
+          const cy = d3.mean(members, (m) => m.y) ?? centres[d.idx].y;
+
+          // Angle from graph centre to cluster centroid
+          const dx = cx - W / 2;
+          const dy = cy - H / 2;
+          const angle = Math.atan2(dy, dx); // -PI..PI
+          const PAD = 28;
+
+          let lx: number, ly: number, anchor: string;
+          const absDeg = Math.abs(angle) * (180 / Math.PI);
+
+          if (absDeg < 45) {
+            // cluster on the right → label to the right
+            lx = (d3.max(members, (m) => (m.x ?? 0) + nodeR(m)) ?? cx) + PAD;
+            ly = cy;
+            anchor = "start";
+          } else if (absDeg > 135) {
+            // cluster on the left → label to the left
+            lx = (d3.min(members, (m) => (m.x ?? 0) - nodeR(m)) ?? cx) - PAD;
+            ly = cy;
+            anchor = "end";
+          } else if (dy < 0) {
+            // cluster toward top → label above
+            lx = cx;
+            ly = (d3.min(members, (m) => (m.y ?? 0) - nodeR(m)) ?? cy) - PAD;
+            anchor = "middle";
+          } else {
+            // cluster toward bottom → label below
+            lx = cx;
+            ly = (d3.max(members, (m) => (m.y ?? 0) + nodeR(m)) ?? cy) + PAD + 12;
+            anchor = "middle";
+          }
+
+          // Clamp so labels never spill outside the SVG
+          lx = Math.max(90, Math.min(W - 90, lx));
+          ly = Math.max(14, Math.min(H - 14, ly));
+
+          d3.select(this).attr("x", lx).attr("y", ly).attr("text-anchor", anchor);
         });
       });
 
@@ -521,7 +569,7 @@ function SvdClusterGraph() {
         <h3 className="svd-graph-title">SVD Semantic Clusters</h3>
         <p className="svd-graph-sub">
           Each cluster is a latent topic the SVD discovered. Terms that load
-          together explain why your results appear — hover a node to inspect it.
+          together explain why certain results appear.
         </p>
       </div>
       <div className="svd-graph-canvas">
@@ -537,6 +585,135 @@ function SvdClusterGraph() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* Branch Radar / Spider Chart — SVD tab only */
+const BRANCH_COLORS = ["#93c5fd", "#a5b4fc", "#c4b5fd"];
+
+// Shorten theme labels so they fit on the chart axes
+function shortLabel(t: string) {
+  return t
+    .replace("& Television", "& TV")
+    .replace("& Team Sports", "")
+    .replace("& South Asian", "")
+    .replace(", Gaming & Comics", "")
+    .replace("& Theatre", "")
+    .replace("& Athletics", "")
+    .replace("& Journalism", "")
+    .replace("& Government", "")
+    .replace("& Ice Hockey", "")
+    .replace("& Racing", "")
+    .trim();
+}
+
+function BranchRadar({ branch, index }: { branch: ArticleNode[]; index: number }) {
+  // Sum absolute dimensionScores per theme across all articles in the branch
+  const themeScores: Record<string, number> = {};
+  branch.forEach((node) => {
+    if (node.dimensions && node.dimensionScores) {
+      node.dimensions.forEach((theme, i) => {
+        themeScores[theme] = (themeScores[theme] ?? 0) + Math.abs(node.dimensionScores![i]);
+      });
+    }
+  });
+
+  const themes = Object.keys(themeScores);
+  if (themes.length < 3) return null;
+
+  // Sort by descending score so dominant themes get prime axis positions
+  themes.sort((a, b) => themeScores[b] - themeScores[a]);
+
+  const maxScore = Math.max(...themes.map((t) => themeScores[t]));
+  const normalized = themes.map((t) => themeScores[t] / maxScore);
+
+  const SIZE = 280;
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const r = SIZE * 0.32;       // radius of the outer ring
+  const labelR = SIZE * 0.47;  // radius at which axis labels sit
+  const n = themes.length;
+  const color = BRANCH_COLORS[index % BRANCH_COLORS.length];
+
+  const angle = (i: number) => (i / n) * 2 * Math.PI - Math.PI / 2;
+  const ptx = (i: number, s: number) => cx + Math.cos(angle(i)) * r * s;
+  const pty = (i: number, s: number) => cy + Math.sin(angle(i)) * r * s;
+
+  const gridLevels = [0.25, 0.5, 0.75, 1.0];
+  const dataPoints = normalized.map((s, i) => `${ptx(i, s)},${pty(i, s)}`).join(" ");
+
+  return (
+    <div className="branch-radar-wrap">
+      <p className="branch-radar-title">Theme Profile</p>
+      <svg
+        viewBox={`-40 -20 ${SIZE + 80} ${SIZE + 40}`}
+        className="branch-radar-svg"
+        aria-hidden="true"
+      >
+        {/* Grid rings */}
+        {gridLevels.map((level) => (
+          <polygon
+            key={level}
+            points={themes.map((_, i) => `${ptx(i, level)},${pty(i, level)}`).join(" ")}
+            fill="none"
+            stroke="rgba(255,255,255,0.07)"
+            strokeWidth={0.8}
+          />
+        ))}
+        {/* Axis spokes */}
+        {themes.map((_, i) => (
+          <line
+            key={i}
+            x1={cx} y1={cy}
+            x2={ptx(i, 1)} y2={pty(i, 1)}
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth={0.7}
+          />
+        ))}
+        {/* Data fill */}
+        <polygon
+          points={dataPoints}
+          fill={color}
+          fillOpacity={0.2}
+          stroke={color}
+          strokeWidth={2}
+          strokeOpacity={0.9}
+          strokeLinejoin="round"
+        />
+        {/* Data-point dots */}
+        {normalized.map((s, i) => (
+          <circle
+            key={i}
+            cx={ptx(i, s)}
+            cy={pty(i, s)}
+            r={4}
+            fill={color}
+            fillOpacity={0.95}
+          />
+        ))}
+        {/* Axis labels */}
+        {themes.map((theme, i) => {
+          const lx = cx + Math.cos(angle(i)) * labelR;
+          const ly = cy + Math.sin(angle(i)) * labelR;
+          const ta = lx < cx - 8 ? "end" : lx > cx + 8 ? "start" : "middle";
+          return (
+            <text
+              key={i}
+              x={lx}
+              y={ly}
+              textAnchor={ta}
+              dominantBaseline="middle"
+              fontSize="8"
+              fontFamily="Lato, sans-serif"
+              fill="rgba(210,225,255,0.6)"
+              letterSpacing="0.03em"
+            >
+              {shortLabel(theme)}
+            </text>
+          );
+        })}
+      </svg>
     </div>
   );
 }
@@ -783,6 +960,9 @@ export default function App(): JSX.Element {
                   <div className="branch-label">Tunnel {bi + 1}</div>
                   {branch[0]?.description && (
                     <p className="branch-desc">{branch[0].description}</p>
+                  )}
+                  {scoringMode === "svd" && (
+                    <BranchRadar branch={branch} index={bi} />
                   )}
                   <div className="cards-stack">
                     {branch.map((node, di) => (
