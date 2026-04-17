@@ -22,10 +22,19 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
   const [input, setInput] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inFlightControllerRef = useRef<AbortController | null>(null)
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  const resetInactivityTimer = (timeoutMs: number): void => {
+    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current)
+    inactivityTimerRef.current = window.setTimeout(() => {
+      inFlightControllerRef.current?.abort()
+    }, timeoutMs)
+  }
 
   const sendMessage = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
@@ -35,26 +44,35 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
     setMessages(prev => [...prev, { text, isUser: true }])
     setInput('')
     setLoading(true)
+    inFlightControllerRef.current?.abort()
+
+    const controller = new AbortController()
+    inFlightControllerRef.current = controller
+    resetInactivityTimer(120000)
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
+        signal: controller.signal,
       })
 
       if (!response.ok) {
         const data = await response.json()
         setMessages(prev => [...prev, { text: 'Error: ' + (data.error || response.status), isUser: false }])
-        setLoading(false)
         return
       }
 
       let assistantText = ''
       setMessages(prev => [...prev, { text: '', isUser: false }])
-      setLoading(false)
 
-      const reader = response.body!.getReader()
+      if (!response.body) {
+        setMessages(prev => [...prev, { text: 'Error: No response body from server', isUser: false }])
+        return
+      }
+
+      const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
 
@@ -71,6 +89,8 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
               if (data.search_term !== undefined) {
                 onSearchTerm(data.search_term)
               }
+              // Any valid SSE event means the backend is alive.
+              resetInactivityTimer(120000)
               if (data.error) {
                 setMessages(prev => [...prev.slice(0, -1), { text: 'Error: ' + data.error, isUser: false }])
                 return
@@ -84,8 +104,19 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
         }
       }
     } catch {
-      setMessages(prev => [...prev, { text: 'Something went wrong. Check the console.', isUser: false }])
+      const isAbort = controller.signal.aborted
+      const errorText = isAbort ? 'Error: Request timed out.' : 'Something went wrong. Check the console.'
+      setMessages(prev => {
+        if (prev.length > 0 && !prev[prev.length - 1].isUser) {
+          return [...prev.slice(0, -1), { text: errorText, isUser: false }]
+        }
+        return [...prev, { text: errorText, isUser: false }]
+      })
+    } finally {
       setLoading(false)
+      if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+      if (inFlightControllerRef.current === controller) inFlightControllerRef.current = null
     }
   }
 
