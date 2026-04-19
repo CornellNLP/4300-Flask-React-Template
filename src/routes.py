@@ -9,8 +9,8 @@ from flask import send_from_directory, request, jsonify
 from models import db, Recipe, Playlist
 import matching
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
+# USE_LLM = False
+USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 DIETARY_FILTERS = {
