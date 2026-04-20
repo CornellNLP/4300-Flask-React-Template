@@ -91,13 +91,139 @@ Then open `http://localhost:5173` in your browser!
 ### Backend (Flask)
 - **Entry point**: `src/app.py`
 - **Database**: SQLite with SQLAlchemy ORM
-- **API Routes**: prefixed with `/api` (e.g., `GET /api/episodes`, `POST /api/chat`)
+- **API Routes**: prefixed with `/api` (e.g., `GET /api/episodes`, `POST /api/search`, `POST /api/chat`)
 - **Config endpoint**: `GET /api/config` — tells the frontend whether `USE_LLM` is on
 
 ### Frontend (React + TypeScript)
 - **Build tool**: Vite
 - **Dev server**: port 5173, proxies `/api` calls to Flask on port 5001
 - **Production**: React is built into `frontend/dist` and served by Flask
+
+## API Contract
+
+The frontend should use relative API URLs such as `/api/search`.
+
+- **Local development**:
+  - Frontend runs on `http://localhost:5173`
+  - Flask runs on `http://localhost:5001`
+  - Vite automatically proxies `/api/...` requests to Flask using `frontend/vite.config.ts`
+- **Deployment**:
+  - The frontend and backend are served from the same deployed app
+  - The frontend should still call relative URLs like `/api/search`
+
+### Search Endpoint
+
+- **Method**: `POST`
+- **Path**: `/api/search`
+- **Purpose**: Retrieve similar practice problems for a user query
+
+Example request body:
+
+```json
+{
+  "subject": "math",
+  "query": "parallelogram with tangent circle and diagonal",
+  "top_k": 5
+}
+```
+
+Example CS request body:
+
+```json
+{
+  "subject": "cs",
+  "query": "two pointers array",
+  "top_k": 5
+}
+```
+
+Request fields:
+
+- `subject`: string, required
+  - supported values: `"math"` and `"cs"`
+  - `"cs"` uses the LeetCode dataset internally
+- `query`: string, required
+  - the user’s natural-language search or pasted problem statement
+- `top_k`: integer, optional
+  - number of results to return
+  - default is `5`
+
+Example success response:
+
+```json
+{
+  "subject": "math",
+  "query": "parallelogram with tangent circle and diagonal",
+  "query_combined_text": "parallelogram tangent circle diagonal",
+  "results": [
+    {
+      "problem_id": 2,
+      "problem_raw": "Let $ABCD$ be a parallelogram with $\\angle BAD < 90^\\circ.$ A circle tangent to sides $\\overline{DA},$ $\\overline{AB},$ and $\\overline{BC}$ intersects diagonal $\\overline{AC}$ at points $P$ and $Q$ with $AP < AQ,$ as shown. Suppose that $AP=3,$ $PQ=9,$ and $QC=16.$ Then the area of $ABCD$ can be expressed in the form $m\\sqrt{n},$ where $m$ and $n$ are positive integers, and $n$ is not divisible by the square of any prime. Find $m+n.$",
+      "answer": "150",
+      "similarity_score": 0.81
+    }
+  ]
+}
+```
+
+Response fields:
+
+- `subject`: dataset used for retrieval
+- `query`: original user query
+- `query_combined_text`: cleaned query text used internally for TF-IDF matching
+- `results`: ranked list of matches
+- `results[].similarity_score`: cosine similarity score
+
+For `subject = "math"`:
+- `results[].problem_id`: integer dataset id
+- `results[].problem_raw`: original problem text, including LaTeX
+- `results[].answer`: dataset answer
+
+For `subject = "cs"`:
+- `results[].problem_id`: LeetCode problem id
+- `results[].title`: problem title
+- `results[].description`: problem statement
+- `results[].difficulty`: one of `Easy`, `Medium`, `Hard`
+- `results[].acceptance_rate`: acceptance percentage for the problem
+- `results[].url`: problem URL
+- `results[].solution_link`: editorial/solution link (when available)
+- `results[].companies`: list of company tags
+- `results[].related_topics`: list of topic tags
+- `results[].similar_questions`: list of related LeetCode titles
+
+Example error response:
+
+```json
+{
+  "error": "Missing 'query' field."
+}
+```
+
+CS curl example:
+
+```bash
+curl -X POST http://127.0.0.1:5001/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"cs","query":"two pointers array","top_k":5}'
+```
+
+### Frontend Notes
+
+- Render `problem_raw` as LaTeX-aware text on the frontend
+- Do not construct backend URLs manually with `http://localhost:5001` in frontend code
+- Use relative fetch calls such as:
+
+```ts
+fetch('/api/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    subject: 'math',
+    query: userQuery,
+    top_k: 5,
+  }),
+})
+```
 
 ## Deploying on the server
 
@@ -151,6 +277,13 @@ Run Flask and React separately with hot-reloading.
 python3 -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Build retrieval artifacts (run once, or whenever dataset files change)
+python -m lib.preprocess.math_preprocess
+python -m lib.retrieval.tfidf_index
+python -m lib.preprocess.leetcode_preprocess
+python -m lib.retrieval.leetcode_tfidf_index
+
 python src/app.py
 ```
 Flask API runs on `http://localhost:5001`.
