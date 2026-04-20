@@ -105,16 +105,8 @@ export function InputPage() {
   const [courses, setCourses] = useState<string[]>(
     () => savedState.courses ?? [],
   );
-  const [useLlm, setUseLlm] = useState<boolean | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((data) => setUseLlm(data.use_llm))
-      .catch(() => setUseLlm(false));
-  }, []);
 
   // Build the search query regardless of mode
   const query =
@@ -155,16 +147,6 @@ export function InputPage() {
     const endpoint = useSvd ? "/api/recipes/svd" : "/api/recipes";
 
     return `${endpoint}?${params.toString()}`;
-  };
-
-  const handleSearch = async (value: string): Promise<void> => {
-    if (value.trim() === "") {
-      setRecipes([]);
-      return;
-    }
-    const response = await fetch(buildRecipeUrl(value));
-    const data: Recipe[] = await response.json();
-    setRecipes(data);
   };
 
   const handleGetHosting = async () => {

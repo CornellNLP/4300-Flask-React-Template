@@ -233,9 +233,3 @@ def register_routes(app):
         else:
             recipes = db.session.query(Recipe).all()
             return jsonify(cosine_search_playlists_svd(text, recipes))
-
-    if USE_LLM:
-        from llm_routes import register_chat_route
-        # register_chat_route(app, json_search)
-        # register_chat_route(app, cosine_search_recipes)
-        # register_chat_route(app, cosine_search_playlists)
