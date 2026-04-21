@@ -61,6 +61,8 @@ function App(): JSX.Element {
   const [activeMethod, setActiveMethod] = useState<'svd' | 'baseline'>('svd')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
+  const [llmResponse, setLlmResponse] = useState<string>('')
+  const [showAiPanel, setShowAiPanel] = useState(false)
 
   useEffect(() => {
     fetch('/api/config')
@@ -93,6 +95,7 @@ function App(): JSX.Element {
     setSvdMatches([])
     setError('')
     setIsLoading(true)
+    setLlmResponse('')
 
     try {
       const response = await fetch('/api/match', {
@@ -114,6 +117,27 @@ function App(): JSX.Element {
 
       setBaselineMatches(Array.isArray(data.baseline_matches) ? data.baseline_matches : [])
       setSvdMatches(Array.isArray(data.svd_matches) ? data.svd_matches : [])
+
+      if (useLlm) {
+        const ragResponse = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: writeIn || JSON.stringify(traitInput),
+          traitInput,
+          results: data.svd_matches.slice(0, 5),
+        }),
+      })
+
+      const ragData = await ragResponse.json()
+
+      console.log("LLM RAW RESPONSE:", ragData)
+
+      setLlmResponse(ragData.response ?? "No AI explanation returned.")
+      }
+
     } catch (err) {
       console.error(err)
       setError('Something went wrong while finding matches.')
@@ -387,31 +411,95 @@ function App(): JSX.Element {
           )}
 
           {!isLoading && currentMatches.length > 0 && (
-            <div className="results-section comparison-section">
-              <div className="match-text">
-                <img src={MatchImg} className="match-title-image" alt="Top Dog Matches" />
-                <img src={PawImg} className="match-paw-image" alt="Paw" />
-              </div>
+            <div className="results-card">
 
-              <h3 className="comparison-title">
-                {activeMethod === 'svd' ? 'Top 10 Matches (SVD)' : 'Top 10 Matches (No SVD)'}
-              </h3>
+            <div className="results-layout">
 
-              <p className="comparison-subtitle">
-                {activeMethod === 'svd'
-                  ? 'Showing the SVD-based ranking with positive and negative dimension explanations.'
-                  : 'Showing the baseline ranking without SVD.'}
-              </p>
+              {/* LEFT: DOGS */}
+              <div className="results-left">
 
-              {currentMatches.map((dog, index) => (
-                <div key={`${dog.breed}-${activeMethod}-${index}`}>
-                  {renderDogCard(dog, activeMethod === 'svd')}
+                <div className="comparison-header">
+                  <h3 className="comparison-title">
+                    <img src={MatchImg} className="match-title-image" alt="Top Dog Matches" />
+                  </h3>
+
+                  <button
+                    className="ai-explain-button"
+                    onClick={() => setShowAiPanel(true)}
+                  >
+                    Explain with AI
+                  </button>
                 </div>
-              ))}
+
+                <p className="comparison-subtitle">
+                  {activeMethod === 'svd'
+                    ? 'SVD-based ranking with explainability.'
+                    : 'Baseline ranking without SVD.'}
+                </p>
+
+                {currentMatches.map((dog, index) => (
+                  <div key={`${dog.breed}-${activeMethod}-${index}`}>
+                    {renderDogCard(dog, activeMethod === 'svd')}
+                  </div>
+                ))}
+
+              </div>
             </div>
+          </div>
+          )}
+      </div>
+    </div>
+
+    {showAiPanel && (
+      <div className="ai-overlay" onClick={() => setShowAiPanel(false)}>
+        <div className="ai-drawer" onClick={(e) => e.stopPropagation()}>
+          
+          <div className="ai-drawer-header">
+            <h3>AI Explanation 🐾</h3>
+            <button onClick={() => setShowAiPanel(false)}>✕</button>
+          </div>
+
+          <div className="ai-drawer-content">
+          {llmResponse ? (
+            <div className="ai-text-block">
+              {llmResponse.split('\n').map((line, i) => {
+                const trimmed = line.trim()
+
+                if (!trimmed) return <div key={i} className="ai-spacer" />
+
+                // Make bullet points nicer
+                if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+                  return (
+                    <div key={i} className="ai-bullet">
+                      {trimmed.replace(/^[-•]\s*/, '')}
+                    </div>
+                  )
+                }
+
+                // Make headings slightly bold (simple heuristic)
+                if (trimmed.endsWith(':')) {
+                  return (
+                    <div key={i} className="ai-section-title">
+                      {trimmed}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={i} className="ai-line">
+                    {trimmed}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="ai-empty">No AI explanation yet. Submit preferences first.</p>
           )}
         </div>
+
+        </div>
       </div>
+    )}
     </div>
   )
 }

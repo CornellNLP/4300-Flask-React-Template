@@ -16,8 +16,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
+USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 def json_search(query):
@@ -36,7 +35,6 @@ def json_search(query):
             'imdb_rating': review.imdb_rating
         })
     return matches
-
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_directory)

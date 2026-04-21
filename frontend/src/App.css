@@ -148,6 +148,60 @@ body {
   opacity: 0.85;
 }
 
+/* ===== SPLIT LAYOUT ===== */
+.results-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+
+/* LEFT: dogs */
+.results-left {
+  flex: 2;
+}
+
+/* RIGHT: AI */
+.results-right {
+  flex: 1;
+  position: sticky;
+  top: 20px;
+}
+
+/* AI panel styling */
+.llm-panel {
+  background: #fffaf3;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #f0e2c6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Title */
+.llm-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* Text */
+.llm-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* Mobile fallback */
+@media (max-width: 900px) {
+  .results-layout {
+    flex-direction: column;
+  }
+
+  .results-right {
+    position: static;
+  }
+}
+
 /* ── Checkbox pills ────────────────────────────────────────────────────── */
 .trait-options {
   display: flex;
@@ -551,9 +605,153 @@ mark {
   }
 }
 
+.results-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-explain-button {
+  background: var(--blue);
+  font-family: 'Fredoka', sans-serif;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.25);
+  white-space: nowrap;
+}
+
+.ai-explain-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(108, 99, 255, 0.35);
+}
+
+.ai-explain-button:active {
+  transform: translateY(0px);
+}
+
+.ai-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 26, 59, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 999;
+}
+
+/* ===== AI DRAWER BASE ===== */
+.ai-drawer {
+  width: 420px;
+  height: 100%;
+  background: var(--card);
+  border-left: 2px solid var(--border);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.ai-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  background: var(--card-inner);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-drawer-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ai-drawer-header button {
+  background: var(--blue-light);
+  border: 1px solid var(--border);
+  color: var(--blue);
+  border-radius: var(--pill-radius);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.ai-drawer-header button:hover {
+  background: var(--blue-mid);
+}
+
+/* content */
+.ai-drawer-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  background: linear-gradient(
+    to bottom,
+    var(--card),
+    var(--card-inner)
+  );
+}
+
+/* text container */
+.ai-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+/* paragraph line */
+.ai-line {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* bullet points */
+.ai-bullet {
+  background: var(--blue-light);
+  border-left: 4px solid var(--blue);
+  border-radius: var(--card-radius);
+  padding: 10px 12px;
+  margin-left: 6px;
+  color: var(--ink);
+}
+
+/* section headers */
+.ai-section-title {
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 10px;
+}
+
+/* spacing helper */
+.ai-spacer {
+  height: 6px;
+}
+
+/* empty state */
+.ai-empty {
+  color: var(--ink-light);
+  font-style: italic;
+  padding: 10px;
+  background: var(--card-inner);
+  border-radius: var(--card-radius);
+  border: 1px dashed var(--border-dark);
+}
+
 /* ── Chat ─────────────────────────────────────────────────────────────── */
 .llm-mode #answer-box {
-  max-height: 250px;
   overflow-y: auto;
   flex-shrink: 0;
 }
@@ -685,6 +883,15 @@ mark {
   cursor: not-allowed;
 }
 
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 6px 4px;
+}
+
+
 .comparison-section {
   margin-top: 10px;
 }
@@ -694,13 +901,14 @@ mark {
   font-family: 'Fredoka', sans-serif;
   font-size: 1.25rem;
   font-weight: 600;
+  text-align: center;
   color: var(--ink);
 }
 
 .comparison-subtitle {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: var(--ink-light);
+  color: var(--ink);
   line-height: 1.5;
 }
 
