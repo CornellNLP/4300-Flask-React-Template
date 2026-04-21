@@ -70,6 +70,41 @@ function App(): JSX.Element {
       .then(data => setUseLlm(data.use_llm))
   }, [])
 
+  const cleanLine = (line: string) => {
+  return line
+    .replace(/^#{1,6}\s*/, '')        // remove ### headers
+    .replace(/\*\*(.*?)\*\*/g, '$1')  // remove bold **
+    .replace(/\*(.*?)\*/g, '$1')      // remove italics *
+    .replace(/^\*\s*/, '')            // remove bullet *
+    .trim()
+}
+
+const renderWithBoldPrefix = (text: string) => {
+  const match = text.match(/^([^:]+:)(.*)$/)
+
+  if (!match) return text
+
+  return (
+    <>
+      <strong>{match[1]}</strong>
+      {match[2]}
+    </>
+  )
+}
+
+const renderBreedBold = (text: string) => {
+  const match = text.match(/^([^:]+:)(.*)$/)
+
+  if (!match) return text
+
+  return (
+    <>
+      <strong>{match[1]}</strong>
+      {match[2]}
+    </>
+  )
+}
+
   const toggleTraitValue = (trait: string, value: number | string) => {
     setTraitInput((prev) => {
       const current = prev[trait] || []
@@ -462,35 +497,91 @@ function App(): JSX.Element {
           <div className="ai-drawer-content">
           {llmResponse ? (
             <div className="ai-text-block">
-              {llmResponse.split('\n').map((line, i) => {
-                const trimmed = line.trim()
+              {(() => {
+                const lines = llmResponse.split('\n')
 
-                if (!trimmed) return <div key={i} className="ai-spacer" />
+                let inWhySection = false
+                let whyBullets: string[] = []
 
-                // Make bullet points nicer
-                if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
-                  return (
-                    <div key={i} className="ai-bullet">
-                      {trimmed.replace(/^[-•]\s*/, '')}
+                const elements: JSX.Element[] = []
+
+                lines.forEach((line, i) => {
+                  const cleaned = cleanLine(line)
+
+                  if (!cleaned) return
+
+                  // Detect section headers
+                  if (line.startsWith('###')) {
+                    // Flush previous WHY section if ending
+                    if (inWhySection && whyBullets.length > 0) {
+                      elements.push(
+                        <div key={`why-${i}`} className="ai-line">
+                          <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                            {whyBullets.map((b, idx) => (
+                              <li key={idx} style={{ marginBottom: '4px' }}>
+                                {renderBreedBold(b)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )
+                      whyBullets = []
+                    }
+
+                    // Check if this is the WHY section
+                    inWhySection = cleaned.toLowerCase().includes('why these dogs')
+
+                    elements.push(
+                      <div key={i} className="ai-section-title">
+                        {cleaned}
+                      </div>
+                    )
+                    return
+                  }
+
+                  // If we're inside WHY section → collect bullets
+                  if (inWhySection && line.trim().startsWith('*')) {
+                    whyBullets.push(cleaned)
+                    return
+                  }
+
+                  // If leaving WHY section, flush bullets
+                  if (inWhySection && whyBullets.length > 0) {
+                    elements.push(
+                      <div key={`why-end-${i}`} className="ai-line">
+                        <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                          {whyBullets.map((b, idx) => (
+                            <li key={idx} style={{ marginBottom: '4px' }}>
+                              {renderBreedBold(b)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                    whyBullets = []
+                    inWhySection = false
+                  }
+
+                  // Normal bullet (outside WHY)
+                  if (line.trim().startsWith('*')) {
+                    elements.push(
+                      <div key={i} className="ai-bullet">
+                        {cleaned}
+                      </div>
+                    )
+                    return
+                  }
+
+                  // Normal text
+                  elements.push(
+                    <div key={i} className="ai-line">
+                      {renderWithBoldPrefix(cleaned)}
                     </div>
                   )
-                }
+                })
 
-                // Make headings slightly bold (simple heuristic)
-                if (trimmed.endsWith(':')) {
-                  return (
-                    <div key={i} className="ai-section-title">
-                      {trimmed}
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={i} className="ai-line">
-                    {trimmed}
-                  </div>
-                )
-              })}
+                return elements
+              })()}
             </div>
           ) : (
             <p className="ai-empty">No AI explanation yet. Submit preferences first.</p>

@@ -58,20 +58,20 @@ Matching Keywords: {dog.get('matching_words')}
 """)
             return "\n".join(formatted)
 
-        context_text = format_dogs(results[:5])
+        context_text = format_dogs(results[:10])
 
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are an expert dog recommendation assistant. "
-                    "You MUST only use the provided dog matches. "
-                    "Do NOT invent new breeds."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"""
+    {
+        "role": "system",
+        "content": (
+            "You are an expert dog recommendation assistant. "
+            "You MUST only use the provided dog matches. "
+            "Do NOT invent new breeds."
+        ),
+    },
+    {
+        "role": "user",
+        "content": f"""
 User preferences:
 {query}
 
@@ -79,14 +79,39 @@ Retrieved dog matches:
 {context_text}
 
 Tasks:
-1. Explain why these dogs match the user
-2. Compare them
-3. Recommend the best one
 
-Be concise but helpful.
+### Why these dogs match
+Write:
+- A short 1–2 sentence summary
+- Then a bullet list
+
+IMPORTANT FORMAT RULES:
+- EVERY bullet MUST start with '* '
+- Each bullet MUST be exactly:
+  * Breed Name: short reason tied to temperament/traits
+- Include ALL listed dogs (in order)
+- DO NOT skip bullets
+- DO NOT use • or -
+
+### Comparison
+Write EXACTLY these three lines:
+Size & Energy: ...
+Social Needs: ...
+Maintenance: ...
+
+### Best Recommendation
+Write EXACTLY:
+Best Recommendation: Breed Name
+Then 2–3 sentences explaining why.
+
+GLOBAL RULES:
+- Do NOT change formatting
+- Do NOT add extra sections
+- Do NOT rewrite the user query
+- Be concise but clear
 """,
-            },
-        ]
+    },
+]
 
         try:
             response = client.chat(messages)

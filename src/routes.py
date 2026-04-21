@@ -14,10 +14,49 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
+from infosci_spark_client import LLMClient
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
+
+def rewrite_query_with_llm(query, trait_input):
+    api_key = os.getenv("API_KEY")
+    if not api_key:
+        return query  # fallback safely
+
+    client = LLMClient(api_key=api_key)
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You rewrite user queries for dog search. "
+                "Return ONLY descriptive traits (temperament, energy, size, behavior). "
+                "DO NOT include generic words like 'dog', 'breed', 'pet', or filler words. "
+                "Output a concise comma-separated list."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"""
+User input:
+{query}
+
+Structured traits:
+{trait_input}
+
+Rewrite into a better search query for retrieving dog breeds.
+""",
+        },
+    ]
+
+    try:
+        response = client.chat(messages)
+        rewritten = (response.get("content") or "").strip()
+        return rewritten if rewritten else query
+    except Exception:
+        return query  # never break matching
 
 def json_search(query):
     if not query or not query.strip():
@@ -373,6 +412,8 @@ def register_routes(app):
 
         trait_input = payload.get("traitInput", {})
         write_in = payload.get("writeIn", "").strip()
+        if USE_LLM and write_in:
+            write_in = rewrite_query_with_llm(write_in, trait_input)
 
         has_structured = any(len(as_list(v)) > 0 for v in trait_input.values())
         has_text = write_in != ""
