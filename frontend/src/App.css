@@ -70,9 +70,9 @@ body {
 }
 
 .top-text {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
 }
 
 .paw-image {
@@ -80,8 +80,136 @@ body {
   opacity: 0.9;
 }
 
-.title-image {
-  height: 62px;
+.pawmatch-title {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 80px;
+  font-weight: 600;
+  letter-spacing: 2px;
+
+  /* ombré gradient */
+  background: linear-gradient(
+    180deg,
+    #B8D1FF 0%,
+    var(--blue) 40%,
+    #0049D1 100%
+  );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  /* thick cartoon outline */
+  -webkit-text-stroke: 4px var(--ink);
+
+  /* soft bubble depth */
+  text-shadow:
+    0 3px 0 rgba(255,255,255,0.35),   /* top shine */
+    0 8px 20px rgba(10,26,59,0.25);   /* drop depth */
+
+  /* smoother entrance */
+  opacity: 0;
+  transform: translateY(12px);
+  animation: titleFloatIn 0.7s ease forwards;
+}
+
+/* keep accent consistent (optional) */
+.pawmatch-title .accent {
+  background: inherit;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes titleFloatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.paw-trail {
+  position: relative;
+  width: 200px;
+  height: 60px;
+  margin-left: 12px;
+}
+
+/* base paw */
+.paw-trail img {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.8);
+
+  animation: pawWalk 2.2s ease-in-out infinite;
+}
+
+/* sizes */
+.paw-trail img:nth-child(1) {
+  width: 70px;
+  animation-delay: 0s;
+}
+.paw-trail img:nth-child(2) {
+  width: 50px;
+  animation-delay: 0.4s;
+}
+.paw-trail img:nth-child(3) {
+  width: 36px;
+  animation-delay: 0.8s;
+}
+
+/* stepping offsets (this is what makes it feel real) */
+.paw-trail img:nth-child(odd) {
+  animation-name: pawStepUp;
+}
+.paw-trail img:nth-child(even) {
+  animation-name: pawStepDown;
+}
+
+/* keyframes */
+@keyframes pawStepUp {
+  0% {
+    left: 0px;
+    top: 30px;
+    opacity: 0;
+  }
+  20% { opacity: 1; }
+  50% {
+    left: 90px;
+    top: 5px;
+  }
+  100% {
+    left: 180px;
+    top: 30px;
+    opacity: 0;
+  }
+}
+
+@keyframes pawStepDown {
+  0% {
+    left: 0px;
+    top: 5px;
+    opacity: 0;
+  }
+  20% { opacity: 1; }
+  50% {
+    left: 90px;
+    top: 30px;
+  }
+  100% {
+    left: 180px;
+    top: 5px;
+    opacity: 0;
+  }
+}
+
+.pawmatch-title:hover {
+  transform: translateY(-2px);
+  transition: 0.2s ease;
 }
 
 /* ── Main content container ────────────────────────────────────────────── */

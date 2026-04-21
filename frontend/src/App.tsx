@@ -351,9 +351,15 @@ const renderBreedBold = (text: string) => {
       <div className="site-header">
         <div className="dog-border" />
         <div className="top-text">
-          <img src={TitleImg} className="title-image" alt="PawMatch" />
-          <img src={PawImg} className="paw-image" alt="Paw Print" />
+          <h1 className="pawmatch-title">
+            Paw<span className="accent">Match</span>
+          </h1>
         </div>
+        <div className="paw-trail">
+            <img src={PawImg} />
+            <img src={PawImg} />
+            <img src={PawImg} />
+          </div>
       </div>
 
       <div className="method-toggle pre-submit-toggle">
