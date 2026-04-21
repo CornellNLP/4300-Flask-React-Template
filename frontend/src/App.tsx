@@ -3,6 +3,7 @@ import './App.css'
 import SearchIcon from './assets/mag.png'
 import {
   Exercise,
+  MatchQuality,
   Program,
   ProgramScheduleEntry,
   SearchMethod,
@@ -10,6 +11,12 @@ import {
   DIFFICULTY_OPTIONS,
   MUSCLE_OPTIONS,
 } from './types'
+
+const QUALITY_COPY: Record<MatchQuality, string> = {
+  strong: 'Strong match',
+  moderate: 'Moderate match',
+  weak: 'Weak match',
+}
 import Chat from './Chat'
 import bgImage from './assets/gym_background.png'
 
@@ -311,7 +318,20 @@ function App(): JSX.Element {
         {exercises.map((exercise, index) => (
           <div key={index} className="episode-item">
             <h3 className="exercise-title">{index + 1}. {exercise.name}</h3>
-            <p className="exercise-field"><strong>Score:</strong> {exercise.score.toFixed(4)}</p>
+            <p className="exercise-field">
+              <strong>Score:</strong> {exercise.score.toFixed(4)}
+              {exercise.match_quality && (
+                <span className={`match-badge match-badge--${exercise.match_quality}`}>
+                  {QUALITY_COPY[exercise.match_quality]}
+                </span>
+              )}
+            </p>
+            {exercise.tags && exercise.tags.length > 0 && (
+              <div className="match-tags">
+                <span className="match-tags-label">Why this matched:</span>
+                {exercise.tags.map((t, i) => <span key={i} className="match-tag">{t}</span>)}
+              </div>
+            )}
             <p className="exercise-field"><strong>Primary Muscles:</strong> {exercise.primaryMuscles.join(', ')}</p>
             {exercise.secondaryMuscles.length > 0 && <p className="exercise-field"><strong>Secondary Muscles:</strong> {exercise.secondaryMuscles.join(', ')}</p>}
             {exercise.category && <p className="exercise-field"><strong>Category:</strong> {exercise.category}</p>}
@@ -346,7 +366,20 @@ function App(): JSX.Element {
         {programs.map((program, index) => (
           <div key={index} className="episode-item">
             <h3 className="exercise-title">{index + 1}. {program.title}</h3>
-            <p className="exercise-field"><strong>Score:</strong> {program.score.toFixed(4)}</p>
+            <p className="exercise-field">
+              <strong>Score:</strong> {program.score.toFixed(4)}
+              {program.match_quality && (
+                <span className={`match-badge match-badge--${program.match_quality}`}>
+                  {QUALITY_COPY[program.match_quality]}
+                </span>
+              )}
+            </p>
+            {program.tags && program.tags.length > 0 && (
+              <div className="match-tags">
+                <span className="match-tags-label">Why this matched:</span>
+                {program.tags.map((t, i) => <span key={i} className="match-tag">{t}</span>)}
+              </div>
+            )}
             {program.level && <p className="exercise-field"><strong>Level:</strong> {program.level}</p>}
             {program.program_length_weeks != null && (
               <p className="exercise-field"><strong>Length:</strong> {program.program_length_weeks} weeks</p>

@@ -4,9 +4,13 @@
 //   imdb_rating: number;
 // }
 
+export type MatchQuality = 'strong' | 'moderate' | 'weak';
+
 export interface Exercise {
   name: string;
   score: number;
+  match_quality?: MatchQuality;
+  tags?: string[];
   primaryMuscles: string[];
   secondaryMuscles: string[];
   level: string | null;
@@ -41,6 +45,8 @@ export interface Program {
   level: string | null;
   program_length_weeks: number | null;
   score: number;
+  match_quality?: MatchQuality;
+  tags?: string[];
   schedule: ProgramScheduleEntry[];
 }
 

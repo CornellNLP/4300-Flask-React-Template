@@ -479,3 +479,59 @@
   margin: 0.2rem 0 0.4rem 1rem;
   padding: 0;
 }
+
+/* ── Match-quality badge + explanation tags ─────────────────────────────── */
+
+.match-badge {
+  display: inline-block;
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.match-badge--strong {
+  background: #d1f3dc;
+  color: #1a6b3a;
+  border: 1px solid #8fd6a6;
+}
+
+.match-badge--moderate {
+  background: #fdebc5;
+  color: #8a5a10;
+  border: 1px solid #e8c178;
+}
+
+.match-badge--weak {
+  background: #ececec;
+  color: #555;
+  border: 1px solid #c8c8c8;
+}
+
+.match-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem 0;
+}
+
+.match-tags-label {
+  font-size: 0.8rem;
+  color: #666;
+  margin-right: 0.15rem;
+}
+
+.match-tag {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #334155;
+  border: 1px solid #d8dee8;
+  font-size: 0.78rem;
+  font-family: 'Courier New', monospace;
+}

@@ -244,6 +244,28 @@ def _stem(word):
     return word
 
 
+# Surface-form aliases applied BEFORE stemming, at both index and query time.
+# These fix corpus-level inconsistencies and common slang that Porter stemming
+# alone can't resolve:
+#   - "dumbell" (one b) and "dumbbell" (two b's) both appear in the corpus and
+#     stem to DIFFERENT terms (`dumbel` vs `dumbbel`), so queries for one miss
+#     documents using the other. Canonicalizing to "dumbbell" merges them.
+#   - "hammies" is common gym slang that isn't in the corpus; mapping it to
+#     "hamstrings" routes it to a real vocab term.
+# Keep this table SHORT: each entry affects indexing, so additions require
+# rebuilding the searcher. Only add entries for real retrieval-quality bugs,
+# not cosmetic ones.
+_TOKEN_ALIASES = {
+    "dumbell": "dumbbell",
+    "dumbells": "dumbbells",
+    "hammies": "hamstrings",
+}
+
+
+def _apply_alias(token):
+    return _TOKEN_ALIASES.get(token, token)
+
+
 def _tokenize_and_stem(text):
     """Tokenize *text* into lowercase alpha tokens, remove stop words, then stem.
 
@@ -251,7 +273,7 @@ def _tokenize_and_stem(text):
     query terms go through identical preprocessing.
     """
     tokens = re.findall(r'[a-z]+', text.lower())
-    return [_stem(t) for t in tokens if t not in _STOP_WORDS and len(t) > 1]
+    return [_stem(_apply_alias(t)) for t in tokens if t not in _STOP_WORDS and len(t) > 1]
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'exercises_free_db.json')
 PROGRAMS_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_cleaned.csv')
@@ -427,6 +449,188 @@ def _svd_scores(svd, svd_matrix_normed, query_vec):
     return (svd_matrix_normed @ reduced.T).flatten()
 
 
+# ── Result-explanation helpers ───────────────────
+# Surface *why* a result matched (tags) and *how good* the match is
+# relative to the full top-k (match_quality). Both are attached to
+# every hit at search time so the frontend can explain the raw cosine
+# score to the user.
+
+N_SVD_THEMES = 15  # secondary-SVD dimensionality used purely for labeling
+TERMS_PER_THEME_LABEL = 3
+TAGS_PER_RESULT = 3
+
+# Absolute quality thresholds per method. Tunable constants — see
+# context/improvements.md if empirical calibration is ever run.
+_QUALITY_BANDS = {
+    "tfidf": (0.30, 0.15),  # (strong_min, moderate_min)
+    "svd":   (0.50, 0.25),
+}
+_RELATIVE_BOOST_FRAC = 0.80  # ≥80% of top → bump one band
+
+
+def _build_stem_surface_map(docs):
+    """Map each stem to the most frequent raw surface form seen across *docs*.
+
+    The TF-IDF vocabulary stores stems (``tricep``, ``explos``, ``pector``)
+    which read as garbled fragments to a user. This scan passes through the
+    same tokenization + aliasing as indexing but skips stemming, counts
+    each ``(stem, surface)`` pair's occurrences, and picks the most common
+    surface for each stem. Used to un-stem tags before display.
+
+    Returns ``{stem: surface_form}``. Stems not seen in *docs* won't have
+    an entry, so callers should fall back to the stem itself.
+    """
+    from collections import Counter
+    counts = {}
+    for doc in docs:
+        tokens = re.findall(r'[a-z]+', doc.lower())
+        for raw in tokens:
+            if raw in _STOP_WORDS or len(raw) <= 1:
+                continue
+            aliased = _apply_alias(raw)
+            stem = _stem(aliased)
+            if stem not in counts:
+                counts[stem] = Counter()
+            counts[stem][aliased] += 1
+    return {stem: c.most_common(1)[0][0] for stem, c in counts.items()}
+
+
+def _unstem(term, stem_to_surface):
+    """Look up a display form for *term*, falling back to *term* itself."""
+    return stem_to_surface.get(term, term) if stem_to_surface else term
+
+
+def _top_shared_terms(vectorizer, query_vec, doc_vec, stem_to_surface=None,
+                     k=TAGS_PER_RESULT):
+    """Top-k features driving the TF-IDF match between a query and one doc.
+
+    Element-wise product of the two sparse rows recovers each term's
+    contribution to the (un-normalized) cosine dot product; the largest
+    values name the terms most responsible for the match. Stems are
+    mapped back to their most frequent surface form via *stem_to_surface*
+    when provided.
+    """
+    contrib = query_vec.multiply(doc_vec).tocsr()
+    if contrib.nnz == 0:
+        return []
+    row = contrib.getrow(0)
+    indices = row.indices
+    data = row.data
+    if data.size == 0:
+        return []
+    order = np.argsort(data)[::-1][:k]
+    feats = vectorizer.get_feature_names_out()
+    return [_unstem(str(feats[indices[i]]), stem_to_surface) for i in order]
+
+
+def _fit_theme_svd(tfidf_matrix, vectorizer, stem_to_surface=None,
+                   n_themes=N_SVD_THEMES,
+                   terms_per_label=TERMS_PER_THEME_LABEL, random_state=42):
+    """Fit a small secondary SVD purely for per-result tag labeling.
+
+    The primary 100-dim SVD is tuned for retrieval recall; clustering its
+    dims for labels proved brittle (high-variance dims collapse into a
+    single cluster). Instead we fit a second, smaller ``TruncatedSVD``
+    whose dims are orthogonal by construction and each capture a distinct
+    semantic axis. Each dim gets a human-readable label from its top
+    ``terms_per_label`` terms in ``components_``, un-stemmed for display
+    via *stem_to_surface* when provided.
+
+    Each axis has two poles. ``labels_pos`` describes the positive end
+    (top terms of ``components_[dim]``); ``labels_neg`` describes the
+    negative end (bottom terms). At tag time the caller picks the label
+    matching the query+doc's shared sign — otherwise a ``squat`` query
+    loading *negatively* on a ``dumbbell+biceps+triceps`` axis would be
+    tagged with those positive-pole terms, which reads backwards.
+
+    Returns ``(theme_svd, theme_matrix, labels_pos, labels_neg, baseline)``.
+    ``theme_matrix`` is unnormalized (signed), shape ``(n_docs, n_themes)``.
+    ``baseline`` is per-theme mean absolute loading across the corpus,
+    used by ``_top_themes`` for distinctiveness weighting.
+    """
+    n_comp = max(1, min(n_themes, min(tfidf_matrix.shape) - 1))
+    theme_svd = TruncatedSVD(n_components=n_comp, random_state=random_state)
+    theme_matrix = theme_svd.fit_transform(tfidf_matrix)
+    feats = vectorizer.get_feature_names_out()
+    labels_pos, labels_neg = [], []
+    for dim in range(n_comp):
+        comp = theme_svd.components_[dim]
+        order = np.argsort(comp)
+        top_pos = order[::-1][:terms_per_label]
+        top_neg = order[:terms_per_label]
+        labels_pos.append("+".join(_unstem(str(feats[i]), stem_to_surface)
+                                   for i in top_pos))
+        labels_neg.append("+".join(_unstem(str(feats[i]), stem_to_surface)
+                                   for i in top_neg))
+    # Small floor keeps rarely-loaded themes from dividing by ~0 and
+    # blowing up the weighted score when a doc happens to load on them.
+    baseline = np.maximum(np.mean(np.abs(theme_matrix), axis=0), 1e-6)
+    return theme_svd, theme_matrix, labels_pos, labels_neg, baseline
+
+
+def _top_themes(query_theme_vec, doc_theme_vec, theme_baseline=None,
+                k=TAGS_PER_RESULT, query_weak_ratio=0.2):
+    """Top-k theme axes explaining why ``doc_theme_vec`` matched the query.
+
+    Contribution per axis = ``q_t * doc_t`` (signed, so negative-negative
+    alignment still counts as positive match while opposite signs cancel).
+    When *theme_baseline* is provided, divide by it so tags surface themes
+    this doc stands out on *for this query*, rather than whichever axes
+    have the highest raw variance across the corpus.
+
+    Themes where the query loads weakly relative to its own max (below
+    ``query_weak_ratio × max|q|``) are dropped first — they'd otherwise
+    tag matches with axes the query barely cares about.
+
+    Returns a list of ``(theme_idx, sign)`` tuples, where ``sign`` is
+    +1 if query and doc both load positive on that axis (describe the
+    positive pole) and -1 if both negative (describe the negative pole).
+    The caller picks the appropriate pole label.
+    """
+    q_abs_max = float(np.max(np.abs(query_theme_vec))) if query_theme_vec.size else 0.0
+    if q_abs_max == 0.0:
+        return []
+    q_mask = np.abs(query_theme_vec) >= query_weak_ratio * q_abs_max
+
+    contributions = query_theme_vec * doc_theme_vec
+    if theme_baseline is not None:
+        contributions = contributions / theme_baseline
+    contributions = np.where(q_mask, contributions, -np.inf)
+    if not np.any(contributions > 0):
+        return []
+    order = np.argsort(contributions)[::-1]
+    out = []
+    for t in order[:k]:
+        if contributions[t] <= 0:
+            break
+        sign = 1 if query_theme_vec[t] >= 0 else -1
+        out.append((int(t), sign))
+    return out
+
+
+def _match_quality(score, top_score, method):
+    """Bucket a raw cosine score into 'strong' / 'moderate' / 'weak'.
+
+    Uses absolute bands per method, then bumps up one band if ``score``
+    is within ``_RELATIVE_BOOST_FRAC`` of ``top_score`` so the user's
+    best option always reads as meaningful even when the query as a
+    whole is weak.
+    """
+    strong_min, mod_min = _QUALITY_BANDS.get(method, _QUALITY_BANDS["tfidf"])
+    if score >= strong_min:
+        level = "strong"
+    elif score >= mod_min:
+        level = "moderate"
+    else:
+        level = "weak"
+    if top_score > 0 and score >= _RELATIVE_BOOST_FRAC * top_score:
+        if level == "weak":
+            level = "moderate"
+        elif level == "moderate":
+            level = "strong"
+    return level
+
+
 def _wagner_fisher(s1, s2):
     """Compute the Levenshtein edit distance between two strings.
 
@@ -462,6 +666,52 @@ def _wagner_fisher(s1, s2):
     return dp[n]
 
 
+def _shared_prefix_len(a, b):
+    """Length of the longest common prefix of two strings.
+
+    Used as a final tiebreaker after edit distance and LCS in
+    ``_correct_token``: when two candidates have identical edit distance
+    and identical LCS to the query, the one that agrees with the query
+    from the start wins. Fixes cases like ``ender → under`` (LCS ties with
+    ``endur`` but prefix agreement is 0 vs 3).
+    """
+    n = min(len(a), len(b))
+    i = 0
+    while i < n and a[i] == b[i]:
+        i += 1
+    return i
+
+
+def _lcs_length(s1, s2):
+    """Longest common subsequence length between two strings.
+
+    Not to be confused with longest common *substring* — a subsequence is
+    allowed to skip characters on either side. Implemented as the standard
+    O(m*n) DP with the table compressed to a single row for O(min(m, n))
+    memory. Used as a tiebreaker when edit distance is equal for multiple
+    spell-correction candidates: ``tcep`` and ``tricep`` share the whole
+    subsequence ``tcep`` (LCS=4), while ``tcep`` and ``top`` share only
+    ``tp`` (LCS=2), so ``tricep`` correctly wins over the arbitrary
+    first-seen choice.
+    """
+    m, n = len(s1), len(s2)
+    if m == 0 or n == 0:
+        return 0
+    if m < n:
+        s1, s2 = s2, s1
+        m, n = n, m
+    prev = [0] * (n + 1)
+    for i in range(1, m + 1):
+        curr = [0] * (n + 1)
+        for j in range(1, n + 1):
+            if s1[i - 1] == s2[j - 1]:
+                curr[j] = prev[j - 1] + 1
+            else:
+                curr[j] = prev[j] if prev[j] >= curr[j - 1] else curr[j - 1]
+        prev = curr
+    return prev[n]
+
+
 def _correct_token(token, vocab_by_length, max_dist=2):
     """Return the closest vocabulary term to *token*, or *token* itself.
 
@@ -469,6 +719,17 @@ def _correct_token(token, vocab_by_length, max_dist=2):
     are pre-bucketed by length.  Only terms whose length differs from the query
     token by at most *max_dist* characters can possibly be within *max_dist*
     edits, so we restrict the search to those buckets.
+
+    Ranks candidates by ``(edit_distance, -(2*lcs + prefix))``: lower
+    edit distance wins, ties broken by a weighted combination where LCS
+    stays dominant but shared prefix is strong enough to overrule it on
+    close calls. Examples the weights balance:
+      - ``ender → endur`` (lcs 4, prefix 3 → 11) over
+        ``gender`` (lcs 5, prefix 0 → 10) — prefix wins the close LCS gap.
+      - ``biecp → bicep`` (lcs 4, prefix 2 → 10) over
+        ``bie`` (lcs 3, prefix 3 → 9) — LCS wins when prefix favours a
+        much shorter/wrong candidate.
+      - ``tcep → tricep`` (lcs 4 → 9) over ``top`` (lcs 2 → 5) — plain LCS.
 
     Args:
         token: A single lowercase query token.
@@ -485,18 +746,22 @@ def _correct_token(token, vocab_by_length, max_dist=2):
         return token
 
     best_term = token
-    best_dist = max_dist + 1 
+    best_key = (max_dist + 1, 0)  # (edit_dist, -(2*lcs + prefix)); lower is better
 
     for length in range(len(token) - max_dist, len(token) + max_dist + 1):
         for candidate in vocab_by_length.get(length, []):
             d = _wagner_fisher(token, candidate)
-            if d < best_dist:
-                best_dist = d
+            if d > max_dist or d > best_key[0]:
+                continue
+            key = (d, -(2 * _lcs_length(token, candidate)
+                        + _shared_prefix_len(token, candidate)))
+            if key < best_key:
+                best_key = key
                 best_term = candidate
-                if d == 0: 
+                if d == 0:
                     return best_term
 
-    return best_term if best_dist <= max_dist else token
+    return best_term if best_key[0] <= max_dist else token
 
 
 def _expand_query(query):
@@ -578,6 +843,18 @@ class ExerciseSearcher:
         # cosine similarity at query time is a single dot product.
         self.svd, self.svd_matrix_normed = _fit_svd(self.tfidf_matrix)
 
+        # Stem → most-frequent-surface-form map, used to un-stem tags
+        # for display (e.g. `tricep` → `triceps`, `explos` → `explosive`).
+        self.stem_to_surface = _build_stem_surface_map(docs)
+
+        # Secondary, smaller SVD (15 dims) used only for labeling the
+        # "why this matched" tags on the SVD search tab. Kept separate
+        # from the retrieval SVD so retrieval quality is unaffected.
+        (self.theme_svd, self.theme_matrix,
+         self.svd_theme_labels_pos, self.svd_theme_labels_neg,
+         self.theme_baseline) = _fit_theme_svd(
+            self.tfidf_matrix, self.vectorizer, self.stem_to_surface)
+
         # Build a length-bucketed vocabulary index for O(1) candidate lookup
         # during spell correction.  Keys are token lengths; values are lists of
         # all vocabulary terms of that length.
@@ -626,10 +903,14 @@ class ExerciseSearcher:
             if raw in _STOP_WORDS or len(raw) <= 1:
                 corrected_display.append(raw)
                 continue
-            stemmed = _stem(raw)
+            aliased = _apply_alias(raw)
+            stemmed = _stem(aliased)
             corrected = _correct_token(stemmed, self.vocab_by_length)
             if corrected != stemmed:
                 corrected_display.append(corrected)
+                any_corrected = True
+            elif aliased != raw:
+                corrected_display.append(aliased)
                 any_corrected = True
             else:
                 corrected_display.append(raw)
@@ -638,6 +919,9 @@ class ExerciseSearcher:
 
         expanded = _expand_query(corrected_query)
         query_vec = self.vectorizer.transform([expanded])
+        # Project the query into the secondary theme space once so per-result
+        # tag attribution is a simple dot product in the loop.
+        query_theme_vec = self.theme_svd.transform(query_vec)[0] if method == "svd" else None
         if method == "svd":
             scores = _svd_scores(self.svd, self.svd_matrix_normed, query_vec)
         else:
@@ -672,14 +956,27 @@ class ExerciseSearcher:
                         continue
 
         top_indices = np.argsort(scores)[::-1][:k]
+        top_score = float(scores.max()) if scores.size else 0.0
         results = []
         for idx in top_indices:
             if scores[idx] <= 0:
                 break
             ex = self.exercises[idx]
+            if method == "svd":
+                theme_hits = _top_themes(query_theme_vec, self.theme_matrix[idx],
+                                         self.theme_baseline)
+                tags = [(self.svd_theme_labels_pos[t] if sign > 0
+                         else self.svd_theme_labels_neg[t])
+                        for t, sign in theme_hits]
+            else:
+                tags = _top_shared_terms(self.vectorizer, query_vec,
+                                         self.tfidf_matrix[idx],
+                                         self.stem_to_surface)
             results.append({
                 "name": ex.get("name"),
                 "score": round(float(scores[idx]), 4),
+                "match_quality": _match_quality(float(scores[idx]), top_score, method),
+                "tags": tags,
                 "primaryMuscles": ex.get("primaryMuscles", []),
                 "secondaryMuscles": ex.get("secondaryMuscles", []),
                 "level": ex.get("level"),
@@ -837,6 +1134,17 @@ class ProgramSearcher:
         # as ExerciseSearcher so paraphrased queries can still rank.
         self.svd, self.svd_matrix_normed = _fit_svd(self.tfidf_matrix)
 
+        # Stem → most-frequent-surface-form map, used to un-stem tags
+        # for display.
+        self.stem_to_surface = _build_stem_surface_map(docs)
+
+        # Secondary, smaller SVD for SVD-tab tag labeling — see
+        # ExerciseSearcher for rationale.
+        (self.theme_svd, self.theme_matrix,
+         self.svd_theme_labels_pos, self.svd_theme_labels_neg,
+         self.theme_baseline) = _fit_theme_svd(
+            self.tfidf_matrix, self.vectorizer, self.stem_to_surface)
+
         self.vocab_by_length = {}
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
@@ -889,28 +1197,44 @@ class ProgramSearcher:
             if raw in _STOP_WORDS or len(raw) <= 1:
                 corrected_display.append(raw)
                 continue
-            stemmed = _stem(raw)
+            aliased = _apply_alias(raw)
+            stemmed = _stem(aliased)
             corrected = _correct_token(stemmed, self.vocab_by_length)
             if corrected != stemmed:
                 corrected_display.append(corrected)
+                any_corrected = True
+            elif aliased != raw:
+                corrected_display.append(aliased)
                 any_corrected = True
             else:
                 corrected_display.append(raw)
 
         corrected_query = " ".join(corrected_display)
         query_vec = self.vectorizer.transform([corrected_query])
+        query_theme_vec = self.theme_svd.transform(query_vec)[0] if method == "svd" else None
         if method == "svd":
             scores = _svd_scores(self.svd, self.svd_matrix_normed, query_vec)
         else:
             scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
 
         top_indices = np.argsort(scores)[::-1][:k]
+        top_score = float(scores.max()) if scores.size else 0.0
         results = []
         for idx in top_indices:
             if scores[idx] <= 0:
                 break
             row = self.programs[idx]
             title = row.get("title", "")
+            if method == "svd":
+                theme_hits = _top_themes(query_theme_vec, self.theme_matrix[idx],
+                                         self.theme_baseline)
+                tags = [(self.svd_theme_labels_pos[t] if sign > 0
+                         else self.svd_theme_labels_neg[t])
+                        for t, sign in theme_hits]
+            else:
+                tags = _top_shared_terms(self.vectorizer, query_vec,
+                                         self.tfidf_matrix[idx],
+                                         self.stem_to_surface)
             results.append({
                 "title": title,
                 "description": row.get("description", "") or "",
@@ -918,6 +1242,8 @@ class ProgramSearcher:
                 "level": row.get("level_primary") or None,
                 "program_length_weeks": _to_float(row.get("program_length_weeks")),
                 "score": round(float(scores[idx]), 4),
+                "match_quality": _match_quality(float(scores[idx]), top_score, method),
+                "tags": tags,
                 "schedule": self.schedule_by_title.get(title, []),
             })
         return {
