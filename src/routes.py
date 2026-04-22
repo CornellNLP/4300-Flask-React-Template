@@ -124,5 +124,6 @@ def register_routes(app):
         return jsonify(retrieval_search_programs(query, k=5, method=method))
 
     if USE_LLM:
-        from llm_routes import register_chat_route
+        from llm_routes import register_chat_route, register_enrichment_routes
         register_chat_route(app, json_search)
+        register_enrichment_routes(app)

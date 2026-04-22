@@ -3,6 +3,7 @@ import './App.css'
 import SearchIcon from './assets/mag.png'
 import {
   Exercise,
+  FormCue,
   MatchQuality,
   Program,
   ProgramScheduleEntry,
@@ -35,6 +36,11 @@ function App(): JSX.Element {
   const [programsLoading, setProgramsLoading] = useState<boolean>(false)
   const [exerciseMethod, setExerciseMethod] = useState<SearchMethod>('tfidf')
   const [programMethod, setProgramMethod] = useState<SearchMethod>('tfidf')
+  const [planText, setPlanText] = useState<string>('')
+  const [planLoading, setPlanLoading] = useState<boolean>(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [programCues, setProgramCues] = useState<Record<string, FormCue>>({})
+  const [openCueKey, setOpenCueKey] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -52,7 +58,13 @@ function App(): JSX.Element {
     value: string,
     overrides?: { equipment?: string[]; difficulty?: string; injuries?: string[]; method?: SearchMethod },
   ): Promise<void> => {
-    if (value.trim() === '') { setExercises([]); return }
+    if (value.trim() === '') {
+      setExercises([])
+      setPlanText('')
+      setPlanError(null)
+      setPlanLoading(false)
+      return
+    }
     const eq = overrides?.equipment ?? selectedEquipment
     const diff = overrides?.difficulty ?? difficulty
     const inj = overrides?.injuries ?? injuries
@@ -68,6 +80,63 @@ function App(): JSX.Element {
     })
     const data = await res.json()
     setExercises(data.results)
+    // Reset plan state on every new search — top result may have changed.
+    setPlanText('')
+    setPlanError(null)
+    setPlanLoading(false)
+  }
+
+  const handleGeneratePlan = async (exercise: Exercise): Promise<void> => {
+    setPlanError(null)
+    setPlanText('')
+    setPlanLoading(true)
+    try {
+      const res = await fetch('/api/enrich_exercise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: exercise.name,
+          primaryMuscles: exercise.primaryMuscles,
+          secondaryMuscles: exercise.secondaryMuscles,
+          equipment: exercise.equipment,
+          instructions: exercise.instructions,
+        }),
+      })
+      if (!res.ok || !res.body) {
+        setPlanError('Could not generate plan.')
+        setPlanLoading(false)
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let text = ''
+      setPlanLoading(false)
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const payload = JSON.parse(line.slice(6))
+            if (payload.error) {
+              setPlanError(payload.error)
+              return
+            }
+            if (typeof payload.content === 'string') {
+              text += payload.content
+              setPlanText(text)
+            }
+          } catch { /* ignore malformed line */ }
+        }
+      }
+    } catch {
+      setPlanError('Something went wrong generating the plan.')
+      setPlanLoading(false)
+    }
   }
 
   const toggleEquipment = (value: string): void => {
@@ -95,7 +164,12 @@ function App(): JSX.Element {
     value: string,
     overrides?: { method?: SearchMethod },
   ): Promise<void> => {
-    if (value.trim() === '') { setPrograms([]); return }
+    if (value.trim() === '') {
+      setPrograms([])
+      setProgramCues({})
+      setOpenCueKey(null)
+      return
+    }
     const meth = overrides?.method ?? programMethod
     setProgramsLoading(true)
     try {
@@ -106,6 +180,43 @@ function App(): JSX.Element {
       })
       const data = await res.json()
       setPrograms(data.results)
+      setProgramCues({})
+      setOpenCueKey(null)
+
+      const top: Program | undefined = data.results?.[0]
+      if (top && top.schedule && top.schedule.length > 0) {
+        const names: string[] = []
+        const seen = new Set<string>()
+        for (const entry of top.schedule) {
+          const nm = entry.exercise_name?.trim()
+          if (!nm) continue
+          const key = nm.toLowerCase()
+          if (seen.has(key)) continue
+          seen.add(key)
+          names.push(nm)
+        }
+        if (names.length > 0 && useLlm) {
+          fetch('/api/enrich_program', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exercises: names }),
+          })
+            .then(r => (r.ok ? r.json() : null))
+            .then(payload => {
+              if (!payload || typeof payload !== 'object') return
+              const cuesRaw = (payload as { cues?: Record<string, FormCue> }).cues
+              if (!cuesRaw) return
+              const normalized: Record<string, FormCue> = {}
+              for (const [k, v] of Object.entries(cuesRaw)) {
+                if (v && typeof v === 'object' && Array.isArray((v as FormCue).form_cues)) {
+                  normalized[k.toLowerCase()] = v as FormCue
+                }
+              }
+              setProgramCues(normalized)
+            })
+            .catch(() => { /* fail silently */ })
+        }
+      }
     } finally {
       setProgramsLoading(false)
     }
@@ -345,6 +456,28 @@ function App(): JSX.Element {
                 </ol>
               </details>
             )}
+            {index === 0 && useLlm && (
+              <div className="workout-plan">
+                <button
+                  type="button"
+                  className="workout-plan-btn"
+                  onClick={() => handleGeneratePlan(exercise)}
+                  disabled={planLoading}
+                >
+                  {planLoading
+                    ? 'Generating workout plan…'
+                    : planText
+                      ? 'Regenerate workout plan'
+                      : 'Generate workout plan for today'}
+                </button>
+                {planError && <p className="workout-plan-error">{planError}</p>}
+                {planText && (
+                  <pre className="workout-plan-content" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                    {planText}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -403,9 +536,43 @@ function App(): JSX.Element {
                       <div key={di} className="schedule-day">
                         <p><em>Day {dayGroup.day ?? '?'}</em></p>
                         <ul>
-                          {dayGroup.entries.map((entry, ei) => (
-                            <li key={ei}>{entry.exercise_name}{formatReps(entry)}</li>
-                          ))}
+                          {dayGroup.entries.map((entry, ei) => {
+                            const cueKey = entry.exercise_name.trim().toLowerCase()
+                            const cue = index === 0 ? programCues[cueKey] : undefined
+                            const openKey = `${wi}-${di}-${ei}`
+                            const isOpen = openCueKey === openKey
+                            return (
+                              <li key={ei}>
+                                {entry.exercise_name}{formatReps(entry)}
+                                {cue && (
+                                  <>
+                                    {' '}
+                                    <button
+                                      type="button"
+                                      className="form-cue-toggle"
+                                      aria-label="Form cues"
+                                      aria-expanded={isOpen}
+                                      onClick={() => setOpenCueKey(isOpen ? null : openKey)}
+                                    >
+                                      ⓘ
+                                    </button>
+                                    {isOpen && (
+                                      <div className="form-cue-panel">
+                                        {cue.form_cues.length > 0 && (
+                                          <ul className="form-cue-list">
+                                            {cue.form_cues.map((c, ci) => <li key={ci}>{c}</li>)}
+                                          </ul>
+                                        )}
+                                        {cue.safety && (
+                                          <p className="form-cue-safety"><strong>Safety:</strong> {cue.safety}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </li>
+                            )
+                          })}
                         </ul>
                       </div>
                     ))}

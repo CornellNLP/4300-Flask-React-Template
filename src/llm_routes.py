@@ -1,9 +1,13 @@
 """
-LLM chat route — only loaded when USE_LLM = True in routes.py.
-Adds a POST /api/chat endpoint that performs LLM-driven RAG.
+LLM routes — only loaded when USE_LLM = True in routes.py.
+
+Endpoints:
+  POST /api/chat              — SSE-streaming RAG chat (Kardashians demo).
+  POST /api/enrich_exercise   — SSE-streaming complementary workout plan for the top exercise.
+  POST /api/enrich_program    — JSON form cues + safety notes for a list of exercise names.
 
 Setup:
-  1. Add API_KEY=your_key to .env
+  1. Add SPARK_API_KEY=your_key to .env
   2. Set USE_LLM = True in routes.py
 """
 import json
@@ -14,6 +18,32 @@ from flask import request, jsonify, Response, stream_with_context
 from infosci_spark_client import LLMClient
 
 logger = logging.getLogger(__name__)
+
+MAX_PROGRAM_EXERCISES = 40
+
+
+def _get_llm_client():
+    """Return an LLMClient or None if SPARK_API_KEY is unset."""
+    api_key = os.getenv("SPARK_API_KEY")
+    if not api_key:
+        return None
+    return LLMClient(api_key=api_key)
+
+
+def _extract_json(text):
+    """Pull the first JSON object out of an LLM response (handles ```json fences)."""
+    if not text:
+        return None
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fenced:
+        candidate = fenced.group(1)
+    else:
+        brace = re.search(r"\{.*\}", text, re.DOTALL)
+        candidate = brace.group(0) if brace else text
+    try:
+        return json.loads(candidate)
+    except (ValueError, TypeError):
+        return None
 
 
 def llm_search_decision(client, user_message):
@@ -53,11 +83,10 @@ def register_chat_route(app, json_search):
         if not user_message:
             return jsonify({"error": "Message is required"}), 400
 
-        api_key = os.getenv("API_KEY")
-        if not api_key:
-            return jsonify({"error": "API_KEY not set — add it to your .env file"}), 500
+        client = _get_llm_client()
+        if client is None:
+            return jsonify({"error": "SPARK_API_KEY not set — add it to your .env file"}), 500
 
-        client = LLMClient(api_key=api_key)
         use_search, search_term = llm_search_decision(client, user_message)
 
         if use_search:
@@ -92,3 +121,130 @@ def register_chat_route(app, json_search):
             mimetype="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+
+def register_enrichment_routes(app):
+    """Register the three LLM enrichment endpoints. Called from routes.py."""
+
+    @app.route("/api/enrich_exercise", methods=["POST"])
+    def enrich_exercise():
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+
+        primary = data.get("primaryMuscles") or []
+        secondary = data.get("secondaryMuscles") or []
+        equipment = data.get("equipment")
+        instructions = data.get("instructions") or []
+
+        client = _get_llm_client()
+        if client is None:
+            return jsonify({"error": "SPARK_API_KEY not set — add it to your .env file"}), 500
+
+        exercise_block = (
+            f"Exercise name: {name}\n"
+            f"Primary muscles: {', '.join(primary) if primary else 'unspecified'}\n"
+            f"Secondary muscles: {', '.join(secondary) if secondary else 'unspecified'}\n"
+            f"Equipment: {equipment or 'unspecified'}\n"
+            f"Instructions:\n" + "\n".join(f"- {step}" for step in instructions[:8])
+        )
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strength-and-conditioning coach. Given a centerpiece exercise, "
+                    "output a full complementary workout plan for the day. Include: a brief warmup, "
+                    "3-4 accessory exercises that target complementary muscle groups or movement "
+                    "patterns, a finisher, and a cooldown. Match the available equipment. Keep tone "
+                    "direct and practical. Use markdown headings and bullet lists. Do not restate "
+                    "the full instructions for the centerpiece exercise — the user already has them. "
+                    "For any exercise prescribed for hypertrophy, use a rep range of 8-12."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Centerpiece exercise:\n\n{exercise_block}\n\nWrite the workout plan.",
+            },
+        ]
+
+        def generate():
+            try:
+                for chunk in client.chat(messages, stream=True):
+                    if chunk.get("content"):
+                        yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
+            except Exception as e:
+                logger.error(f"enrich_exercise streaming error: {e}")
+                yield f"data: {json.dumps({'error': 'Streaming error occurred'})}\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.route("/api/enrich_program", methods=["POST"])
+    def enrich_program():
+        data = request.get_json() or {}
+        raw = data.get("exercises") or []
+        seen = set()
+        exercises = []
+        for name in raw:
+            if not isinstance(name, str):
+                continue
+            key = name.strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            exercises.append(name.strip())
+        exercises = exercises[:MAX_PROGRAM_EXERCISES]
+        if not exercises:
+            return jsonify({"cues": {}})
+
+        client = _get_llm_client()
+        if client is None:
+            return jsonify({"cues": {}})
+
+        listing = "\n".join(f"- {n}" for n in exercises)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You give concise strength-training form cues. Respond ONLY with valid JSON in "
+                    "exactly this shape: "
+                    "{\"cues\": {\"<exercise name>\": {\"form_cues\": [\"...\", \"...\"], \"safety\": \"...\"}}}. "
+                    "Provide 2-3 short form cues (each under 15 words) and one safety note per exercise. "
+                    "Use the exercise names exactly as given. No prose outside the JSON."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Exercises:\n{listing}",
+            },
+        ]
+
+        try:
+            response = client.chat(messages, stream=False)
+            content = response.get("content") if isinstance(response, dict) else None
+        except Exception as e:
+            logger.error(f"enrich_program LLM error: {e}")
+            return jsonify({"cues": {}})
+
+        parsed = _extract_json(content) or {}
+        cues_raw = parsed.get("cues") if isinstance(parsed, dict) else None
+        cues = {}
+        if isinstance(cues_raw, dict):
+            for key, val in cues_raw.items():
+                if not isinstance(key, str) or not isinstance(val, dict):
+                    continue
+                form_cues = val.get("form_cues") or []
+                safety = val.get("safety") or ""
+                if not isinstance(form_cues, list):
+                    continue
+                form_cues_clean = [c for c in form_cues if isinstance(c, str) and c.strip()]
+                cues[key.strip()] = {
+                    "form_cues": form_cues_clean,
+                    "safety": safety.strip() if isinstance(safety, str) else "",
+                }
+        return jsonify({"cues": cues})

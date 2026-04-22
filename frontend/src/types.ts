@@ -71,6 +71,11 @@ export const DIFFICULTY_OPTIONS: ['beginner', 'intermediate', 'expert'] = [
   'expert',
 ];
 
+export interface FormCue {
+  form_cues: string[];
+  safety: string;
+}
+
 export const MUSCLE_OPTIONS: string[] = [
   'abdominals',
   'abductors',
