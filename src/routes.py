@@ -73,7 +73,7 @@ def register_routes(app):
 
         payload = retrieval_search(
             query,
-            k=5,
+            k=20,
             equipment=equipment,
             max_level=max_level,
             injured_muscles=injured_muscles,
@@ -89,9 +89,11 @@ def register_routes(app):
             return jsonify({"results": [], "corrected_query": None})
         raw_method = data.get("method")
         method = raw_method if raw_method in ("tfidf", "svd") else "tfidf"
-        return jsonify(retrieval_search_programs(query, k=5, method=method))
+        return jsonify(retrieval_search_programs(query, k=20, method=method))
 
     if USE_LLM:
         from llm_routes import register_chat_route, register_enrichment_routes
+        from rag_routes import register_rag_routes
         register_chat_route(app, json_search)
         register_enrichment_routes(app)
+        register_rag_routes(app)

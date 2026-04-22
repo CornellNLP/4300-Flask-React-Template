@@ -11,6 +11,27 @@ import './App.css';
 
 type Tab = 'exercises' | 'programs';
 type Method = 'tfidf' | 'svd';
+type ResultsView = 'ir' | 'rag';
+
+type RagState<T> = {
+  results: T[];
+  refinedQuery: string;
+  loading: boolean;
+  error: string | null;
+};
+
+const emptyExerciseRag: RagState<Exercise> = {
+  results: [],
+  refinedQuery: '',
+  loading: false,
+  error: null,
+};
+const emptyProgramRag: RagState<Program> = {
+  results: [],
+  refinedQuery: '',
+  loading: false,
+  error: null,
+};
 
 export default function App() {
   const [useLlm, setUseLlm] = useState<boolean>(false);
@@ -19,6 +40,8 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exerciseMethod, setExerciseMethod] = useState<Method>('tfidf');
+  const [exerciseView, setExerciseView] = useState<ResultsView>('ir');
+  const [exerciseRag, setExerciseRag] = useState<RagState<Exercise>>(emptyExerciseRag);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<string>('');
   const [injuries, setInjuries] = useState<string[]>([]);
@@ -30,6 +53,8 @@ export default function App() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [programMethod, setProgramMethod] = useState<Method>('tfidf');
   const [programsLoading, setProgramsLoading] = useState<boolean>(false);
+  const [programView, setProgramView] = useState<ResultsView>('ir');
+  const [programRag, setProgramRag] = useState<RagState<Program>>(emptyProgramRag);
   const [openCueKey, setOpenCueKey] = useState<string | null>(null);
   const [topCues, setTopCues] = useState<Record<string, FormCue>>({});
 
@@ -140,6 +165,85 @@ export default function App() {
     }
   };
 
+  const runRagSearch = async (query: string, overrides: SearchOverrides = {}) => {
+    if (!query.trim()) {
+      setExerciseRag(emptyExerciseRag);
+      return;
+    }
+    const eq = overrides.equipment ?? selectedEquipment;
+    const diff = overrides.difficulty ?? difficulty;
+    const inj = overrides.injuries ?? injuries;
+    const method = overrides.method ?? exerciseMethod;
+    const body: Record<string, unknown> = { query, method };
+    if (eq.length > 0) body.equipment = eq;
+    if (diff) body.difficulty = diff;
+    if (inj.length > 0) body.injuries = inj;
+    setExerciseRag((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await fetch('/api/rag_search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setExerciseRag({
+          results: [], refinedQuery: '', loading: false,
+          error: res.status === 503 ? 'LLM not configured' : `Request failed (${res.status})`,
+        });
+        return;
+      }
+      const data = await res.json();
+      setExerciseRag({
+        results: data.results ?? [],
+        refinedQuery: data.refined_query ?? '',
+        loading: false,
+        error: null,
+      });
+    } catch (err) {
+      console.error('rag search failed', err);
+      setExerciseRag({
+        results: [], refinedQuery: '', loading: false,
+        error: err instanceof Error ? err.message : 'RAG search failed',
+      });
+    }
+  };
+
+  const runRagProgramSearch = async (query: string, methodOverride?: Method) => {
+    if (!query.trim()) {
+      setProgramRag(emptyProgramRag);
+      return;
+    }
+    const method = methodOverride ?? programMethod;
+    setProgramRag((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await fetch('/api/rag_search_programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, method }),
+      });
+      if (!res.ok) {
+        setProgramRag({
+          results: [], refinedQuery: '', loading: false,
+          error: res.status === 503 ? 'LLM not configured' : `Request failed (${res.status})`,
+        });
+        return;
+      }
+      const data = await res.json();
+      setProgramRag({
+        results: data.results ?? [],
+        refinedQuery: data.refined_query ?? '',
+        loading: false,
+        error: null,
+      });
+    } catch (err) {
+      console.error('rag program search failed', err);
+      setProgramRag({
+        results: [], refinedQuery: '', loading: false,
+        error: err instanceof Error ? err.message : 'RAG search failed',
+      });
+    }
+  };
+
   const handleGeneratePlan = async (exercise: Exercise) => {
     setPlanState({ loading: true, text: '', error: null });
     try {
@@ -193,17 +297,31 @@ export default function App() {
     }
   };
 
+  const triggerExerciseSearch = (query: string, overrides: SearchOverrides = {}) => {
+    runSearch(query, overrides);
+    if (useLlm && exerciseView === 'rag' && query.trim()) {
+      runRagSearch(query, overrides);
+    }
+  };
+
+  const triggerProgramSearch = (query: string, methodOverride?: Method) => {
+    runProgramSearch(query, methodOverride);
+    if (useLlm && programView === 'rag' && query.trim()) {
+      runRagProgramSearch(query, methodOverride);
+    }
+  };
+
   const toggleEquipment = (v: string) => {
     const next = selectedEquipment.includes(v)
       ? selectedEquipment.filter((x) => x !== v)
       : [...selectedEquipment, v];
     setSelectedEquipment(next);
-    if (searchTerm.trim()) runSearch(searchTerm, { equipment: next });
+    if (searchTerm.trim()) triggerExerciseSearch(searchTerm, { equipment: next });
   };
 
   const changeDifficulty = (v: string) => {
     setDifficulty(v);
-    if (searchTerm.trim()) runSearch(searchTerm, { difficulty: v });
+    if (searchTerm.trim()) triggerExerciseSearch(searchTerm, { difficulty: v });
   };
 
   const toggleInjury = (v: string) => {
@@ -211,16 +329,32 @@ export default function App() {
       ? injuries.filter((x) => x !== v)
       : [...injuries, v];
     setInjuries(next);
-    if (searchTerm.trim()) runSearch(searchTerm, { injuries: next });
+    if (searchTerm.trim()) triggerExerciseSearch(searchTerm, { injuries: next });
   };
 
   const changeMethod = (m: Method) => {
     if (activeTab === 'exercises') {
       setExerciseMethod(m);
-      if (searchTerm.trim()) runSearch(searchTerm, { method: m });
+      if (searchTerm.trim()) triggerExerciseSearch(searchTerm, { method: m });
     } else {
       setProgramMethod(m);
-      if (programSearchTerm.trim()) runProgramSearch(programSearchTerm, m);
+      if (programSearchTerm.trim()) triggerProgramSearch(programSearchTerm, m);
+    }
+  };
+
+  const changeView = (v: ResultsView) => {
+    if (activeTab === 'exercises') {
+      setExerciseView(v);
+      if (v === 'rag' && useLlm && searchTerm.trim() &&
+          exerciseRag.results.length === 0 && !exerciseRag.loading) {
+        runRagSearch(searchTerm);
+      }
+    } else {
+      setProgramView(v);
+      if (v === 'rag' && useLlm && programSearchTerm.trim() &&
+          programRag.results.length === 0 && !programRag.loading) {
+        runRagProgramSearch(programSearchTerm);
+      }
     }
   };
 
@@ -303,8 +437,8 @@ export default function App() {
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  if (activeTab === 'exercises') runSearch(searchTerm);
-                  else runProgramSearch(programSearchTerm);
+                  if (activeTab === 'exercises') triggerExerciseSearch(searchTerm);
+                  else triggerProgramSearch(programSearchTerm);
                 }
               }}
             />
@@ -314,8 +448,8 @@ export default function App() {
             className="run-btn"
             onClick={() =>
               activeTab === 'exercises'
-                ? runSearch(searchTerm)
-                : runProgramSearch(programSearchTerm)
+                ? triggerExerciseSearch(searchTerm)
+                : triggerProgramSearch(programSearchTerm)
             }
           >
             <span>RUN SEARCH</span>
@@ -425,7 +559,9 @@ export default function App() {
                 <div>
                   <div className="results__label">RESULTS</div>
                   <h2 className="results__title">
-                    <span className="results__count">{exercises.length}</span>
+                    <span className="results__count">
+                      {exerciseView === 'rag' ? exerciseRag.results.length : exercises.length}
+                    </span>
                     <span>exercises ranked by</span>
                     <span className="results__method">
                       {exerciseMethod === 'tfidf' ? 'KEYWORD' : 'SEMANTIC'}
@@ -438,27 +574,94 @@ export default function App() {
                 </div>
               </header>
 
-              <div className="results__list">
-                {exercises.map((ex, i) => (
-                  <ExerciseCard
-                    key={`${ex.name}-${i}`}
-                    exercise={ex}
-                    rank={i + 1}
-                    expanded={!!expandedCards[i]}
-                    onToggleExpand={() => toggleCard(i)}
-                    onHoverMuscles={() => { /* muscle map disabled */ }}
-                    onGeneratePlan={handleGeneratePlan}
-                    planState={planState}
-                    useLlm={useLlm}
-                  />
-                ))}
-                {exercises.length === 0 && (
-                  <div className="empty">
-                    <div className="empty__icon">◎</div>
-                    <p>No results. Try broadening your filters or query.</p>
+              {useLlm && (
+                <div className="viewtabs">
+                  <button
+                    type="button"
+                    className={`viewtab ${exerciseView === 'ir' ? 'is-active' : ''}`}
+                    onClick={() => changeView('ir')}
+                  >
+                    IR
+                  </button>
+                  <button
+                    type="button"
+                    className={`viewtab ${exerciseView === 'rag' ? 'is-active' : ''}`}
+                    onClick={() => changeView('rag')}
+                  >
+                    IR + RAG
+                  </button>
+                </div>
+              )}
+
+              {exerciseView === 'rag' && useLlm && (exerciseRag.refinedQuery || exerciseRag.loading || exerciseRag.error) && (
+                <div className="refined-query">
+                  <div className="refined-query__row">
+                    <span className="refined-query__label">ORIGINAL</span>
+                    <span className="refined-query__text">{searchTerm || '—'}</span>
                   </div>
-                )}
-              </div>
+                  <div className="refined-query__row">
+                    <span className="refined-query__label">REFINED</span>
+                    <span className="refined-query__text refined-query__text--accent">
+                      {exerciseRag.loading
+                        ? 'refining query…'
+                        : exerciseRag.error
+                          ? `(error: ${exerciseRag.error})`
+                          : exerciseRag.refinedQuery || '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {exerciseView === 'ir' ? (
+                <div className="results__list">
+                  {exercises.map((ex, i) => (
+                    <ExerciseCard
+                      key={`${ex.name}-${i}`}
+                      exercise={ex}
+                      rank={i + 1}
+                      expanded={!!expandedCards[i]}
+                      onToggleExpand={() => toggleCard(i)}
+                      onHoverMuscles={() => { /* muscle map disabled */ }}
+                      onGeneratePlan={handleGeneratePlan}
+                      planState={planState}
+                      useLlm={useLlm}
+                    />
+                  ))}
+                  {exercises.length === 0 && (
+                    <div className="empty">
+                      <div className="empty__icon">◎</div>
+                      <p>No results. Try broadening your filters or query.</p>
+                    </div>
+                  )}
+                </div>
+              ) : exerciseRag.loading ? (
+                <div className="loading">
+                  <div className="loading__spinner" />
+                  <p>Refining query &amp; reranking with LLM…</p>
+                </div>
+              ) : (
+                <div className="results__list">
+                  {exerciseRag.results.map((ex, i) => (
+                    <ExerciseCard
+                      key={`rag-${ex.name}-${i}`}
+                      exercise={ex}
+                      rank={i + 1}
+                      expanded={!!expandedCards[i]}
+                      onToggleExpand={() => toggleCard(i)}
+                      onHoverMuscles={() => { /* muscle map disabled */ }}
+                      onGeneratePlan={handleGeneratePlan}
+                      planState={planState}
+                      useLlm={useLlm}
+                    />
+                  ))}
+                  {exerciseRag.results.length === 0 && !exerciseRag.error && (
+                    <div className="empty">
+                      <div className="empty__icon">◎</div>
+                      <p>Run a search to see IR + RAG results.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           </div>
         ) : (
@@ -468,7 +671,9 @@ export default function App() {
                 <div>
                   <div className="results__label">PROGRAMS</div>
                   <h2 className="results__title">
-                    <span className="results__count">{programs.length}</span>
+                    <span className="results__count">
+                      {programView === 'rag' ? programRag.results.length : programs.length}
+                    </span>
                     <span>programs ranked by</span>
                     <span className="results__method">
                       {programMethod === 'tfidf' ? 'KEYWORD' : 'SEMANTIC'}
@@ -481,7 +686,45 @@ export default function App() {
                 </div>
               </header>
 
-              {programsLoading ? (
+              {useLlm && (
+                <div className="viewtabs">
+                  <button
+                    type="button"
+                    className={`viewtab ${programView === 'ir' ? 'is-active' : ''}`}
+                    onClick={() => changeView('ir')}
+                  >
+                    IR
+                  </button>
+                  <button
+                    type="button"
+                    className={`viewtab ${programView === 'rag' ? 'is-active' : ''}`}
+                    onClick={() => changeView('rag')}
+                  >
+                    IR + RAG
+                  </button>
+                </div>
+              )}
+
+              {programView === 'rag' && useLlm && (programRag.refinedQuery || programRag.loading || programRag.error) && (
+                <div className="refined-query">
+                  <div className="refined-query__row">
+                    <span className="refined-query__label">ORIGINAL</span>
+                    <span className="refined-query__text">{programSearchTerm || '—'}</span>
+                  </div>
+                  <div className="refined-query__row">
+                    <span className="refined-query__label">REFINED</span>
+                    <span className="refined-query__text refined-query__text--accent">
+                      {programRag.loading
+                        ? 'refining query…'
+                        : programRag.error
+                          ? `(error: ${programRag.error})`
+                          : programRag.refinedQuery || '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {programView === 'ir' && programsLoading ? (
                 <div className="loading">
                   <div className="loading__spinner" />
                   <p>
@@ -490,7 +733,12 @@ export default function App() {
                     <small>first run may take ~25s</small>
                   </p>
                 </div>
-              ) : (
+              ) : programView === 'rag' && programRag.loading ? (
+                <div className="loading">
+                  <div className="loading__spinner" />
+                  <p>Refining query &amp; reranking with LLM…</p>
+                </div>
+              ) : programView === 'ir' ? (
                 <div className="results__list">
                   {programs.map((pg, i) => (
                     <ProgramCard
@@ -504,6 +752,33 @@ export default function App() {
                       cues={topCues}
                     />
                   ))}
+                  {programs.length === 0 && (
+                    <div className="empty">
+                      <div className="empty__icon">◎</div>
+                      <p>No results. Try a different query.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="results__list">
+                  {programRag.results.map((pg, i) => (
+                    <ProgramCard
+                      key={`rag-${pg.title}-${i}`}
+                      program={pg}
+                      rank={i + 1}
+                      isTop={i === 0}
+                      useLlm={useLlm}
+                      openCueKey={openCueKey}
+                      setOpenCueKey={setOpenCueKey}
+                      cues={topCues}
+                    />
+                  ))}
+                  {programRag.results.length === 0 && !programRag.error && (
+                    <div className="empty">
+                      <div className="empty__icon">◎</div>
+                      <p>Run a search to see IR + RAG results.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
