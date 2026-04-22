@@ -8,6 +8,49 @@ import numpy as np
 import re
 
 
+DIM_NAMES = {
+    0:  "Roasted Poultry",
+    1:  "Bell Peppers & Spanish",
+    2:  "Pumpkin & Squash",
+    3:  "Quick Cafe Meals",
+    4:  "Enchiladas & Tex-Mex",
+    5:  "Citrus & Lemonade",
+    6:  "Fall & Thanksgiving",
+    7:  "Breakfast & Brunch",
+    8:  "Delicate Bites",
+    9:  "Holiday & Cranberry",
+    10: "Gluten-Free & Dietary",
+    11: "Grandma's Comfort Food",
+    12: "French & Spanish Flavors",
+    13: "Ricotta & Topped Dishes",
+    14: "Crab & Stone Fruit",
+    15: "Pancakes & Waffles",
+    16: "Eggs & Moroccan Brunch",
+    17: "Middle Eastern & Yogurt",
+    18: "Cocktails & Louisiana",
+    19: "Grilled Steaks & BBQ",
+    20: "Slow Cooker & Crockpot",
+    21: "Creamy Desserts & Ice Cream",
+    22: "Asian & Soy",
+    23: "Goat Cheese & Salads",
+    24: "Chocolate & Fudge",
+    25: "Emotional Playlist Vibes",
+    26: "Budget & Beginner",
+    27: "Fish & Breadcrumbs",
+    28: "Potatoes & Yams",
+    29: "Grilling & Marinades",
+    30: "Pudding & Mousse",
+    31: "Chilled Cocktails",
+    32: "Fruit Breads & Caribbean",
+    33: "Pasta & Grains",
+    34: "Cheese & Mac",
+    35: "Beef & Burgers",
+    36: "Playlist Emotions",
+    37: "Healthy & Low Calorie",
+    38: "Playlist Lyrics",
+    39: "Quick Main Courses",
+}
+
 # Builds a TF-IDF index for recipes or playlists
 def build_tfidf_index(data, data_set_category):
     if data_set_category == "recipe":
@@ -128,6 +171,7 @@ def _dim_info(vec, dim_indices, words_normed, index_to_word, top_keywords):
         keywords = [index_to_word[i] for i in top_word_idx if i in index_to_word]
         info.append({
             "dim": int(dim),
+            "name": DIM_NAMES.get(int(dim), " / ".join(keywords[:3])),
             "magnitude": round(float(vec[dim]), 4),
             "keywords": keywords,
         })
