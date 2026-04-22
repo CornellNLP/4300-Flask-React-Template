@@ -80,6 +80,28 @@ def query_to_vector(query: str) -> np.ndarray:
     norm      = np.linalg.norm(vec)
     return vec / norm if norm > 0 else vec
 
+def compute_harmonic_score(podcast, vec_a, vec_b, show_id_to_idx, embeddings):
+    """Computes harmonic mean for each podcast returned from merged query. 
+    This prevents results that are very skewed towards just one user."""
+    show_id_str = str(podcast.id)
+    
+    if show_id_str not in show_id_to_idx:
+        return 0.0
+    
+    podcast_embedding = embeddings[show_id_to_idx[show_id_str]]
+    
+    score_a = float(cosine_similarity([vec_a], [podcast_embedding])[0][0])
+    score_b = float(cosine_similarity([vec_b], [podcast_embedding])[0][0])
+    
+    # Harmonic mean: 2 / (1/a + 1/b)
+    if score_a > 0 and score_b > 0:
+        result = 2 / (1/score_a + 1/score_b)
+    elif score_a > 0 or score_b > 0:
+        result = max(score_a, score_b) * 0.5  # Penalize if only one user likes it
+    else:
+        return 0.0
+    return max(result, 0.0)
+
 def compute_match(user_a: dict, user_b: dict) -> dict:
     """
     user_a / user_b are dicts matching your QueryComponent fields:
@@ -96,6 +118,7 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
     match_pct = round(((raw_match + 1) / 2) * 100, 1)  # rescale to 0–100%
 
     # ── Merged query vector: average of both 
+    # TODO RAG for better merged vector?
     merged_vec = (vec_a + vec_b) / 2
     merged_norm = np.linalg.norm(merged_vec)
     if merged_norm > 0:
@@ -142,10 +165,15 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
 
     podcasts = q.all()
 
+    # scores based on harmonic mean
+    scores = {}
+    for p in podcasts:
+        scores[p.id] = compute_harmonic_score(p, vec_a, vec_b, show_id_to_idx, embeddings)
+    
     # Rank by merged score
     ranked = sorted(
         podcasts,
-        key=lambda p: id_to_score.get(str(p.id), 0.0),
+        key=lambda p: scores.get(p.id, 0.0),
         reverse=True
     )[:5]
 
@@ -159,7 +187,7 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
         'feed_url':      p.feed_url,
         'website_url':   p.website_url,
         'author':        p.author,
-        'score':         round(id_to_score.get(str(p.id), 0.0), 4),
+        'score':         round(scores.get(p.id, 0.0), 4),
         'score_for_a':   round(float(cosine_similarity([vec_a], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
         'score_for_b':   round(float(cosine_similarity([vec_b], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
         'episode_count': p.episode_count,
