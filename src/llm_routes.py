@@ -1,94 +1,103 @@
-"""
-LLM chat route — only loaded when USE_LLM = True in routes.py.
-Adds a POST /api/chat endpoint that performs LLM-driven RAG.
 
-Setup:
-  1. Add API_KEY=your_key to .env
-  2. Set USE_LLM = True in routes.py
-"""
 import json
 import os
 import re
 import logging
-from flask import request, jsonify, Response, stream_with_context
+from flask import request, jsonify
 from infosci_spark_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
 
-def llm_search_decision(client, user_message):
-    """Ask the LLM whether to search the DB and which word to use."""
+def llm_expand_query(client, user_message):
+    """Use the LLM to shape the user's message into IR-friendly keywords."""
     messages = [
         {
             "role": "system",
             "content": (
-                "You have access to a database of Keeping Up with the Kardashians episode titles, "
-                "descriptions, and IMDB ratings. Search is by a single word in the episode title. "
-                "Reply with exactly: YES followed by one space and ONE word to search (e.g. YES wedding), "
-                "or NO if the question does not need episode data."
+                "You are a search query optimizer for a music lyric search engine. "
+                "Given the user's input, rewrite it as a compact set of keywords that captures the mood, theme, and feeling — words likely to appear in matching song lyrics. "
+                "Rules:\n"
+                "- If the input is short (1-3 words), expand it into related descriptive words.\n"
+                "- If the input is long, distill it down to the most important mood and theme keywords.\n"
+                "- If the input references a cultural moment, feeling, or situation, translate it into the emotions and words a matching song would contain.\n"
+                "- Output only keywords, space-separated, no punctuation, no explanation. Aim for 5-10 words.\n"
+                "Examples:\n"
+                "  'christmas' -> 'christmas winter festive merry cozy warm holiday joy'\n"
+                "  'shake off haters' -> 'shake confident carefree upbeat haters brushing off empowerment'\n"
+                "  'i want something that feels like a warm summer evening with friends laughing' -> 'summer warm evening friends joy laughter carefree nostalgic'"
             ),
         },
         {"role": "user", "content": user_message},
     ]
     response = client.chat(messages)
-    content = (response.get("content") or "").strip().upper()
-    logger.info(f"LLM search decision: {content}")
-    if re.search(r"\bNO\b", content) and not re.search(r"\bYES\b", content):
-        return False, None
-    yes_match = re.search(r"\bYES\s+(\w+)", content)
-    if yes_match:
-        return True, yes_match.group(1).lower()
-    if re.search(r"\bYES\b", content):
-        return True, "Kardashian"
-    return False, None
+    expanded = (response.get("content") or "").strip()
+    logger.info(f"LLM query expansion: {expanded}")
+    print(f"[RAG] expanded query: {expanded}", flush=True)
+    return expanded or user_message
 
 
-def register_chat_route(app, json_search):
-    """Register the /api/chat SSE endpoint. Called from routes.py."""
+def llm_describe_songs(client, user_query, songs):
+    """Ask the LLM to describe each song in context of the user's request."""
+    if not songs:
+        return []
 
-    @app.route("/api/chat", methods=["POST"])
-    def chat():
+    song_list = "\n".join(
+        f"{i+1}. \"{s['title']}\" by {s['artist']} — {s['lyrics_preview']}"
+        for i, s in enumerate(songs)
+    )
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a music assistant. For each song listed, write a paragraph of 3-6 sentences "
+                "explaining why it fits the user's request — cover the mood, lyrical themes, and how it connects to what the user is looking for. "
+                "Output only the numbered list, nothing else. Format:\n"
+                "1. <paragraph>\n2. <paragraph>\n..."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"User's request: {user_query}\n\nSongs:\n{song_list}",
+        },
+    ]
+
+    response = client.chat(messages)
+    content = (response.get("content") or "").strip()
+
+    descriptions = [""] * len(songs)
+    for match in re.finditer(r"(\d+)\.\s*(.+?)(?=\n\d+\.|$)", content, re.DOTALL):
+        idx = int(match.group(1)) - 1
+        if 0 <= idx < len(songs):
+            descriptions[idx] = match.group(2).strip()
+
+    return descriptions
+
+
+def register_chat_route(app, song_search):
+    """Register the /api/rag endpoint. Called from routes.py."""
+
+    @app.route("/api/rag", methods=["POST"])
+    def rag():
         data = request.get_json() or {}
-        user_message = (data.get("message") or "").strip()
-        if not user_message:
-            return jsonify({"error": "Message is required"}), 400
+        user_query = (data.get("query") or "").strip()
+        if not user_query:
+            return jsonify({"error": "Query is required"}), 400
 
-        api_key = os.getenv("API_KEY")
+        api_key = os.getenv("SPARK_API_KEY")
         if not api_key:
-            return jsonify({"error": "API_KEY not set — add it to your .env file"}), 500
+            return jsonify({"error": "SPARK_API_KEY not set — add it to your .env file"}), 500
 
         client = LLMClient(api_key=api_key)
-        use_search, search_term = llm_search_decision(client, user_message)
 
-        if use_search:
-            episodes = json_search(search_term or "Kardashian")
-            context_text = "\n\n---\n\n".join(
-                f"Title: {ep['title']}\nDescription: {ep['descr']}\nIMDB Rating: {ep['imdb_rating']}"
-                for ep in episodes
-            ) or "No matching episodes found."
-            messages = [
-                {"role": "system", "content": "Answer questions about Keeping Up with the Kardashians using only the episode information provided."},
-                {"role": "user", "content": f"Episode information:\n\n{context_text}\n\nUser question: {user_message}"},
-            ]
-        else:
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant for Keeping Up with the Kardashians questions."},
-                {"role": "user", "content": user_message},
-            ]
+        # Step 1: LLM expands user input into IR-friendly descriptive words
+        expanded_query = llm_expand_query(client, user_query)
 
-        def generate():
-            if use_search and search_term:
-                yield f"data: {json.dumps({'search_term': search_term})}\n\n"
-            try:
-                for chunk in client.chat(messages, stream=True):
-                    if chunk.get("content"):
-                        yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
-            except Exception as e:
-                logger.error(f"Streaming error: {e}")
-                yield f"data: {json.dumps({'error': 'Streaming error occurred'})}\n\n"
+        # Step 2: IR retrieves songs using the expanded query
+        songs = song_search(expanded_query)
 
-        return Response(
-            stream_with_context(generate()),
-            mimetype="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
+        # Step 3: LLM describes each song in context of the original user request
+        descriptions = llm_describe_songs(client, user_query, songs)
+
+        return jsonify({"songs": songs, "descriptions": descriptions})

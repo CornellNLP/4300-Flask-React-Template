@@ -15,19 +15,19 @@ function FeatureBar({ label, value, max, color, display }: {
       if (v < 0.7) return "Medium"
       return "High"
     }
-  
+
     if (label === "Valence") {
       if (v < 0.3) return "Sad"
       if (v < 0.7) return "Neutral"
       return "Happy"
     }
-  
+
     if (label === "Danceability") {
       if (v < 0.3) return "Still"
       if (v < 0.7) return "Groovy"
       return "Dancey"
     }
-  
+
     return ""
   }
   return (
@@ -67,6 +67,7 @@ function App(): JSX.Element {
   const [emotionInput, setEmotionInput] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [songs, setSongs] = useState<SongRecommendation[]>([])
+  const [descriptions, setDescriptions] = useState<string[]>([])
   const [error, setError] = useState<string>('')
   const exprompts = [
     "soft sadness with warm memories",
@@ -80,11 +81,11 @@ function App(): JSX.Element {
   const [typedText, setTypedText] = useState("")
   const [showHint, setShowHint] = useState(true)
   const [isActive, setIsActive] = useState(false)
-  
+
   const playClick = () => {
     const audio = new Audio(clickFile);
     audio.volume = 0.25;
-  
+
     audio.play().catch((err) => {
       console.log("audio failed:", err);
     });
@@ -92,31 +93,32 @@ function App(): JSX.Element {
 
   //testing purposes for tf idf (prototype 1) vs svd performance (prototype 2)
   const [mode, setMode] = useState<'svd' | 'tfidf'>('svd')
-  // 
+  const [ragMode, setRagMode] = useState<boolean>(false)
+  //
 
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
-  
+
     const resetIdle = () => {
       setIsActive(true)
-  
+
       clearTimeout(timer)
-  
+
       timer = setTimeout(() => {
         setIsActive(false)
         setShowHint(true)
         setPromptIndex((prev) => (prev + 1) % exprompts.length)
       }, 5000)
     }
-  
+
     const events = ["keydown", "mousedown", "touchstart"]
-  
+
     events.forEach((e) => window.addEventListener(e, resetIdle))
-  
+
     resetIdle()
     setIsActive(false)
-  
+
     return () => {
       clearTimeout(timer)
       events.forEach((e) => window.removeEventListener(e, resetIdle))
@@ -125,23 +127,66 @@ function App(): JSX.Element {
 
   useEffect(() => {
     if (isActive || !showHint || emotionInput) return
-  
+
     const current = exprompts[promptIndex]
     let i = 0
-  
+
     setTypedText("")
-  
+
     const interval = setInterval(() => {
       i++
       setTypedText(current.slice(0, i))
-  
+
       if (i >= current.length) {
         clearInterval(interval)
       }
     }, 40)
-  
+
     return () => clearInterval(interval)
   }, [promptIndex, isActive])
+
+  const fetchByQuery = async (query: string): Promise<void> => {
+    setLoading(true)
+    setError('')
+    setDescriptions([])
+    try {
+      if (ragMode) {
+        const response = await fetch('/api/rag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        })
+        if (!response.ok) {
+          setError(`Request failed (${response.status})`)
+          setSongs([])
+          return
+        }
+        const data = await response.json()
+        setSongs(data.songs ?? [])
+        setDescriptions(data.descriptions ?? [])
+        if ((data.songs ?? []).length === 0) {
+          setError('No matches found. Try different words.')
+        }
+      } else {
+        const response = await fetch(`/api/recommendations?query=${encodeURIComponent(query)}&top_k=10&mode=${mode}`)
+        if (!response.ok) {
+          setError(`Request failed (${response.status})`)
+          setSongs([])
+          return
+        }
+        const data: SongRecommendation[] = await response.json()
+        setSongs(data)
+        if (data.length === 0) {
+          setError('No TF-IDF matches found. Try adding more emotional keywords.')
+        }
+      }
+    } catch {
+      setError('Unable to load recommendations right now.')
+      setSongs([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchRecommendations = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
@@ -151,27 +196,7 @@ function App(): JSX.Element {
       setError('Please describe how you are feeling.')
       return
     }
-
-    setLoading(true)
-    setError('')
-    try {
-      const response = await fetch(`/api/recommendations?query=${encodeURIComponent(query)}&top_k=10&mode=${mode}`)
-      if (!response.ok) {
-        setError(`Request failed (${response.status})`)
-        setSongs([])
-        return
-      }
-      const data: SongRecommendation[] = await response.json()
-      setSongs(data)
-      if (data.length === 0) {
-        setError('No TF-IDF matches found. Try adding more emotional keywords.')
-      }
-    } catch {
-      setError('Unable to load recommendations right now.')
-      setSongs([])
-    } finally {
-      setLoading(false)
-    }
+    await fetchByQuery(query)
   }
 
   return (
@@ -220,16 +245,21 @@ function App(): JSX.Element {
         >
           SVD
         </button>
+        <button
+          onClick={() => setRagMode(prev => !prev)}
+          className={ragMode ? 'mode-btn active' : 'mode-btn'}
+        >
+          RAG
+        </button>
       </div>
 
 
 {/* // */}
 
-
       {error && <div className="error-banner">{error}</div>}
 
       <div id="answer-box">
-        {songs.map((song) => {
+        {songs.map((song, index) => {
           const trackId = getTrackId(song.spotify_url)
 
           return (
@@ -273,11 +303,15 @@ function App(): JSX.Element {
                   <FeatureBar label="Tempo" value={song.tempo} max={200} color="#D85A30" display={`${Math.round(song.tempo)} BPM`} />
                 </div>
 
+                {descriptions[index] && (
+                  <div className="rag-description">{descriptions[index]}</div>
+                )}
+
               </div>
 
 {/* right side always visible */}
                 <div className="song-side">
-                
+
 
                   {trackId && (
                     <iframe
@@ -292,7 +326,7 @@ function App(): JSX.Element {
                   </div>
 
                 </div>
-            
+
             </div>
           )
 })}
