@@ -174,7 +174,7 @@ function App(): JSX.Element {
 
         {/* ── Header + search ── */}
         <div className="top-text">
-          <h1 className="brain-rot-title">Brian rot</h1>
+          <h1 className="brain-rot-title">Brain rot</h1>
           <p className="tagline">Your daily dose of "Am I the Asshole?" — curated, narrated, and impossible to stop.</p>
 
           <div className="search-and-toggle">
@@ -293,7 +293,7 @@ function App(): JSX.Element {
                     {post.selftext ? post.selftext.slice(0, 400) : 'No text available'}
                     {post.selftext && post.selftext.length > 400 ? '...' : ''}
                   </p>
-                  <p className="episode-rating">Score: {post.score} · similarity: {post.similarity?.toFixed(3)}</p>
+                  <p className="episode-rating">Net Votes: {post.score} · Similarity: {post.similarity?.toFixed(3)}</p>
                 </div>
               ))}
             </>
