@@ -4,6 +4,7 @@ import SearchIcon from './assets/mag.png'
 import Logo from './assets/harmony_logo.png'
 import { Song } from './types'
 import Chat from './Chat'
+import RAG from "./RAG"
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
@@ -161,7 +162,13 @@ function App(): JSX.Element {
       </div>
 
       {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
+      {useLlm && (
+        <RAG
+          instrument={instrument}
+          difficulty={difficulty}
+          numResults={numResults}
+        />
+      )}
     </div >
   )
 }

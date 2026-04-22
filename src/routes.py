@@ -13,8 +13,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
+USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 vectorizer = None
@@ -218,4 +217,6 @@ def register_routes(app):
 
     if USE_LLM:
         from llm_routes import register_chat_route
+        from rag_routes import register_rag_route  
         register_chat_route(app, json_search)
+        register_rag_route(app, json_search) 

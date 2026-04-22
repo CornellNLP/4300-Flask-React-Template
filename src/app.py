@@ -1,10 +1,11 @@
+from dotenv import load_dotenv
+load_dotenv()
 import csv
 import os
-from dotenv import load_dotenv
+print("API KEY LOADED:", os.environ.get("API_KEY")) 
 from flask import Flask
 from sqlalchemy import JSON
 
-load_dotenv()
 from flask_cors import CORS
 from models import db, Song
 from routes import register_routes
