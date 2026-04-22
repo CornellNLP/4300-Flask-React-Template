@@ -11,6 +11,15 @@ class AitaPost(db.Model):
     title = db.Column(db.Text)
     selftext = db.Column(db.Text)
     score = db.Column(db.Integer)
+    
+    # Community verdict fields
+    nta_count = db.Column(db.Integer, default=0)
+    yta_count = db.Column(db.Integer, default=0)
+    esh_count = db.Column(db.Integer, default=0)
+    nah_count = db.Column(db.Integer, default=0)
+    total_verdict_comments = db.Column(db.Integer, default=0)
+    dominant_verdict = db.Column(db.String(10), nullable=True)
+    verdict_confidence = db.Column(db.Float, default=0.0)
 
 # Define Review model
 class Review(db.Model):
