@@ -111,7 +111,7 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
               <div className="title-score-row">
                 <h2 className="podcast-title">{podcast.title}</h2>
                 {podcast.score !== undefined && (
-                  <span className="podcast-score">{podcast.score.toFixed(3)}</span>
+                  <span className="podcast-score">{podcast.score.toFixed(0)}%</span>
                 )}
               </div>
 

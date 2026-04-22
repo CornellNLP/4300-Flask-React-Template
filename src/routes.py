@@ -106,6 +106,33 @@ def query_to_vec(query):
     # return vec / norm if norm > 0 else vec
     return query_vec
 
+# def query_to_vec(query: str) -> np.ndarray:
+#     """
+#     Following mixed embeddings structure
+#     1. TF-IDF transform
+#     2. SVD transform  
+#     3. L2-normalize
+#     4. Apply same mix weights (even though query has no episode component,
+#        we scale by alpha_show so the magnitude matches the embedding space)
+#     """
+#     mix_weights = svd_model.get('mix_weights', {'episode': 0.1, 'show': 0.9})
+#     alpha_show = mix_weights['show']
+
+#     tfidf_vec = tfidf_vectorizer.transform([query])
+#     vec = svd_model_obj.transform(tfidf_vec)[0]
+
+#     # L2-normalize (mirrors the normalize() call on show_embs before mixing)
+#     norm = np.linalg.norm(vec)
+#     vec  = vec / norm if norm > 0 else vec
+
+#     # Scale by alpha_show — a query has no episode signal, so it's 100% show-side.
+#     # Scaling keeps it in the same magnitude range as the mixed embeddings.
+#     vec = alpha_show * vec
+
+#     # Final L2-normalize (mirrors the final normalize() on new_show_embs)
+#     norm = np.linalg.norm(vec)
+#     return vec / norm if norm > 0 else vec
+
 # function for getting top k for optimize_query_vec
 def get_top_k(query_vec, embeddings, k=5):
     q = query_vec.reshape(-1)
@@ -304,6 +331,9 @@ def json_search(query, explicit=False, genres=None, excluded_genres=None, publis
     results = sorted(
         [{'podcast': p, 'score': id_to_score.get(str(p.id), 0.0)} for p in podcasts], key=lambda x: x['score'], reverse=True
     )[:5]
+    
+    # * 100 for display
+    results = [{'podcast': r['podcast'], 'score': round(float(r['score']) * 100, 4)} for r in results]
     
     # Build result dicts with latent dimension data
     result_dicts = []
