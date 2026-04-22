@@ -38,6 +38,8 @@ export interface ProgramScheduleEntry {
   rep_type: string | null;
 }
 
+export type ScheduleEntry = ProgramScheduleEntry;
+
 export interface Program {
   title: string;
   description: string;
