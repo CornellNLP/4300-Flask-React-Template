@@ -1,37 +1,15 @@
 """
-Routes: React app serving and episode search API.
+Routes: React app serving + retrieval API.
 
-To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
+To enable LLM endpoints (chat + enrichments), set USE_LLM = True below
+and add SPARK_API_KEY to .env. See llm_routes.py for LLM code.
 """
 import json
 import os
-import csv
 from flask import send_from_directory, request, jsonify
 from models import db, Episode, Review
 from retrieval import search as retrieval_search
 from retrieval import search_programs as retrieval_search_programs
-
-EXERCISES_CSV = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'gym_exercises.csv')
-
-def search_exercises(query):
-    results = []
-    with open(EXERCISES_CSV, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if query.lower() in row['Title'].lower() or query.lower() in (row['Desc'] or '').lower():
-                results.append({
-                    'title': row['Title'],
-                    'desc': row['Desc'] or None,
-                    'Type': row['Type'] or None,
-                    'BodyPart': row['BodyPart'] or None,
-                    'Equipment': row['Equipment'] or None,
-                    'Level': row['Level'] or None,
-                    'Rating': row['Rating'] or None,
-                    'RatingDesc': row['RatingDesc'] or None,
-                })
-            if len(results) >= 5:
-                break
-    return results
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 #USE_LLM = False
@@ -69,16 +47,6 @@ def register_routes(app):
     @app.route("/api/config")
     def config():
         return jsonify({"use_llm": USE_LLM})
-
-    @app.route("/api/episodes")
-    def episodes_search():
-        text = request.args.get("title", "")
-        return jsonify(json_search(text))
-
-    @app.route("/api/exercises")
-    def exercises_search():
-        query = request.args.get("q", "")
-        return jsonify(search_exercises(query))
 
     @app.route("/api/search", methods=["POST"])
     def search():
