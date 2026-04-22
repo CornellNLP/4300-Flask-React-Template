@@ -34,7 +34,7 @@ register_routes(app)
 # Function to initialize database, change this to your own database initialization logic
 def init_db():
    with app.app_context():
-        db.create_all()
+        db.create_all(checkfirst=True)
 
         if AitaPost.query.count() == 0:
             csv_file_path = os.path.join(project_root, 'data', 'AITA_clean1.csv')
