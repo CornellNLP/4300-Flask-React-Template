@@ -1,10 +1,12 @@
 import json
 import os
 import csv
-# from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from flask import Flask
-
-# load_dotenv()
 from flask_cors import CORS
 from models import db, AitaPost
 from routes import register_routes

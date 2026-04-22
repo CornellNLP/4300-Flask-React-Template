@@ -19,6 +19,25 @@ def tokenize(text):
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+_VERDICTS = ["NTA", "YTA", "ESH", "NAH"]
+
+
+def parse_verdict(post):
+    """Return verdict string from flair, top_comment, or selftext scan; else 'UNKNOWN'."""
+    flair = (post.get("link_flair_text") or "").upper()
+    for v in _VERDICTS:
+        if v in flair:
+            return v
+
+    for field in ("top_comment", "selftext", "title"):
+        text = (post.get(field) or "").upper()
+        for v in _VERDICTS:
+            if re.search(rf'\b{v}\b', text):
+                return v
+
+    return "UNKNOWN"
+
+
 def build():
     csv_path = os.path.join(project_root, 'data', 'AITA_clean1.csv')
     print("Reading CSV...")
@@ -26,13 +45,17 @@ def build():
     with open(csv_path, 'r', encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            posts.append({
+            post = {
                 'id': int(row['id']) if row['id'] else 0,
                 'submission_id': row['submission_id'],
                 'title': row['title'],
                 'selftext': row['selftext'],
                 'score': int(row['score']) if row['score'] else 0,
-            })
+                'link_flair_text': row.get('link_flair_text', ''),
+                'top_comment': row.get('top_comment', ''),
+            }
+            post['verdict'] = parse_verdict(post)
+            posts.append(post)
     print(f"  {len(posts)} posts loaded")
 
     print("Tokenizing...")

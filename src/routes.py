@@ -11,27 +11,35 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
-from sklearn.preprocessing import normalize 
 from flask import send_from_directory, request, jsonify
+
+def _l2_normalize_rows(X):
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1.0, norms)
+    return X / norms
 
 from models import db, AitaPost
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
+# USE_LLM = False
+USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 _index = None  # loaded once from disk
 _tfidf_cache = None
 
+_SVD_NPZ = None  # path set after index is loaded
+
 
 def _load_index():
-    global _index
+    global _index, _SVD_NPZ
     if _index is not None:
         return _index
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    meta_path = os.path.join(project_root, 'data', 'index', 'tfidf_meta.pkl')
-    npz_path  = os.path.join(project_root, 'data', 'index', 'tfidf_matrix.npz')
+    index_dir = os.path.join(project_root, 'data', 'index')
+    meta_path = os.path.join(index_dir, 'tfidf_meta.pkl')
+    npz_path  = os.path.join(index_dir, 'tfidf_matrix.npz')
+    _SVD_NPZ  = os.path.join(index_dir, 'svd_factors.npz')
     with open(meta_path, 'rb') as f:
         meta = pickle.load(f)
     X = sp.load_npz(npz_path)
@@ -103,13 +111,13 @@ def _build_svd(X_raw, k=40):
             nv = np.linalg.norm(v)
             words = (v / nv).reshape(-1, 1) if nv > 0 else np.zeros((n_cols, 1))
             docs = np.array([[1.0]], dtype=np.float64)
-            return normalize(docs), normalize(words)
+            return _l2_normalize_rows(docs), _l2_normalize_rows(words)
         if n_cols == 1:
             v = X_raw[:, 0].astype(np.float64, copy=False)
             nv = np.linalg.norm(v)
             docs = (v / nv).reshape(-1, 1) if nv > 0 else np.zeros((n_rows, 1))
             words = np.array([[1.0]], dtype=np.float64)
-            return normalize(docs), normalize(words)
+            return _l2_normalize_rows(docs), _l2_normalize_rows(words)
         raise RuntimeError("SVD fallback: unexpected matrix shape")
 
     k = min(k, max_k)
@@ -129,12 +137,12 @@ def _build_svd(X_raw, k=40):
         kk = min(k, U.shape[1])
         docs_compressed = U[:, :kk]
         words_compressed = Vt[:kk, :].T
-        return normalize(docs_compressed), normalize(words_compressed)
+        return _l2_normalize_rows(docs_compressed), _l2_normalize_rows(words_compressed)
 
     # svds returns singular values in ascending order; flip to match largest-first latent dims
     docs_compressed = docs_compressed[:, ::-1]
     words_compressed = words_compressed[::-1, :].T
-    return normalize(docs_compressed), normalize(words_compressed)
+    return _l2_normalize_rows(docs_compressed), _l2_normalize_rows(words_compressed)
 
 
 def _query_svd(tokenized_q, token_to_idx, idf, words_normed):
@@ -153,7 +161,7 @@ def _query_svd(tokenized_q, token_to_idx, idf, words_normed):
     return q_svd / n if n > 0 else q_svd
 
 def _tfidf_index():
-    global _tfidf_cache
+    global _tfidf_cache, _SVD_NPZ
     if _tfidf_cache is not None:
         return _tfidf_cache
 
@@ -164,12 +172,21 @@ def _tfidf_index():
     norms = np.where(norms == 0, 1.0, norms)
     X_normed = X_dense / norms
 
-    docs_svd_normed, words_svd_normed = _build_svd(X_dense)
+    # Load SVD from disk if available, else compute and save
+    if _SVD_NPZ and os.path.exists(_SVD_NPZ):
+        saved = np.load(_SVD_NPZ)
+        docs_svd_normed = saved['docs']
+        words_svd_normed = saved['words']
+    else:
+        docs_svd_normed, words_svd_normed = _build_svd(X_dense)
+        if _SVD_NPZ:
+            np.savez_compressed(_SVD_NPZ, docs=docs_svd_normed, words=words_svd_normed)
+
     _tfidf_cache = (token_to_idx, idf, X_normed, docs_svd_normed, words_svd_normed, posts_meta)
     return _tfidf_cache
 
 
-def json_search(query, method='svd'):
+def json_search(query, method='svd', verdict_filter=None):
     if not query or not query.strip():
         return []
 
@@ -179,18 +196,33 @@ def json_search(query, method='svd'):
     if not token_to_idx or np.asarray(idf).size == 0:
         return []
 
+    # Build candidate index set (all docs, or filtered by verdict)
+    vf = verdict_filter.upper() if verdict_filter else None
+    if vf:
+        candidate_indices = np.array([
+            i for i, p in enumerate(posts)
+            if (p.get("verdict") if isinstance(p, dict) else getattr(p, "verdict", "UNKNOWN")) == vf
+        ])
+        if len(candidate_indices) == 0:
+            return []
+    else:
+        candidate_indices = np.arange(len(posts))
+
     tokens = _tokenize(query)
     if method == 'tfidf':
         q = _query_tfidf_l2(tokens, token_to_idx, idf)
-        sims = X_normed @ q
+        sims_all = X_normed @ q
     else:
         q = _query_svd(tokens, token_to_idx, idf, words_svd_normed)
-        sims = docs_svd_normed @ q
+        sims_all = docs_svd_normed @ q
 
-    order = np.argsort(sims)[::-1]
+    candidate_sims = sims_all[candidate_indices]
+    top_local = np.argsort(candidate_sims)[::-1][:20]
+
     matches = []
-    for idx in order[:20]:
-        post = posts[int(idx)]
+    for local_idx in top_local:
+        idx = int(candidate_indices[local_idx])
+        post = posts[idx]
         if isinstance(post, dict):
             matches.append({
                 "id": post.get("id"),
@@ -198,7 +230,8 @@ def json_search(query, method='svd'):
                 "title": post.get("title"),
                 "selftext": post.get("selftext"),
                 "score": post.get("score"),
-                "similarity": float(sims[int(idx)]),
+                "similarity": float(sims_all[idx]),
+                "verdict": post.get("verdict", "UNKNOWN"),
             })
         else:
             matches.append({
@@ -207,14 +240,15 @@ def json_search(query, method='svd'):
                 "title": post.title,
                 "selftext": post.selftext,
                 "score": post.score,
-                "similarity": float(sims[int(idx)]),
+                "similarity": float(sims_all[idx]),
+                "verdict": getattr(post, "verdict", "UNKNOWN"),
             })
     return matches
 
 
 def register_routes(app):
-    @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
+    @app.route('/', defaults={'path': ''}, methods=['GET'])
+    @app.route('/<path:path>', methods=['GET'])
     def serve(path):
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
@@ -229,8 +263,9 @@ def register_routes(app):
     def search():
         query = request.args.get("query", "")
         method = request.args.get("method", "svd")
-        return jsonify(json_search(query, method))
+        verdict = request.args.get("verdict", None)
+        return jsonify(json_search(query, method, verdict))
 
     if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
+        from llm_routes import register_llm_search_route
+        register_llm_search_route(app, json_search)
