@@ -5,10 +5,12 @@ Note to self- ?mode=param compares the old TF-IDF against new SVD-based recommen
 """
 import os
 from flask import send_from_directory, request, jsonify
- 
+
 from recommender import get_recommender
 from svd_recommender import get_svd_recommender
- 
+
+USE_LLM = True
+
 def register_routes(app):
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
@@ -43,3 +45,11 @@ def register_routes(app):
             matches = get_svd_recommender().recommend(query=query, top_k=top_k)
 
         return jsonify(matches)
+
+    if USE_LLM:
+        from llm_routes import register_chat_route
+
+        def song_search(query, top_k=10):
+            return get_svd_recommender().recommend(query=query, top_k=top_k)
+
+        register_chat_route(app, song_search)

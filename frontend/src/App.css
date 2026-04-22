@@ -429,6 +429,13 @@ body::before {
   gap: 10px;
   margin-bottom: 12px;
 }
+
+.rag-description {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  line-height: 1.5;
+}
 .feat {
   display: flex;
   flex-direction: column;
