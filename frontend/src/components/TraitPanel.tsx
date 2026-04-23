@@ -223,7 +223,8 @@ function TraitPanel({ traitInput, toggleTraitValue, writeIn, setWriteIn, handleS
           <div className="divider-line" />
         </div>
         <div className="trait-section-card">
-          <div className="trait-card-desc akc-desc">The dog's historical working role as classified by the American Kennel Club</div>
+          <div className="trait-section-label">Breed Group</div>
+          <div className="trait-card-desc">The dog's historical working role as classified by the American Kennel Club</div>
           <div className="breed-pills">
             {groups.map(({ label, value, desc }) => (
               <div className="breed-pill-row" key={value}>

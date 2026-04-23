@@ -349,9 +349,6 @@ body {
   line-height: 1.4;
   margin-bottom: 14px;
 }
-.akc-desc {
-  font-size: 13px;  font-weight: 600;
-  color: var(--text-dark);}
 
 /* ── CHECKBOXES ── */
 .trait-options { display: flex; flex-direction: column; gap: 7px; }
