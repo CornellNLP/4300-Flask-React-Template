@@ -1,9 +1,4 @@
-# 4300 Flask React Template
-
-## Contents
-
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
+# bring the party!
 
 ## Quick Start
 
@@ -46,27 +41,6 @@ npm run dev
 ```
 
 Then open `http://localhost:5173` in your browser!
-
-## Architecture
-
-```
-4300-Flask-React-Template/
-├── src/
-│   ├── app.py          # Flask app entry point
-│   ├── models.py       # SQLAlchemy database models
-│   ├── routes.py       # Search API routes (+ USE_LLM toggle)
-│   ├── llm_routes.py   # LLM chat route (only used when USE_LLM = True)
-│   └── init.json       # Seed data
-├── frontend/
-│   └── src/
-│       ├── App.tsx     # Search UI (always shown)
-│       ├── Chat.tsx    # AI chat component (rendered when USE_LLM = True)
-│       ├── App.css
-│       └── types.ts
-├── requirements.txt
-├── Dockerfile
-└── .env                # SPARK_API_KEY goes here (not committed)
-```
 
 ### Backend (Flask)
 - **Entry point**: `src/app.py`

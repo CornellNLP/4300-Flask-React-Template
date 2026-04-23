@@ -208,6 +208,15 @@ export function OutputPage() {
     navigate("/", { state });
   };
 
+  const shortenRecipeDescription = (desc: string) => {
+    const words = desc.trim().split(/\s+/);
+    const MAX_SIZE = 60;
+    if (words.length > MAX_SIZE) {
+      return words.slice(0, MAX_SIZE).join(" ") + " ... ";
+    }
+    return desc;
+  };
+
   return (
     <div className="output-page">
       {/* Menu section */}
@@ -234,7 +243,7 @@ export function OutputPage() {
                     </div>
                     <span className="recipe-entry__dots" aria-hidden="true" />
                   </div>
-                  <p className="recipe-entry__body">{recipe.description}</p>
+                  <p className="recipe-entry__body">{shortenRecipeDescription(recipe.description)}</p>
                   <p className="recipe-entry__min">{recipe.minutes} min</p>
                   <p className="recipe-entry__meta">
                     Ingredients: {recipe.ingredients.replace(/['\[\]]/g, "")}

@@ -9,6 +9,7 @@ from flask import send_from_directory, request, jsonify
 from models import db, Recipe, Playlist
 from infosci_spark_client import LLMClient
 import matching
+from flask import g
 # ── AI toggle ────────────────────────────────────────────────────────────────
 # USE_LLM = False
 USE_LLM = True
@@ -181,12 +182,44 @@ def register_routes(app):
         text = request.args.get("name", "")
         dietary = request.args.get("dietary", "").split(",")
         courses = request.args.get("courses", "").split(",")
+        SPARK_API_KEY = os.getenv("SPARK_API_KEY")
+
+        if USE_LLM and SPARK_API_KEY:
+            client = LLMClient(api_key=SPARK_API_KEY)
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an assistant that rewrites dinner party recipe search queries to be more robust, "
+                        "clear, and descriptive for a search engine. Expand on vague or ambiguous queries, "
+                        "clarify user intent, and add relevant context if missing. Only return the improved query."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Original user query: {text}\nRewrite this query for a recipe search engine:"
+                }
+            ]
+            response = client.chat(messages)
+            modified_query = response.get("content", "").strip()
+
+            if modified_query.startswith("```"):
+                modified_query = modified_query[3:]
+            if modified_query.endswith("```"):
+                modified_query = modified_query[:-3]
+            modified_query = modified_query.strip()
+            text = modified_query
+
+        # Store the modified query in Flask's g context for use in other routes
+        g.modified_query = text
+
         return jsonify(svd_search_recipes(text, dietary, courses))
     
     #playlists
     @app.route("/api/playlists")
     def playlists_search():
-        text = request.args.get("name", "")
+        # Use the modified query from g if available, otherwise use the user query
+        text = getattr(g, "modified_query", None) or request.args.get("name", "")
         SPARK_API_KEY = os.getenv("SPARK_API_KEY")
 
         if USE_LLM and SPARK_API_KEY:

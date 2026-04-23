@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import imgFood from "../assets/tomato.png";
-import { Recipe, Playlist, PlaylistRecommendations } from "../types";
+import { Recipe } from "../types";
 import "./InputPage.css";
 
 const DIETARY_FILTERS = [
@@ -106,7 +106,6 @@ export function InputPage() {
     () => savedState.courses ?? [],
   );
   const [recipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Build the search query regardless of mode
   const query =
@@ -149,50 +148,23 @@ export function InputPage() {
     return `${endpoint}?${params.toString()}`;
   };
 
-  const handleGetHosting = async () => {
+  const handleGetHosting = () => {
     const q = query || "food";
-    setLoading(true);
-    const inputState: InputState = {
-      dinnerPartyKeyword,
-      themeKeyWord,
-      decorKeyword,
-      length,
-      ingredients,
-      freeform,
-      mode,
-      dietary,
-      courses,
-    };
-
-    try {
-      const [recipesRes, playlistRes] = await Promise.all([
-        fetch(buildRecipeUrl(q)),
-        fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
-      ]);
-      const fetchedRecipes: Recipe[] = await recipesRes.json();
-      const playlistData = await playlistRes.json();
-      
-      // Handle array and object (LLM) responses
-      let playlist: Playlist | PlaylistRecommendations | null = null;
-      if (Array.isArray(playlistData)) {
-        playlist = playlistData[0] ?? null;
-      } else if (playlistData && typeof playlistData === "object") {
-        playlist = playlistData;
-      }
-      
-      navigate("/loading", {
-        state: {
-          ...inputState,
-          recipes: fetchedRecipes,
-          playlist,
-        },
-      });
-    } catch (err) {
-      console.error("Failed to fetch party data:", err);
-      navigate("/loading", { state: { ...inputState, recipes: [], playlist: null } });
-    } finally {
-      setLoading(false);
-    }
+    navigate("/loading", {
+      state: {
+        dinnerPartyKeyword,
+        themeKeyWord,
+        decorKeyword,
+        length,
+        ingredients,
+        freeform,
+        mode,
+        dietary,
+        courses,
+        query: q,
+        recipeUrl: buildRecipeUrl(q),
+      },
+    });
   };
 
   const clearSavedInput = () => {
@@ -353,9 +325,8 @@ export function InputPage() {
           <button
             onClick={handleGetHosting}
             className="get-hosting-btn"
-            disabled={loading}
           >
-            {loading ? "loading..." : "get hosting →"}
+            get hosting →
           </button>
         </div>
         <div className="food-decor" aria-hidden="true">

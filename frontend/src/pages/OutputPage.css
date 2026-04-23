@@ -77,7 +77,6 @@
 }
 
 
-
 .recipe-entry__dots {
   flex: 1;
   border-bottom: 1.5px dotted var(--color-text);
@@ -117,6 +116,7 @@
   line-height: var(--line-body);
   text-align: justify;
   margin: 0;
+  overflow: auto;
 }
 
 .recipe-entry__min {
