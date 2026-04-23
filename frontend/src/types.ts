@@ -32,6 +32,7 @@ export interface Playlist {
 
 export interface DimInfo {
   dim: number;
+  name: string;
   magnitude: number;
   keywords: string[];
 }

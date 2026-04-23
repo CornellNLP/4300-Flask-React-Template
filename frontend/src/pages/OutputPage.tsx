@@ -1,11 +1,16 @@
 import { useNavigate, useLocation } from "react-router";
 import imgCandles from "../assets/table3.png";
-import imgWine from "../assets/table6.png";
+import imgCharcuterie from "../assets/charcuterie.png";
 import imgLongTable from "../assets/table4.png";
 import imgBread from "../assets/bread.png";
 import imgCheese from "../assets/cheese.png";
 import linkIcon from "../assets/link.svg";
-import { DimInfo, SVDRecipe, Playlist, PlaylistRecommendations } from "../types";
+import {
+  DimInfo,
+  SVDRecipe,
+  Playlist,
+  PlaylistRecommendations,
+} from "../types";
 import "./OutputPage.css";
 import { useState } from "react";
 
@@ -30,7 +35,7 @@ function DimSparkline({
   const maxAbs = Math.max(
     ...docMags.slice(0, N).map(Math.abs),
     ...queryMags.slice(0, N).map(Math.abs),
-    0.001
+    0.001,
   );
 
   return (
@@ -75,13 +80,14 @@ function DimSparkline({
 // Expandable SVD explainability panel for one recipe
 function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
   const [open, setOpen] = useState(false);
-  const hasSVD = recipe.similarity !== undefined && recipe.doc_magnitudes?.length > 0;
+  const hasSVD =
+    recipe.similarity !== undefined && recipe.doc_magnitudes?.length > 0;
 
   if (!hasSVD) return null;
 
   const pct = Math.round(recipe.similarity * 100);
 
-  const maxMag = Math.max(...recipe.doc_dims.map(d => Math.abs(d.magnitude)));
+  const maxMag = Math.max(...recipe.doc_dims.map((d) => Math.abs(d.magnitude)));
 
   return (
     <div className="svd-panel">
@@ -92,16 +98,12 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
       >
         <span className="svd-score">
           <span className="svd-score-bar-wrap">
-            <span
-              className="svd-score-bar"
-              style={{ width: `${pct}%` }}
-            />
+            <span className="svd-score-bar" style={{ width: `${pct}%` }} />
           </span>
           <span className="svd-score-label">{pct}% match</span>
         </span>
         <span className="svd-toggle-label">why this recipe?</span>
         <span className="svd-toggle-arrow">{open ? "▲" : "▼"}</span>
-
       </button>
 
       {open && (
@@ -112,7 +114,9 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
               <p className="svd-section-label">keywords matched</p>
               <div className="svd-chips">
                 {recipe.highlighted_keywords.map((kw) => (
-                  <span key={kw} className="svd-chip keyword-chip">{kw}</span>
+                  <span key={kw} className="svd-chip keyword-chip">
+                    {kw}
+                  </span>
                 ))}
               </div>
             </div>
@@ -121,19 +125,27 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
           {/* Shared latent dimensions */}
           {recipe.shared_dims.length > 0 && (
             <div className="svd-section">
-              <p className="svd-section-label">Both your input and this recipe are strong in these dimensions</p>
+              <p className="svd-section-label">
+                Both your input and this recipe are strong in these dimensions
+              </p>
               {recipe.shared_dims.map((dim) => (
                 <div key={dim.dim} className="svd-dim-row">
-                  <span className="svd-dim-label">dimension {dim.dim}</span>
+                  <span className="svd-dim-label">
+                    {dim.name || `dimension ${dim.dim}`}
+                  </span>
                   <div className="svd-dim-bar-wrap">
                     <div
                       className="svd-dim-bar"
-                      style={{ width: `${(Math.abs(dim.magnitude) / maxMag) * 100}%` }}
+                      style={{
+                        width: `${(Math.abs(dim.magnitude) / maxMag) * 100}%`,
+                      }}
                     />
                   </div>
                   <div className="svd-dim-keywords">
                     {dim.keywords.map((kw) => (
-                      <span key={kw} className="svd-chip">{kw}</span>
+                      <span key={kw} className="svd-chip">
+                        {kw}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -143,7 +155,9 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
 
           {/* Sparkline chart */}
           <div className="svd-section">
-            <p className="svd-section-label">Alignment with all {recipe.doc_magnitudes.length}  dimensions</p>
+            <p className="svd-section-label">
+              Alignment with all {recipe.doc_magnitudes.length} dimensions
+            </p>
             <DimSparkline
               docMags={recipe.doc_magnitudes}
               queryMags={recipe.query_magnitudes}
@@ -153,13 +167,19 @@ function SVDPanel({ recipe }: { recipe: SVDRecipe }) {
 
           {/* Top recipe-side dimensions */}
           <div className="svd-section">
-            <p className="svd-section-label">this recipe's strongest concepts</p>
+            <p className="svd-section-label">
+              this recipe's strongest concepts
+            </p>
             {recipe.doc_dims.map((dim) => (
               <div key={dim.dim} className="svd-dim-row">
-                <span className="svd-dim-label">dimension {dim.dim}</span>
+                <span className="svd-dim-label">
+                  {dim.name || `dimension ${dim.dim}`}
+                </span>
                 <div className="svd-dim-keywords">
                   {dim.keywords.map((kw) => (
-                    <span key={kw} className="svd-chip">{kw}</span>
+                    <span key={kw} className="svd-chip">
+                      {kw}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -177,7 +197,8 @@ export function OutputPage() {
   const state = (location.state ?? {}) as Partial<OutputState>;
 
   const recipes: SVDRecipe[] = state.recipes ?? [];
-  const playlist: Playlist | PlaylistRecommendations | null = state.playlist ?? null;
+  const playlist: Playlist | PlaylistRecommendations | null =
+    state.playlist ?? null;
 
   const isLLMPlaylist = (p: any): p is PlaylistRecommendations => {
     return p && "recommendations" in p && "explanation" in p;
@@ -211,7 +232,11 @@ export function OutputPage() {
                 <div key={recipe.name} className="recipe-entry">
                   <div className="recipe-entry__header">
                     <div className="recipe-link">
-                      <a href={recipe.link} target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={recipe.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <p className="recipe-entry__title">{recipe.name}</p>
                         <img alt="" className="link-icon" src={linkIcon} />
                       </a>
@@ -220,7 +245,9 @@ export function OutputPage() {
                   </div>
                   <p className="recipe-entry__body">{shortenRecipeDescription(recipe.description)}</p>
                   <p className="recipe-entry__min">{recipe.minutes} min</p>
-                  <p className="recipe-entry__meta">Ingredients: {recipe.ingredients.replace(/['\[\]]/g, '')}</p>
+                  <p className="recipe-entry__meta">
+                    Ingredients: {recipe.ingredients.replace(/['\[\]]/g, "")}
+                  </p>
                   <SVDPanel recipe={recipe} />
                 </div>
               ))
@@ -228,11 +255,10 @@ export function OutputPage() {
           </div>
 
           <aside className="candles-aside" aria-hidden="true">
-
             <img
-              alt="decorative table illustration with wine glasses"
+              alt="decorative charcuterie table illustration"
               className="wine-img"
-              src={imgWine}
+              src={imgCharcuterie}
             />
             <img
               alt="decorative candles illustration"
@@ -288,8 +314,13 @@ export function OutputPage() {
                     songList.map((song, i) => (
                       <p key={i} className="playlist-row">
                         <span className="song-name">{song}</span>
-                        <span className="recipe-entry__dots" aria-hidden="true" />
-                        <span className="artist-name">{artistList[i] || ""}</span>
+                        <span
+                          className="recipe-entry__dots"
+                          aria-hidden="true"
+                        />
+                        <span className="artist-name">
+                          {artistList[i] || ""}
+                        </span>
                       </p>
                     ))
                   );
@@ -308,6 +339,7 @@ export function OutputPage() {
         <img alt="" className="bread-img" src={imgBread} />
         <img alt="" className="cheese-img" src={imgCheese} />
       </div>
+     
     </div>
   );
 }
