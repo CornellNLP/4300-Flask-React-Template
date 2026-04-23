@@ -1,12 +1,13 @@
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import normalize
 import os
 import pickle
-import pandas as pd
 from pathlib import Path
-from models import db, Podcast
+
+import numpy as np
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+
 import rag_utils
+from models import Podcast, db
 
 OS_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -14,14 +15,16 @@ with open(os.path.join(OS_PATH, 'data/svd/svd_mixed.pkl'), 'rb') as f:
     svd_model = pickle.load(f)
 
 embeddings = np.load(os.path.join(OS_PATH, 'data/embeddings/embeddings_mixed.npy'))
-
 show_ids = Path(os.path.join(OS_PATH, 'data/ids/podcasts_embeddings_ids.txt')).read_text().splitlines()
-df = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts_cleaned2.csv'))
+_ = pd.read_csv(os.path.join(OS_PATH, 'data/podcasts_cleaned2.csv'))
 show_id_to_idx = {show_id: idx for idx, show_id in enumerate(show_ids)}
 
 tfidf_vectorizer = svd_model['tfidf']
 svd_model_obj = svd_model['svd']
 feature_names = tfidf_vectorizer.get_feature_names_out()
+
+LLM_CONTEXT_TOP_K = 5
+LLM_LOW_SCORE_THRESHOLD = 0.16
 
 
 def get_dimension_label(dim_idx: int, top_words_count: int = 3) -> str:
@@ -38,7 +41,8 @@ dimension_labels = {i: get_dimension_label(i) for i in range(len(svd_model_obj.c
 
 def get_top_dimensions(embedding, k=6):
     if embedding is None:
-        return {'positive': [], 'negative': []}
+        return {'positive': []}
+
     embedding = np.asarray(embedding).flatten()
     positive_mask = embedding > 0
 
@@ -46,12 +50,15 @@ def get_top_dimensions(embedding, k=6):
     positive_indices = np.where(positive_mask)[0]
 
     pos_top_k = min(k, len(positive_vals))
-
     pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]] if pos_top_k else []
 
     return {
         'positive': [
-            {'dimension': int(idx), 'value': float(embedding[idx]), 'label': dimension_labels.get(int(idx), f'Dim {idx}')}
+            {
+                'dimension': int(idx),
+                'value': float(embedding[idx]),
+                'label': dimension_labels.get(int(idx), f'Dim {idx}'),
+            }
             for idx in pos_sorted_idx
         ]
     }
@@ -71,7 +78,6 @@ def cosine_to_pct(cosine_val: float) -> float:
     """
     return round(max(cosine_val, 0.0), 1)
 
-
 def compute_balanced_score(score_a: float, score_b: float) -> float:
     """
     Combine two per-user scores into one ranking score that:
@@ -90,35 +96,33 @@ def compute_balanced_score(score_a: float, score_b: float) -> float:
     score_a = max(score_a, 0.0)
     score_b = max(score_b, 0.0)
 
-    base    = (score_a + score_b) / 2
-    balance = 1.0 - abs(score_a - score_b) #NOTE: 1.0 = perfectly equal, 0.0 = completely one-sided
+    base = (score_a + score_b) / 2.0
+    balance = 1.0 - abs(score_a - score_b)
     return base * (0.7 + 0.3 * balance)
 
 
-def compute_match(user_a: dict, user_b: dict) -> dict:
-    vec_a = query_to_vector(user_a['query'])
-    vec_b = query_to_vector(user_b['query'])
+def compute_match(user_a: dict, user_b: dict, use_llm: bool = True) -> dict:
+    vec_a = query_to_vector(user_a.get('query', ''))
+    vec_b = query_to_vector(user_b.get('query', ''))
 
-    # Match %: cosine similarity between the two query vectors, clipped to 0-100
-    # We clip negatives to 0 for completely unrelated vectors
-    raw_match  = float(cosine_similarity([vec_a], [vec_b])[0][0])
-    match_pct = round(((raw_match + 1) / 2) * 100, 1)  # rescale to 0–100%
+    raw_match = float(cosine_similarity([vec_a], [vec_b])[0][0])
+    match_pct = round(((raw_match + 1) / 2) * 100, 1)
 
-    # Merged vector: average + renormalize
-    merged_vec  = (vec_a + vec_b) / 2
+    merged_vec = (vec_a + vec_b) / 2
     merged_norm = np.linalg.norm(merged_vec)
     if merged_norm > 0:
         merged_vec = merged_vec / merged_norm
 
-    # Hard filters
+    # Setting up Hard Filters
     allow_explicit = user_a.get('explicit', False) and user_b.get('explicit', False)
-    genres_a       = set(g.lower() for g in user_a.get('genres', []))
-    genres_b       = set(g.lower() for g in user_b.get('genres', []))
-    genres_union   = genres_a | genres_b
-    max_length_a   = user_a.get('maxLength')
-    max_length_b   = user_b.get('maxLength')
-    max_length     = min(max_length_a, max_length_b) if max_length_a and max_length_b else (max_length_a or max_length_b)
-    length_metric  = user_a.get('lengthMetric') or user_b.get('lengthMetric')
+    genres_a = set(g.lower() for g in user_a.get('genres', []))
+    genres_b = set(g.lower() for g in user_b.get('genres', []))
+    genres_union = genres_a | genres_b
+
+    max_length_a = user_a.get('maxLength')
+    max_length_b = user_b.get('maxLength')
+    max_length = min(max_length_a, max_length_b) if max_length_a and max_length_b else (max_length_a or max_length_b)
+    length_metric = user_a.get('lengthMetric') or user_b.get('lengthMetric')
 
     q = db.session.query(Podcast)
     if not allow_explicit:
@@ -132,59 +136,67 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
 
     podcasts = q.all()
 
-    top_context = []
-    all_scores_low = False
+    scored = []
+    for p in podcasts:
+        sid = str(p.id)
+        idx = show_id_to_idx.get(sid)
+        if idx is None:
+            continue
+
+        pod_emb = embeddings[idx]
+        score_a = float(cosine_similarity([vec_a], [pod_emb])[0][0])
+        score_b = float(cosine_similarity([vec_b], [pod_emb])[0][0])
+        combined = compute_balanced_score(score_a, score_b)
+        merged_score = float(cosine_similarity([merged_vec], [pod_emb])[0][0])
+
+        scored.append(
+            {
+                'podcast': p,
+                'idx': idx,
+                'score_a': score_a,
+                'score_b': score_b,
+                'combined': combined,
+                'merged_score': merged_score,
+            }
+        )
+
     combined_llm = {
-        'modified_query': f"{user_a['query']} {user_b['query']}".strip(),
+        'modified_query': f"{user_a.get('query', '')} {user_b.get('query', '')}".strip(),
         'explanation': 'LLM was disabled for this collaborative search.',
         'used_context': False,
     }
-    if use_llm:
-        # Build a compact baseline context from the merged vector so the LLM can rewrite efficiently.
-        baseline_candidates = sorted(
-            [
-                {
-                    'podcast': p,
-                    'score': float(id_to_score.get(str(p.id), 0.0)),
-                }
-                for p in podcasts
-            ],
-            key=lambda x: x['score'],
-            reverse=True,
-        )[:5]
+    top_context = []
+    all_scores_low = False
 
+    if use_llm and scored:
+        baseline_candidates = sorted(scored, key=lambda x: x['merged_score'], reverse=True)[:LLM_CONTEXT_TOP_K]
         top_context = [
             {
                 'title': item['podcast'].name,
                 'description': rag_utils._clip_words(item['podcast'].descr, max_words=50),
                 'categories': item['podcast'].categories,
                 'author': item['podcast'].author,
-                'score': item['score'],
+                'score': item['merged_score'],
             }
             for item in baseline_candidates
         ]
-
-        all_scores_low = bool(top_context) and all(item['score'] < 0.16 for item in top_context)
+        all_scores_low = bool(top_context) and all(item['score'] < LLM_LOW_SCORE_THRESHOLD for item in top_context)
 
         combined_llm = rag_utils.enrich_collab_query_with_llm_details(
-            user_a_query=user_a['query'],
-            user_b_query=user_b['query'],
-            max_context=5,
+            user_a_query=user_a.get('query', ''),
+            user_b_query=user_b.get('query', ''),
+            max_context=LLM_CONTEXT_TOP_K,
             context_items=top_context,
             generic_only=all_scores_low,
         )
 
-    # Rank by merged score
-    ranked = sorted(
-        podcasts,
-        key=lambda p: id_to_score.get(str(p.id), 0.0),
-        reverse=True
-    )[:5]
+    ranked = sorted(scored, key=lambda x: x['combined'], reverse=True)[:LLM_CONTEXT_TOP_K]
 
     results = []
-    for p in ranked:
-        dims = get_top_dimensions(embeddings[show_id_to_idx[str(p.id)]]) if str(p.id) in show_id_to_idx else {'positive': [], 'negative': []}
-        score_val = round(id_to_score.get(str(p.id), 0.0), 4)
+    for item in ranked:
+        p = item['podcast']
+        dims = get_top_dimensions(embeddings[item['idx']])
+        score_pct = item['combined'] * 100.0
 
         if use_llm:
             why_text = rag_utils.summarize_podcast_with_llm(
@@ -194,95 +206,49 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
                     'categories': p.categories,
                     'author': p.author,
                 },
-                user_query=f"{user_a['query']} {user_b['query']}".strip(),
+                user_query=f"{user_a.get('query', '')} {user_b.get('query', '')}".strip(),
                 top_dimensions=dims,
             )
         else:
             genres_text = p.categories or ''
-            why_text = f"This show aligns with both of your interests in {genres_text} with a similarity score of {score_val:.3f}."
+            why_text = f"This show aligns with both of your interests in {genres_text} with a similarity score of {score_pct:.2f}%."
 
-        results.append({
-            'id':            p.id,
-            'title':         p.name,
-            'description':   p.descr,
-            'categories':    p.categories,
-            'explicit':      p.explicit,
-            'image_url':     p.image_url,
-            'feed_url':      p.feed_url,
-            'website_url':   p.website_url,
-            'author':        p.author,
-            'score':         score_val,
-            'score_for_a':   round(float(cosine_similarity([vec_a], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
-            'score_for_b':   round(float(cosine_similarity([vec_b], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
-            'episode_count': p.episode_count,
-            'avg_episode_time': (
-                p.avg_duration_min
-                if p.avg_duration_min is not None
-                else 'No information provided'
-            ),
-            'top_dimensions': dims,
-            'why_you_love_it': why_text,
-            'popularity':    p.popularity_score,
-        })
+        results.append(
+            {
+                'id': p.id,
+                'title': p.name,
+                'description': p.descr,
+                'categories': p.categories,
+                'explicit': p.explicit,
+                'image_url': p.image_url,
+                'feed_url': p.feed_url,
+                'website_url': p.website_url,
+                'author': p.author,
+                'score': round(score_pct, 4),
+                'score_for_a': round(max(item['score_a'], 0.0), 4),
+                'score_for_b': round(max(item['score_b'], 0.0), 4),
+                'episode_count': p.episode_count,
+                'avg_episode_time': p.avg_duration_min if p.avg_duration_min is not None else 'No information provided',
+                'top_dimensions': dims,
+                'why_you_love_it': why_text,
+                'popularity': p.popularity_score,
+            }
+        )
 
     return {
-        'match_pct':  match_pct,
-        'results':    results,
+        'match_pct': match_pct,
+        'results': results,
         'ai_overview': {
-            'user_query_a': user_a['query'],
-            'user_query_b': user_b['query'],
+            'user_query_a': user_a.get('query', ''),
+            'user_query_b': user_b.get('query', ''),
             'modified_query': combined_llm.get('modified_query', ''),
             'explanation': combined_llm.get('explanation', ''),
             'used_context': bool(combined_llm.get('used_context', False)),
             'low_score_fallback': all_scores_low,
-            'context_top_k': 5,
-            'score_threshold': 0.16,
+            'context_top_k': LLM_CONTEXT_TOP_K,
+            'score_threshold': LLM_LOW_SCORE_THRESHOLD,
             'top_scores': [round(item['score'], 4) for item in top_context],
-        } if use_llm else None,
-    # Score every candidate
-    scored = []
-    for p in podcasts:
-        sid = str(p.id)
-        if sid not in show_id_to_idx:
-            continue
-        pod_emb  = embeddings[show_id_to_idx[sid]]
-        score_a  = float(cosine_similarity([vec_a], [pod_emb])[0][0])
-        score_b  = float(cosine_similarity([vec_b], [pod_emb])[0][0])
-        combined = compute_balanced_score(score_a, score_b)
-        scored.append((p, score_a, score_b, combined))
-
-    scored.sort(key=lambda x: x[3], reverse=True)
-    top = scored[:20]
-    # * 100 for scaling
-    top = [(p, score_a, score_b, combined * 100) for p, score_a, score_b, combined in top]
-
-    results = []
-    for p, score_a, score_b, combined in top:
-        sid = str(p.id)
-        results.append({
-            'id':               p.id,
-            'title':            p.name,
-            'description':      p.descr,
-            'categories':       p.categories,
-            'explicit':         p.explicit,
-            'image_url':        p.image_url,
-            'feed_url':         p.feed_url,
-            'website_url':      p.website_url,
-            'author':           p.author,
-            'score':            round(combined, 4),
-            'score_for_a':      cosine_to_pct(score_a),   # now 0–100, never negative
-            'score_for_b':      cosine_to_pct(score_b),
-            'episode_count':    p.episode_count,
-            'avg_episode_time': p.avg_duration_min if p.avg_duration_min is not None else 'No information provided',
-            'top_dimensions':   get_top_dimensions(embeddings[show_id_to_idx[sid]]),
-            'popularity':       p.popularity_score,
-        })
-
-    return {
-        'match_pct': match_pct,
-        'results':   results,
-        'meta': {
-            'genres_searched':  list(genres_union),
-            'explicit_allowed': allow_explicit,
-        },
+        }
+        if use_llm
+        else None,
     }
