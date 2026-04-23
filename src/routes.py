@@ -282,9 +282,11 @@ def json_search(
     max_length=None,
     top_k=5,
     return_metadata=False,
+    use_llm_override=None,
 ):
     genres = genres or []
     excluded_genres = excluded_genres or []
+    effective_use_llm = USE_LLM if use_llm_override is None else (USE_LLM and bool(use_llm_override))
 
     # Get Podcasts and apply filters
     q = db.session.query(Podcast)
@@ -320,7 +322,7 @@ def json_search(
     ai_overview = None
 
     # embeddings are size (n_podcasts, d), so query_vec must be shape (1, d).
-    if USE_LLM:
+    if effective_use_llm:
         # Path A: score candidates with the original query for context quality checks.
         original_query_vec = query_to_vec(query)
         original_scores = cosine_similarity(original_query_vec, embeddings)[0]
@@ -410,7 +412,7 @@ def json_search(
             'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': [], 'negative': []},
         })
 
-        if USE_LLM:
+        if effective_use_llm:
             result_dicts[-1]['why_you_love_it'] = rag_utils.summarize_podcast_with_llm(
                 {
                     'title': r['podcast'].name,
@@ -463,12 +465,16 @@ def register_routes(app):
         length_met       = request.args.get('lengthMetric', '')
         min_length       = request.args.get('minLength', type=float)
         max_length       = request.args.get('maxLength', type=float)
+        use_llm_param    = request.args.get('useLLM')
 
         query, negated_genres = parse_query_negations(raw_query)
         excluded_genres = list(dict.fromkeys(excluded_genres + negated_genres))
 
         if not query:
             query = 'podcast'
+
+        use_llm_override = None if use_llm_param is None else (use_llm_param.lower() == 'true')
+        effective_use_llm = USE_LLM if use_llm_override is None else (USE_LLM and use_llm_override)
 
         payload = json_search(
             query=query,
@@ -481,7 +487,8 @@ def register_routes(app):
             min_length=min_length,
             max_length=max_length,
             top_k=LLM_CONTEXT_TOP_K,
-            return_metadata=USE_LLM,
+            return_metadata=effective_use_llm,
+            use_llm_override=use_llm_override,
         )
 
         return jsonify(payload)

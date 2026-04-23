@@ -25,6 +25,7 @@ const defaultSearchRequest: SearchRequest = {
   lengthMetric: 'total_episodes',
   minLength: 0,
   maxLength: 500,
+  useLlm: true,
 }
 
 function App(): JSX.Element {
@@ -65,6 +66,7 @@ function App(): JSX.Element {
     if (request.lengthMetric) params.set('lengthMetric', request.lengthMetric)
     if (request.minLength !== undefined) params.set('minLength', String(request.minLength))
     if (request.maxLength !== undefined) params.set('maxLength', String(request.maxLength))
+    if (request.useLlm !== undefined) params.set('useLLM', String(request.useLlm))
 
     const response = await fetch(`/api/podcasts?${params.toString()}`)
     const payload: Podcast[] | PodcastsApiResponse = await response.json()
@@ -78,7 +80,7 @@ function App(): JSX.Element {
     setView('results')
   }
 
-  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest): Promise<void> => {
+  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest, useLlmForSearch: boolean): Promise<void> => {
     setCollabDraftUser1(user1)
     setCollabDraftUser2(user2)
     setSearchContext({ mode: 'collab', user1, user2 })
@@ -93,7 +95,7 @@ function App(): JSX.Element {
     const response = await fetch('/api/match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userA: user1, userB: user2 }),
+      body: JSON.stringify({ userA: user1, userB: user2, useLLM: useLlmForSearch }),
     })
 
     if (!response.ok) {
@@ -127,6 +129,7 @@ function App(): JSX.Element {
       { label: 'Query', value: request.query || 'N/A' },
       { label: 'Explicit', value: request.explicit ? 'Yes' : 'No' },
       { label: 'Genres', value: request.genres?.length ? request.genres.join(', ') : 'Any' },
+      { label: 'Use AI', value: request.useLlm === false ? 'No' : 'Yes' },
       { label: 'Publisher', value: request.publisher?.trim() || 'Any' },
       { label: 'Year', value: request.releaseYear?.trim() || 'Any' },
       {
@@ -208,12 +211,14 @@ function App(): JSX.Element {
                   initialQuery={chatSeedTerm}
                   draft={soloDraft}
                   onDraftChange={setSoloDraft}
+                  llmAvailable={Boolean(useLlm)}
                 />
               ) : (
                 <CollaborativeMode
                   onCollaborativeSearch={handleCollaborativeSearch}
                   initialUser1={collabDraftUser1}
                   initialUser2={collabDraftUser2}
+                  llmAvailable={Boolean(useLlm)}
                   onDraftChange={(user1, user2) => {
                     setCollabDraftUser1(user1)
                     setCollabDraftUser2(user2)

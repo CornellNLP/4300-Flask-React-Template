@@ -152,9 +152,26 @@ body {
 .collab-search-row-bottom {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 14px;
   width: 100%;
   margin-top: 1.25rem;
   margin-bottom: 2rem;
+}
+
+.collab-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Georgia', serif;
+  color: #2d4f2c;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.collab-ai-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
 }
 
 .collab-instructions-panel {
