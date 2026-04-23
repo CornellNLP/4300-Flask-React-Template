@@ -40,24 +40,19 @@ def get_top_dimensions(embedding, k=6):
         return {'positive': [], 'negative': []}
     embedding = np.asarray(embedding).flatten()
     positive_mask = embedding > 0
-    negative_mask = embedding < 0
+
     positive_vals = embedding[positive_mask]
-    negative_vals = embedding[negative_mask]
     positive_indices = np.where(positive_mask)[0]
-    negative_indices = np.where(negative_mask)[0]
+
     pos_top_k = min(k, len(positive_vals))
-    neg_top_k = min(k, len(negative_vals))
+
     pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]] if pos_top_k else []
-    neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]] if neg_top_k else []
+
     return {
         'positive': [
             {'dimension': int(idx), 'value': float(embedding[idx]), 'label': dimension_labels.get(int(idx), f'Dim {idx}')}
             for idx in pos_sorted_idx
-        ],
-        'negative': [
-            {'dimension': int(idx), 'value': float(embedding[idx]), 'label': dimension_labels.get(int(idx), f'Dim {idx}')}
-            for idx in neg_sorted_idx
-        ],
+        ]
     }
 
 

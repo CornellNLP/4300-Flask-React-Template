@@ -240,22 +240,20 @@ def get_top_dimensions(embedding, k=6):
     """
     embedding = np.asarray(embedding).flatten()
     
-    # Separate positive and negative
     positive_mask = embedding > 0
-    negative_mask = embedding < 0
+    # negative_mask = embedding < 0
     
     positive_vals = embedding[positive_mask]
-    negative_vals = embedding[negative_mask]
+    # negative_vals = embedding[negative_mask]
     positive_indices = np.where(positive_mask)[0]
-    negative_indices = np.where(negative_mask)[0]
+    # negative_indices = np.where(negative_mask)[0]
     
-    # Get top k for each
     pos_top_k = min(k, len(positive_vals))
-    neg_top_k = min(k, len(negative_vals))
+    # neg_top_k = min(k, len(negative_vals))
     
-    # Sort by value (descending for positive, ascending for negative = most negative first)
+    # Sort by value
     pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]]
-    neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]]  # Most negative first
+    # neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]]  # Most negative first
     
     positive_dims = [
         {
@@ -266,18 +264,18 @@ def get_top_dimensions(embedding, k=6):
         for idx in pos_sorted_idx
     ]
     
-    negative_dims = [
-        {
-            'dimension': int(idx),
-            'value': float(embedding[idx]),
-            'label': dimension_labels.get(int(idx), f"Dim {idx}")
-        }
-        for idx in neg_sorted_idx
-    ]
+    # negative_dims = [
+    #     {
+    #         'dimension': int(idx),
+    #         'value': float(embedding[idx]),
+    #         'label': dimension_labels.get(int(idx), f"Dim {idx}")
+    #     }
+    #     for idx in neg_sorted_idx
+    # ]
     
     return {
         'positive': positive_dims,
-        'negative': negative_dims
+        # 'negative': negative_dims
     }
 
 
@@ -359,7 +357,7 @@ def json_search(query, explicit=False, genres=None, excluded_genres=None, publis
                 if r['podcast'].avg_duration_min is not None
                 else 'No information provided'
             ),
-            'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': [], 'negative': []},
+            'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': []},
         })
     
     return result_dicts

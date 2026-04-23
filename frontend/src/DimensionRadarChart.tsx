@@ -18,7 +18,7 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
   
   // Prepare data for radar chart using absolute values
   const chartData = dimensions.map(d => ({
-    dimension: d.label || `Dim ${d.dimension}`,
+    dimension: `Dim ${d.dimension}`,
     value: maxValue > 0 ? Math.abs(d.value) / maxValue : 0,
     rawValue: d.value,
     fullLabel: d.label,
@@ -48,7 +48,7 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
         {chartData.map((d, idx) => (
           <div key={idx} className="dimension-item-single">
             <span className="dimension-label-single" title={d.fullLabel}>
-              {d.fullLabel || `Dimension ${d.dimension}`}
+              {`${d.dimension}: ${d.fullLabel || 'no label'}`}
             </span>
             <span className={`dimension-value-single`} style={{ color }}>
               {Math.abs(d.rawValue).toFixed(3)}
@@ -63,7 +63,6 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
 interface DimensionRadarChartProps {
   dimensions: {
     positive: DimensionActivation[]
-    negative: DimensionActivation[]
   }
 }
 
@@ -73,11 +72,6 @@ function DimensionRadarChart({ dimensions }: DimensionRadarChartProps): JSX.Elem
   }
 
   const hasPositive = dimensions.positive && dimensions.positive.length > 0
-  const hasNegative = dimensions.negative && dimensions.negative.length > 0
-
-  if (!hasPositive && !hasNegative) {
-    return <div className="no-dimensions">No dimension activations available</div>
-  }
 
   return (
     <div className="dimension-radar-container">
@@ -88,13 +82,6 @@ function DimensionRadarChart({ dimensions }: DimensionRadarChartProps): JSX.Elem
             dimensions={dimensions.positive} 
             title="Top Positive Activations" 
             color="#4e8c3b"
-          />
-        )}
-        {hasNegative && (
-          <SingleRadarChart 
-            dimensions={dimensions.negative} 
-            title="Top Negative Activations" 
-            color="#d98a8a"
           />
         )}
       </div>

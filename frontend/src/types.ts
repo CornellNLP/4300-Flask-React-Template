@@ -12,7 +12,6 @@ export interface DimensionActivation {
 
 export interface DimensionGroup {
   positive: DimensionActivation[];
-  negative: DimensionActivation[];
 }
 
 export interface Episode {
