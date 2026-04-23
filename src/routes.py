@@ -19,7 +19,7 @@ from models import db, Episode, Review, Podcast
 import rag_utils
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = True
+# USE_LLM = None
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -311,7 +311,7 @@ def json_search(
 ):
     genres = genres or []
     excluded_genres = excluded_genres or []
-    effective_use_llm = USE_LLM if use_llm_override is None else (USE_LLM and bool(use_llm_override))
+    effective_use_llm = False if use_llm_override is None else (bool(use_llm_override))
 
     # Get Podcasts and apply filters
     q = db.session.query(Podcast)
@@ -502,7 +502,7 @@ def register_routes(app):
             query = 'podcast'
 
         use_llm_override = None if use_llm_param is None else (use_llm_param.lower() == 'true')
-        effective_use_llm = USE_LLM if use_llm_override is None else (USE_LLM and use_llm_override)
+        effective_use_llm = False if use_llm_override is None else use_llm_override
 
         payload = json_search(
             query=query,
@@ -521,6 +521,6 @@ def register_routes(app):
 
         return jsonify(payload)
 
-    if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
+    # if effective_use_llm:
+    #     from llm_routes import register_chat_route
+    #     register_chat_route(app, json_search)

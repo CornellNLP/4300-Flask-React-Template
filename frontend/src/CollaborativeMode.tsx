@@ -25,7 +25,7 @@ const defaultRequest: SearchRequest = {
 function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, onDraftChange, llmAvailable = true }: CollaborativeModeProps) {
   const [user1, setUser1] = useState<SearchRequest>(initialUser1 ?? defaultRequest);
   const [user2, setUser2] = useState<SearchRequest>(initialUser2 ?? defaultRequest);
-  const [useLlm, setUseLlm] = useState<boolean>(llmAvailable);
+  const [useLlm, setUseLlm] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
 
   const mergeWithDefaults = (request?: SearchRequest): SearchRequest => ({
@@ -103,7 +103,6 @@ function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, 
           <input
             type="checkbox"
             checked={useLlm}
-            disabled={!llmAvailable}
             onChange={event => setUseLlm(event.target.checked)}
           />
         </label>

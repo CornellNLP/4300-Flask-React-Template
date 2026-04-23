@@ -25,7 +25,7 @@ const defaultSearchRequest: SearchRequest = {
   lengthMetric: 'total_episodes',
   minLength: 0,
   maxLength: 500,
-  useLlm: true,
+  useLlm: false,
 }
 
 function App(): JSX.Element {
@@ -129,7 +129,7 @@ function App(): JSX.Element {
       { label: 'Query', value: request.query || 'N/A' },
       { label: 'Explicit', value: request.explicit ? 'Yes' : 'No' },
       { label: 'Genres', value: request.genres?.length ? request.genres.join(', ') : 'Any' },
-      { label: 'Use AI', value: request.useLlm === false ? 'No' : 'Yes' },
+      { label: 'Use AI', value: request.useLlm ? 'Yes' : 'No' },
       { label: 'Publisher', value: request.publisher?.trim() || 'Any' },
       { label: 'Year', value: request.releaseYear?.trim() || 'Any' },
       {

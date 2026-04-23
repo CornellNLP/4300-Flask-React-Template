@@ -45,7 +45,7 @@ function QueryComponent({
   const [maxLength, setMaxLength] = useState<number>(initialRequest?.maxLength ?? defaultMaxLength)
   const [publisher, setPublisher] = useState<string>(initialRequest?.publisher ?? '')
   const [releaseYear, setReleaseYear] = useState<string>(initialRequest?.releaseYear ?? '')
-  const [useLlm, setUseLlm] = useState<boolean>(initialRequest?.useLlm ?? true)
+  const [useLlm, setUseLlm] = useState<boolean>(llmAvailable ? (initialRequest?.useLlm ?? false) : false)
 
   // TODO: can change this with more experimentation
   const genreOptions = useMemo(  
@@ -240,7 +240,6 @@ function QueryComponent({
             <input
               type="checkbox"
               checked={useLlm}
-              disabled={!llmAvailable}
               onChange={event => {
                 const nextValue = event.target.checked
                 setUseLlm(nextValue)
