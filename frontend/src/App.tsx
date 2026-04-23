@@ -8,6 +8,7 @@ import MainLogo from './assets/main_logo.png'
 import CollaborativeMode from './CollaborativeMode'
 import IndividualMode from './IndividualMode'
 import AIOverview from './AIOverview'
+import LoadingScreen from './LoadingScreen'
 
 type ListeningMode = 'solo' | 'collab'
 type AppView = 'query' | 'results'
@@ -40,6 +41,7 @@ function App(): JSX.Element {
   const [soloDraft, setSoloDraft] = useState<SearchRequest>(defaultSearchRequest)
   const [collabDraftUser1, setCollabDraftUser1] = useState<SearchRequest>(defaultSearchRequest)
   const [collabDraftUser2, setCollabDraftUser2] = useState<SearchRequest>(defaultSearchRequest)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -49,13 +51,8 @@ function App(): JSX.Element {
     setSoloDraft(request)
     setSearchContext({ mode: 'solo', request })
 
-    if (request.query.trim() === '') {
-      setPodcasts([])
-      setAiOverview(null)
-      setView('query')
-      return
-    }
-
+  setIsLoading(true)
+  try {
     const params = new URLSearchParams()
     params.set('query', request.query)
     if (request.explicit !== undefined) params.set('explicit', String(request.explicit))
@@ -70,6 +67,7 @@ function App(): JSX.Element {
 
     const response = await fetch(`/api/podcasts?${params.toString()}`)
     const payload: Podcast[] | PodcastsApiResponse = await response.json()
+
     if (Array.isArray(payload)) {
       setPodcasts(payload)
       setAiOverview(null)
@@ -78,7 +76,10 @@ function App(): JSX.Element {
       setAiOverview(payload.ai_overview ?? null)
     }
     setView('results')
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest, useLlmForSearch: boolean): Promise<void> => {
     setCollabDraftUser1(user1)
@@ -141,7 +142,7 @@ function App(): JSX.Element {
 
   const renderSummaryCard = (title: string, request: SearchRequest): JSX.Element => (
     <div className="search-summary-card">
-      <h4>{title}</h4>
+      {/* <h4>{title}</h4> */}
       <div className="search-summary-grid">
         {formatRequestSummary(request).map(item => (
           <div key={`${title}-${item.label}`} className="search-summary-item">
@@ -174,6 +175,7 @@ function App(): JSX.Element {
 
   return (
     <div className="page-root">
+      <LoadingScreen isVisible={isLoading} />
       <div className={`centered-app-shell ${view === 'query' && listeningMode === 'solo' ? 'solo-fullscreen-shell' : ''}`}>
         <header className="main-header">
           <div className="main-logo">
@@ -231,7 +233,7 @@ function App(): JSX.Element {
             <div className="results-area">
               {aiOverview && <AIOverview overview={aiOverview} />}
               <div className="search-summary-panel">
-                <h3>Search Breakdown</h3>
+                <h3>Your Search Breakdown</h3>
                 {renderSearchSummary()}
               </div>
               <div className="results-toolbar">

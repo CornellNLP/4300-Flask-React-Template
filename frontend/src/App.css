@@ -506,7 +506,7 @@ body, .page-root {
 
 .ai-overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -521,10 +521,11 @@ body, .page-root {
 }
 
 .ai-overview-label {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: #607746;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-weight: bold;
 }
 
 .ai-overview-value {
