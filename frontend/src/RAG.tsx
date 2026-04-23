@@ -53,19 +53,19 @@ export default function RAG({ instrument, difficulty, numResults }: RAGProps) {
   };
 
   return (
-    <div className="rag-container">
-      <h2>🎵 Ask AI for a Recommendation</h2>
-      <p className="rag-subtitle">
+    <div className="rag-container" style={{ backgroundColor: '#e2e4ea', color: 'white', padding: '20px' }}>
+      <h2>🎵 Ask AI for a Recommendation </h2>
+      <p className="rag-subtitle" style={{ color: '#031a20' }}>
         Using: <strong>{instrument}</strong> · <strong>{difficulty}</strong> difficulty · top <strong>{numResults}</strong>
-      </p>
+       </p>
 
-      <div className="rag-input-row">
+      <div className="rag-input-row" style={{ backgroundColor: "#f0f2f5a6", padding: "10px" }}>
         <input
-          className="rag-input"
+          className="rag-input" 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="e.g. 'something sad and slow for a rainy day'"
+          placeholder="e.g. 'sad for a rainy day'"
         />
         <button className="button" onClick={handleSearch} disabled={loading}>
           {loading ? "Thinking..." : "Ask AI"}
@@ -115,9 +115,9 @@ export default function RAG({ instrument, difficulty, numResults }: RAGProps) {
             </div>
 
             {/* RIGHT: LLM answer grounded in those results */}
-            <div className="rag-llm-panel">
-              <h3>🤖 AI Recommendation</h3>
-              <div className="rag-answer">{result.llm_answer}</div>
+            <div className="rag-llm-panel" style={{ backgroundColor: 'gray' }}>
+              <h3 style={{ color: '#000000' }}>🤖 AI Recommendation</h3>
+              <div className="rag-answer" style={{color: 'black'}}>{result.llm_answer}</div>
             </div>
           </div>
         </div>
