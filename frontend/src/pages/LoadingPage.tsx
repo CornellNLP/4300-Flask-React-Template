@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import imgIstockphoto2098046718612X612RemovebgPreview2 from "../assets/table2.png";
+import { Recipe, Playlist, PlaylistRecommendations } from "../types";
 
 const loadingMessages = [
   "setting the table",
@@ -59,12 +60,39 @@ export function LoadingPage() {
   }, [isTypingDots]);
 
   useEffect(() => {
-    // Navigate to output page after 8 seconds, forwarding the state from InputPage
-    const navigationTimeout = setTimeout(() => {
-      navigate("/output", { state: location.state });
-    }, 8000);
+    const { query, recipeUrl, ...inputState } = (location.state ?? {}) as {
+      query: string;
+      recipeUrl: string;
+      [key: string]: unknown;
+    };
+    const q = query || "food";
+    const url = recipeUrl || `/api/recipes/svd?name=${encodeURIComponent(q)}`;
 
-    return () => clearTimeout(navigationTimeout);
+    const fetchData = async () => {
+      try {
+        const [recipesRes, playlistRes] = await Promise.all([
+          fetch(url),
+          fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
+        ]);
+        const fetchedRecipes: Recipe[] = await recipesRes.json();
+        const playlistData = await playlistRes.json();
+
+        // Handle array and object (LLM) responses
+        let playlist: Playlist | PlaylistRecommendations | null = null;
+        if (Array.isArray(playlistData)) {
+          playlist = playlistData[0] ?? null;
+        } else if (playlistData && typeof playlistData === "object") {
+          playlist = playlistData;
+        }
+
+        navigate("/output", { state: { ...inputState, recipes: fetchedRecipes, playlist } });
+      } catch (err) {
+        console.error("Failed to fetch party data:", err);
+        navigate("/output", { state: { ...inputState, recipes: [], playlist: null } });
+      }
+    };
+
+    fetchData();
   }, [navigate, location.state]);
 
   return (
