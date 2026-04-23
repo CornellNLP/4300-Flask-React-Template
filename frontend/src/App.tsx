@@ -253,7 +253,7 @@ function WinampPlayer({ songs, descriptions, onClickSound, mode, favoriteSongs, 
           <button className="wc-btn" onClick={withTransform(() => goTo(0))} title="first"><BsSkipBackwardFill size={16} /></button>
           <button className="wc-btn" onClick={withTransform(prev)} title="prev" disabled={selectedIndex === 0}><BsSkipStartFill size={16} /></button>
           <button className="wc-btn wc-play" onClick={togglePlay} title={isPlaying ? 'pause' : 'play'}>
-            {isPlaying ? <BsFillPauseFill size={16} /> : <BsFillPlayFill size={16} />}
+            {isPlaying ? <BsFillPauseFill size={20} /> : <BsFillPlayFill size={20} />}
           </button>
           <button className="wc-btn" onClick={withTransform(next)} title="next" disabled={selectedIndex === songs.length - 1}><BsSkipEndFill size={16} /></button>
           <button className="wc-btn" onClick={withTransform(() => goTo(songs.length - 1))} title="last"><BsSkipForwardFill size={16} /></button>
