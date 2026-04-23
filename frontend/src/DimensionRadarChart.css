@@ -6,13 +6,15 @@
   padding: 1rem;
   background: rgba(77, 196, 71, 0.13);
   border-radius: 16px;
-  border: 1px solid #b3d2bf;
+  /* border: 1px solid #b3d2bf; */
   width: 100%;
   min-width: 0;
   min-height: 0;
   resize: none;
   overflow: visible;
   box-sizing: border-box;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .radar-title {
@@ -34,10 +36,10 @@
 .single-radar-container {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 1);
+  /* border-radius: 12px; */
   padding: 0.9rem;
-  border: 1px solid #b3d2bf;
+  /* border: 1px solid #b3d2bf; */
 }
 
 .radar-subtitle {
@@ -54,8 +56,8 @@
   min-height: 420px;
   height: 420px;
   overflow: hidden;
-  border: 1px solid #9fc5ad;
-  border-radius: 10px;
+  /* border: 1px solid #9fc5ad;
+  border-radius: 10px; */
   padding: 10px;
   box-sizing: border-box;
   background: #ffffff;
@@ -88,7 +90,7 @@
   gap: 0.4rem;
   margin-top: 0.8rem;
   font-size: 13px;
-  max-height: 170px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
