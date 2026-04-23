@@ -1133,6 +1133,14 @@ body::before {
 
 .retro-btn.active::before { content: '* '; font-size: 0.7rem; opacity: 0.8; }
 .retro-btn.active::after  { content: ' *'; font-size: 0.7rem; opacity: 0.8; }
+.retro-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.retro-btn:disabled:hover {
+  background: #e8e6ff;
+}
+
 
 /* transport controls */
 .winamp-controls {

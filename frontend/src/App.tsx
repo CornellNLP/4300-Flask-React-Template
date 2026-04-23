@@ -387,6 +387,20 @@ function App(): JSX.Element {
 
   const cleanArtistName = (artist: string) => artist.replace(/[\[\]']/g, '')
 
+  const loadingStatus = ['tuning in...', 'scanning vibes...', 'connecting...']
+  const loadingSubs = ['hang tight bestie ♪', 'almost there ★', 'ur song is out there ♫']
+  const [statusIdx, setStatusIdx] = useState(0)
+  const [subIdx, setSubIdx] = useState(0)
+
+  // animate loading text  
+  useEffect(() => {
+  if (!activeTab.loading) return
+  const a = setInterval(() => setStatusIdx(i => (i + 1) % loadingStatus.length), 8000)
+  const b = setInterval(() => setSubIdx(i => (i + 1) % loadingSubs.length), 8000)
+  return () => { clearInterval(a); clearInterval(b) }
+}, [activeTab.loading])
+
+
   // ─── Tab management ─────────────────────────────────────────────────────────
 
   const addTab = () => {
@@ -594,13 +608,13 @@ function App(): JSX.Element {
                     onClick={e => { playClick(); handleSearch(e, activeTab.id, activeTab.query, activeTab.mode) }}
                     disabled={activeTab.loading}
                   >
-                    {activeTab.loading ? 'finding...' : 'find my song'}
+                    find my song
                   </button>
                 </div>
               </div>
               {activeTab.loading && (
                 <div className="loading-screen">
-                  <div className="loading-status">finding ur song...</div>
+                  <div className="loading-status">{loadingStatus[statusIdx]}</div>
                   <div className="loading-stars">
                     <span>★</span><span>✦</span><span>★</span><span>✦</span><span>★</span>
                   </div>
@@ -610,7 +624,7 @@ function App(): JSX.Element {
                       <div className="loading-bar-inner" />
                     </div>
                   </div>
-                  <div className="loading-subtitle">hang tight bestie ♪</div>
+                  <div className="loading-subtitle">{loadingSubs[subIdx]}</div>
                 </div>
               )}
               {activeTab.error && <div className="error-banner">{activeTab.error}</div>}
