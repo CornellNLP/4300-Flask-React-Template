@@ -9,12 +9,13 @@ def match():
     body   = request.get_json()
     user_a = body.get('userA')
     user_b = body.get('userB')
+    use_llm = body.get('useLLM', True)
 
     if not user_a or not user_b:
         return jsonify({'error': 'Both userA and userB required'}), 400
     if not user_a.get('query') or not user_b.get('query'):
         return jsonify({'error': 'Both users must provide a query'}), 400
 
-    result = compute_match(user_a, user_b)
-    print(f'Match result: {result}')
+    result = compute_match(user_a, user_b, use_llm=bool(use_llm))
+    # print(f'Match result: {result}')
     return jsonify(result)

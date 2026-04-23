@@ -55,6 +55,10 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
     return `${preface}This recommendation matches your query intent${scoreText}.`
   }
 
+  const getWhyYouLoveIt = (podcast: Podcast): string => {
+    return podcast.why_you_love_it?.trim() || buildWhyYouLoveIt(podcast)
+  }
+
   const selectedGenres = useMemo(
     () => (selectedPodcast ? getGenres(selectedPodcast) : []),
     [selectedPodcast],
@@ -154,7 +158,7 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
 
             <div className="modal-why">
               <h3>Why you'd {'<3'} it</h3>
-              <p>{buildWhyYouLoveIt(selectedPodcast)}</p>
+              <p>{getWhyYouLoveIt(selectedPodcast)}</p>
             </div>
 
             {selectedPodcast.top_dimensions && 

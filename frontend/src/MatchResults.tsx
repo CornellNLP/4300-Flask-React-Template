@@ -56,6 +56,10 @@ function MatchResults({ matchPct, results }: MatchResultsProps): JSX.Element {
     return base
   }
 
+  const getWhyBothLoveIt = (podcast: MatchPodcast): string => {
+    return podcast.why_you_love_it?.trim() || buildWhyBothLoveIt(podcast)
+  }
+
   const matchLabel = useMemo(() => {
     if (matchPct >= 85) return 'You two are podcast soulmates 🎧'
     if (matchPct >= 65) return 'Great taste overlap!'
@@ -232,7 +236,7 @@ function MatchResults({ matchPct, results }: MatchResultsProps): JSX.Element {
 
             <div className="modal-why">
               <h3>Why you'd {'<3'} it together</h3>
-              <p>{`This feature will be improved with future RAG integration. ${buildWhyBothLoveIt(selectedPodcast)}`}</p>
+              <p>{getWhyBothLoveIt(selectedPodcast)}</p>
             </div>
 
             {selectedPodcast.top_dimensions &&

@@ -6,9 +6,10 @@ interface IndividualModeProps {
   initialQuery?: string;
   draft?: SearchRequest;
   onDraftChange?: (request: SearchRequest) => void;
+  llmAvailable?: boolean;
 }
 
-function IndividualMode({ onSearch, initialQuery = '', draft, onDraftChange }: IndividualModeProps) {
+function IndividualMode({ onSearch, initialQuery = '', draft, onDraftChange, llmAvailable = true }: IndividualModeProps) {
   return (
     <div className="individual-mode-fullscreen">
       <div className="solo-layout">
@@ -18,6 +19,7 @@ function IndividualMode({ onSearch, initialQuery = '', draft, onDraftChange }: I
             initialQuery={initialQuery}
             initialRequest={draft}
             onDraftChange={onDraftChange}
+            llmAvailable={llmAvailable}
           />
         </div>
         <div className="instructions-panel">

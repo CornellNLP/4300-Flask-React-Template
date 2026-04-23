@@ -3,10 +3,11 @@ import QueryComponent, { SearchRequest } from './QueryComponent';
 import './CollaborativeMode.css';
 
 interface CollaborativeModeProps {
-  onCollaborativeSearch: (user1: SearchRequest, user2: SearchRequest) => Promise<void> | void;
+  onCollaborativeSearch: (user1: SearchRequest, user2: SearchRequest, useLlm: boolean) => Promise<void> | void;
   initialUser1?: SearchRequest;
   initialUser2?: SearchRequest;
   onDraftChange?: (user1: SearchRequest, user2: SearchRequest) => void;
+  llmAvailable?: boolean;
 }
 
 const defaultRequest: SearchRequest = {
@@ -21,9 +22,10 @@ const defaultRequest: SearchRequest = {
   maxLength: 500,
 };
 
-function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, onDraftChange }: CollaborativeModeProps) {
+function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, onDraftChange, llmAvailable = true }: CollaborativeModeProps) {
   const [user1, setUser1] = useState<SearchRequest>(initialUser1 ?? defaultRequest);
   const [user2, setUser2] = useState<SearchRequest>(initialUser2 ?? defaultRequest);
+  const [useLlm, setUseLlm] = useState<boolean>(llmAvailable);
   const [submitting, setSubmitting] = useState(false);
 
   const mergeWithDefaults = (request?: SearchRequest): SearchRequest => ({
@@ -37,10 +39,16 @@ function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, 
     setUser2(mergeWithDefaults(initialUser2));
   }, [initialUser1, initialUser2]);
 
+  useEffect(() => {
+    if (!llmAvailable) {
+      setUseLlm(false);
+    }
+  }, [llmAvailable]);
+
   const handleSubmit = async () => {
     if (user1.query.trim() && user2.query.trim()) {
       setSubmitting(true);
-      await onCollaborativeSearch(user1, user2);
+      await onCollaborativeSearch(user1, user2, useLlm);
       setSubmitting(false);
     }
   };
@@ -90,6 +98,15 @@ function CollaborativeMode({ onCollaborativeSearch, initialUser1, initialUser2, 
       </div>
 
       <div className="collab-search-row-bottom">
+        <label className="collab-ai-toggle">
+          <span>Use AI?</span>
+          <input
+            type="checkbox"
+            checked={useLlm}
+            disabled={!llmAvailable}
+            onChange={event => setUseLlm(event.target.checked)}
+          />
+        </label>
         <button type="button" className="collab-search-btn" onClick={handleSubmit} disabled={submitting || !user1.query.trim() || !user2.query.trim()}>
           {submitting ? 'SEARCHING...' : 'SEARCH TOGETHER'}
         </button>

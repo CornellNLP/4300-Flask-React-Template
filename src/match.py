@@ -6,6 +6,7 @@ import pickle
 import pandas as pd
 from pathlib import Path
 from models import db, Podcast
+import rag_utils
 
 OS_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,7 +63,6 @@ def query_to_vector(query: str) -> np.ndarray:
     vec = svd_model_obj.transform(tfidf_vec)[0]
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 0 else vec
-
 
 def cosine_to_pct(cosine_val: float) -> float:
     """
@@ -132,6 +132,113 @@ def compute_match(user_a: dict, user_b: dict) -> dict:
 
     podcasts = q.all()
 
+    top_context = []
+    all_scores_low = False
+    combined_llm = {
+        'modified_query': f"{user_a['query']} {user_b['query']}".strip(),
+        'explanation': 'LLM was disabled for this collaborative search.',
+        'used_context': False,
+    }
+    if use_llm:
+        # Build a compact baseline context from the merged vector so the LLM can rewrite efficiently.
+        baseline_candidates = sorted(
+            [
+                {
+                    'podcast': p,
+                    'score': float(id_to_score.get(str(p.id), 0.0)),
+                }
+                for p in podcasts
+            ],
+            key=lambda x: x['score'],
+            reverse=True,
+        )[:5]
+
+        top_context = [
+            {
+                'title': item['podcast'].name,
+                'description': rag_utils._clip_words(item['podcast'].descr, max_words=50),
+                'categories': item['podcast'].categories,
+                'author': item['podcast'].author,
+                'score': item['score'],
+            }
+            for item in baseline_candidates
+        ]
+
+        all_scores_low = bool(top_context) and all(item['score'] < 0.16 for item in top_context)
+
+        combined_llm = rag_utils.enrich_collab_query_with_llm_details(
+            user_a_query=user_a['query'],
+            user_b_query=user_b['query'],
+            max_context=5,
+            context_items=top_context,
+            generic_only=all_scores_low,
+        )
+
+    # Rank by merged score
+    ranked = sorted(
+        podcasts,
+        key=lambda p: id_to_score.get(str(p.id), 0.0),
+        reverse=True
+    )[:5]
+
+    results = []
+    for p in ranked:
+        dims = get_top_dimensions(embeddings[show_id_to_idx[str(p.id)]]) if str(p.id) in show_id_to_idx else {'positive': [], 'negative': []}
+        score_val = round(id_to_score.get(str(p.id), 0.0), 4)
+
+        if use_llm:
+            why_text = rag_utils.summarize_podcast_with_llm(
+                {
+                    'title': p.name,
+                    'description': p.descr,
+                    'categories': p.categories,
+                    'author': p.author,
+                },
+                user_query=f"{user_a['query']} {user_b['query']}".strip(),
+                top_dimensions=dims,
+            )
+        else:
+            genres_text = p.categories or ''
+            why_text = f"This show aligns with both of your interests in {genres_text} with a similarity score of {score_val:.3f}."
+
+        results.append({
+            'id':            p.id,
+            'title':         p.name,
+            'description':   p.descr,
+            'categories':    p.categories,
+            'explicit':      p.explicit,
+            'image_url':     p.image_url,
+            'feed_url':      p.feed_url,
+            'website_url':   p.website_url,
+            'author':        p.author,
+            'score':         score_val,
+            'score_for_a':   round(float(cosine_similarity([vec_a], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
+            'score_for_b':   round(float(cosine_similarity([vec_b], [embeddings[show_id_to_idx[str(p.id)]]])[0][0]), 4) if str(p.id) in show_id_to_idx else 0,
+            'episode_count': p.episode_count,
+            'avg_episode_time': (
+                p.avg_duration_min
+                if p.avg_duration_min is not None
+                else 'No information provided'
+            ),
+            'top_dimensions': dims,
+            'why_you_love_it': why_text,
+            'popularity':    p.popularity_score,
+        })
+
+    return {
+        'match_pct':  match_pct,
+        'results':    results,
+        'ai_overview': {
+            'user_query_a': user_a['query'],
+            'user_query_b': user_b['query'],
+            'modified_query': combined_llm.get('modified_query', ''),
+            'explanation': combined_llm.get('explanation', ''),
+            'used_context': bool(combined_llm.get('used_context', False)),
+            'low_score_fallback': all_scores_low,
+            'context_top_k': 5,
+            'score_threshold': 0.16,
+            'top_scores': [round(item['score'], 4) for item in top_context],
+        } if use_llm else None,
     # Score every candidate
     scored = []
     for p in podcasts:

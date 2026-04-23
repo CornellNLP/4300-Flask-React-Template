@@ -486,6 +486,52 @@ body, .page-root {
   word-break: break-word;
 }
 
+.ai-overview-panel {
+  width: min(1500px, calc(100% - 2rem));
+  box-sizing: border-box;
+  margin-top: 1rem;
+  background: #eef7de;
+  border: 1px solid #b7d08b;
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.ai-overview-panel h3 {
+  margin: 0 0 0.65rem;
+  font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+  color: #3f6f1f;
+  font-size: 1.15rem;
+}
+
+.ai-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ai-overview-item {
+  background: #fbfff2;
+  border: 1px solid #d3e6b3;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-overview-label {
+  font-size: 0.75rem;
+  color: #607746;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-overview-value {
+  font-size: 0.9rem;
+  color: #2e4426;
+  word-break: break-word;
+}
+
 .results-instructions {
   align-self:center;
   height: 100px;
@@ -676,6 +722,10 @@ body, .page-root {
 }
 
 @media (max-width: 768px) {
+  .ai-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .google-colors h1 { font-size: 3rem; }
   .input-box { width: 90%; }
   .mode-tabs {

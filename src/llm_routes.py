@@ -46,7 +46,7 @@ def llm_search_decision(client, user_message):
 def register_chat_route(app, json_search):
     """Register the /api/chat SSE endpoint. Called from routes.py."""
 
-    from rag_utils import enrich_query_with_llm, get_podcast_markdown_threads, retrieve_for_rag
+    from rag_utils import enrich_query_with_llm
 
     @app.route("/api/chat", methods=["POST"])
     def chat():
@@ -61,23 +61,21 @@ def register_chat_route(app, json_search):
 
         client = LLMClient(api_key=api_key)
 
-        # Step 1: LLM rewrites/enriches the query for better podcast retrieval
-        enriched_query = enrich_query_with_llm(user_message, client, json_search, max_context=10)
-
-        # Step 2: Retrieve top podcasts using the enriched query
-        markdown_threads = get_podcast_markdown_threads(max_context=1000)
-        hits, context = retrieve_for_rag(enriched_query, markdown_threads, json_search, top_k=5)
-
-        # Step 3: LLM answers using original query + IR context
+        # Import embeddings from routes (or wherever they are loaded)
+        from routes import embeddings
+        # Step 1: LLM rewrites/enriches the query for better podcast retrieval, using embeddings as context
+        enriched_query = enrich_query_with_llm(user_message, max_context=10)
         messages = [
             {"role": "system", "content": "You are a podcast recommendation assistant."},
-            {"role": "user", "content": (
-                f"User question: {user_message}\n\n"
-                f"Relevant podcasts retrieved:\n{context}\n\n"
-                "Based on the above, answer the user's question."
-            )}
+            {
+                "role": "user",
+                "content": (
+                    f"User question: {user_message}\n\n"
+                    f"Rewritten search query: {enriched_query}"
+                ),
+            },
         ]
-
+        
         def generate():
             # Optionally yield the enriched query for UI/debug
             yield f"data: {json.dumps({'enriched_query': enriched_query})}\n\n"

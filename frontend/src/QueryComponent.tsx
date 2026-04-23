@@ -12,6 +12,7 @@ export interface SearchRequest {
   lengthMetric?: 'duration_ms' | 'total_episodes'
   minLength?: number
   maxLength?: number
+  useLlm?: boolean
 }
 
 interface QueryComponentProps {
@@ -21,6 +22,7 @@ interface QueryComponentProps {
   onDraftChange?: (request: SearchRequest) => void
   showSubmit?: boolean
   radioNamePrefix?: string
+  llmAvailable?: boolean
 }
 
 function QueryComponent({
@@ -30,6 +32,7 @@ function QueryComponent({
   onDraftChange,
   showSubmit = true,
   radioNamePrefix = 'solo',
+  llmAvailable = true,
 }: QueryComponentProps): JSX.Element {
   const defaultMinLength = 0
   const defaultMaxLength = 500
@@ -42,6 +45,7 @@ function QueryComponent({
   const [maxLength, setMaxLength] = useState<number>(initialRequest?.maxLength ?? defaultMaxLength)
   const [publisher, setPublisher] = useState<string>(initialRequest?.publisher ?? '')
   const [releaseYear, setReleaseYear] = useState<string>(initialRequest?.releaseYear ?? '')
+  const [useLlm, setUseLlm] = useState<boolean>(initialRequest?.useLlm ?? true)
 
   // TODO: can change this with more experimentation
   const genreOptions = useMemo(  
@@ -74,6 +78,7 @@ function QueryComponent({
       lengthMetric,
       minLength,
       maxLength,
+      useLlm,
       ...nextRequest,
     })
   }
@@ -105,6 +110,7 @@ function QueryComponent({
       lengthMetric,
       minLength,
       maxLength,
+      useLlm,
     })
   }
 
@@ -229,6 +235,19 @@ function QueryComponent({
       </div>
       {showSubmit && (
         <div className="solo-search-row">
+          <label className="solo-ai-toggle">
+            <span>Use AI?</span>
+            <input
+              type="checkbox"
+              checked={useLlm}
+              disabled={!llmAvailable}
+              onChange={event => {
+                const nextValue = event.target.checked
+                setUseLlm(nextValue)
+                emitDraftChange({ useLlm: nextValue })
+              }}
+            />
+          </label>
           <button type="submit" className="solo-search-btn">SEARCH</button>
         </div>
       )}

@@ -132,6 +132,23 @@
 .solo-search-row {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.solo-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Georgia', serif;
+  color: #2d4f2c;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.solo-ai-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
 }
 .solo-search-btn {
   font-family: 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-import { Podcast } from './types'
-import Chat from './Chat'
+import { AiOverview, MatchApiResponse, Podcast, PodcastsApiResponse } from './types'
 import { type SearchRequest } from './QueryComponent'
 import ResultComponent from './ResultComponent'
 import MatchResults from './MatchResults'
 import MainLogo from './assets/main_logo.png'
 import CollaborativeMode from './CollaborativeMode'
 import IndividualMode from './IndividualMode'
+import AIOverview from './AIOverview'
 
 type ListeningMode = 'solo' | 'collab'
 type AppView = 'query' | 'results'
@@ -25,6 +25,7 @@ const defaultSearchRequest: SearchRequest = {
   lengthMetric: 'total_episodes',
   minLength: 0,
   maxLength: 500,
+  useLlm: true,
 }
 
 function App(): JSX.Element {
@@ -32,9 +33,10 @@ function App(): JSX.Element {
   const [listeningMode, setListeningMode] = useState<ListeningMode>('solo')
   const [view, setView] = useState<AppView>('query')
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
+  const [aiOverview, setAiOverview] = useState<AiOverview | null>(null)
   const [matchPct, setMatchPct] = useState<number>(0)
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
-  const [chatSeedTerm, setChatSeedTerm] = useState<string>('')
+  const [chatSeedTerm] = useState<string>('')
   const [soloDraft, setSoloDraft] = useState<SearchRequest>(defaultSearchRequest)
   const [collabDraftUser1, setCollabDraftUser1] = useState<SearchRequest>(defaultSearchRequest)
   const [collabDraftUser2, setCollabDraftUser2] = useState<SearchRequest>(defaultSearchRequest)
@@ -49,6 +51,7 @@ function App(): JSX.Element {
 
     if (request.query.trim() === '') {
       setPodcasts([])
+      setAiOverview(null)
       setView('query')
       return
     }
@@ -63,20 +66,28 @@ function App(): JSX.Element {
     if (request.lengthMetric) params.set('lengthMetric', request.lengthMetric)
     if (request.minLength !== undefined) params.set('minLength', String(request.minLength))
     if (request.maxLength !== undefined) params.set('maxLength', String(request.maxLength))
+    if (request.useLlm !== undefined) params.set('useLLM', String(request.useLlm))
 
     const response = await fetch(`/api/podcasts?${params.toString()}`)
-    const data: Podcast[] = await response.json()
-    setPodcasts(data)
+    const payload: Podcast[] | PodcastsApiResponse = await response.json()
+    if (Array.isArray(payload)) {
+      setPodcasts(payload)
+      setAiOverview(null)
+    } else {
+      setPodcasts(payload.results ?? [])
+      setAiOverview(payload.ai_overview ?? null)
+    }
     setView('results')
   }
 
-  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest): Promise<void> => {
+  const handleCollaborativeSearch = async (user1: SearchRequest, user2: SearchRequest, useLlmForSearch: boolean): Promise<void> => {
     setCollabDraftUser1(user1)
     setCollabDraftUser2(user2)
     setSearchContext({ mode: 'collab', user1, user2 })
 
     if (!user1.query?.trim() || !user2.query?.trim()) {
       setPodcasts([])
+      setAiOverview(null)
       setView('query')
       return
     }
@@ -84,16 +95,17 @@ function App(): JSX.Element {
     const response = await fetch('/api/match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userA: user1, userB: user2 }),
+      body: JSON.stringify({ userA: user1, userB: user2, useLLM: useLlmForSearch }),
     })
 
     if (!response.ok) {
       throw new Error(`Collaborative search failed with status ${response.status}`)
     }
 
-    const data: { match_pct: number; results: Podcast[] } = await response.json()
+    const data: MatchApiResponse = await response.json()
     setMatchPct(data.match_pct ?? 0)
     setPodcasts(data.results ?? [])
+    setAiOverview(data.ai_overview ?? null)
     setView('results')
   }
 
@@ -101,11 +113,11 @@ function App(): JSX.Element {
     setView('query')
   }
 
-  const handleChatSearch = async (value: string): Promise<void> => {
-    setListeningMode('solo')
-    setChatSeedTerm(value)
-    await handleSearch({ query: value })
-  }
+  // const handleChatSearch = async (value: string): Promise<void> => {
+  //   setListeningMode('solo')
+  //   setChatSeedTerm(value)
+  //   await handleSearch({ query: value })
+  // }
 
   const formatLengthMetric = (metric?: SearchRequest['lengthMetric']): string => {
     if (metric === 'duration_ms') return 'Episode Duration (minutes)'
@@ -117,6 +129,7 @@ function App(): JSX.Element {
       { label: 'Query', value: request.query || 'N/A' },
       { label: 'Explicit', value: request.explicit ? 'Yes' : 'No' },
       { label: 'Genres', value: request.genres?.length ? request.genres.join(', ') : 'Any' },
+      { label: 'Use AI', value: request.useLlm === false ? 'No' : 'Yes' },
       { label: 'Publisher', value: request.publisher?.trim() || 'Any' },
       { label: 'Year', value: request.releaseYear?.trim() || 'Any' },
       {
@@ -198,12 +211,14 @@ function App(): JSX.Element {
                   initialQuery={chatSeedTerm}
                   draft={soloDraft}
                   onDraftChange={setSoloDraft}
+                  llmAvailable={Boolean(useLlm)}
                 />
               ) : (
                 <CollaborativeMode
                   onCollaborativeSearch={handleCollaborativeSearch}
                   initialUser1={collabDraftUser1}
                   initialUser2={collabDraftUser2}
+                  llmAvailable={Boolean(useLlm)}
                   onDraftChange={(user1, user2) => {
                     setCollabDraftUser1(user1)
                     setCollabDraftUser2(user2)
@@ -215,6 +230,7 @@ function App(): JSX.Element {
 
           {view === 'results' && (
             <div className="results-area">
+              {useLlm && aiOverview && <AIOverview overview={aiOverview} />}
               <div className="search-summary-panel">
                 <h3>Search Breakdown</h3>
                 {renderSearchSummary()}
@@ -245,7 +261,7 @@ function App(): JSX.Element {
           )}
         </div>
 
-        {useLlm && <Chat onSearchTerm={handleChatSearch} />}
+        {/* {useLlm && <Chat onSearchTerm={handleChatSearch} />} */}
       </div>
     </div>
   )
