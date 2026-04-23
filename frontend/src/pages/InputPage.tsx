@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import imgFood from "../assets/tomato.png";
+import imgTable2 from "../assets/table2.png";
 import { Recipe } from "../types";
 import "./InputPage.css";
 
@@ -150,6 +151,8 @@ export function InputPage() {
 
   const handleGetHosting = () => {
     const q = query || "food";
+    // Preload the loading screen image so it's cached before the page mounts
+    new Image().src = imgTable2;
     navigate("/loading", {
       state: {
         dinnerPartyKeyword,

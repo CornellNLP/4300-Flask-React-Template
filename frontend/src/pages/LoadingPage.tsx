@@ -73,8 +73,7 @@ export function LoadingPage() {
         const [recipesRes, playlistRes] = await Promise.all([
           fetch(url),
           fetch(`/api/playlists?name=${encodeURIComponent(q)}`),
-          new Promise((resolve) => setTimeout(resolve, 8000)),
-        ]) as unknown as [Response, Response];
+        ]);
         const fetchedRecipes: Recipe[] = await recipesRes.json();
         const playlistData = await playlistRes.json();
 
