@@ -91,9 +91,9 @@ function RagPanel({ query, results }: RagPanelProps): JSX.Element | null {
 
   return (
     <div className="rag-panel">
+      <p className="rag-panel-label">Why these results match</p>
       {loading && (
         <div className="rag-loading">
-          <span className="rag-label">Analyzing results</span>
           <span className="loading-dot" />
           <span className="loading-dot" />
           <span className="loading-dot" />

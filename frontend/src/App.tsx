@@ -77,7 +77,7 @@ function RestaurantCard({ r }: { r: Restaurant }) {
                 <p className="menu-item-desc">{item.description}</p>
               )}
               {item.match_reason && (
-                <p className="menu-item-reason">matched: {item.match_reason}</p>
+                <p className="menu-item-reason">matched term: {item.match_reason}</p>
               )}
             </div>
           ))}
@@ -116,6 +116,7 @@ function App(): JSX.Element {
   const [results, setResults] = useState<Restaurant[]>([])
   const [svdConcepts, setSvdConcepts] = useState<SvdConcept[]>([])
   const [svdError, setSvdError] = useState<string | null>(null)
+  const [submittedQuery, setSubmittedQuery] = useState('')
   const [correctedQuery, setCorrectedQuery] = useState<string | null>(null)
   const [suggestedCities, setSuggestedCities] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -138,9 +139,10 @@ function App(): JSX.Element {
     if (!q.trim()) {
       setResults([]); setSvdConcepts([])
       setSearched(false); setError(null); setSvdError(null)
-      setCorrectedQuery(null); setSuggestedCities([])
+      setCorrectedQuery(null); setSuggestedCities([]); setSubmittedQuery('')
       return
     }
+    setSubmittedQuery(q)
     setLoading(true); setSearched(true); setError(null); setSvdError(null)
     setCorrectedQuery(null); setSuggestedCities([])
     try {
@@ -305,7 +307,7 @@ function App(): JSX.Element {
         {!loading && !error && !svdError && (
           <>
             {searchMode === 'svd' && <ConceptPanel concepts={svdConcepts} />}
-            {useLlm && <RagPanel query={searched ? query : ''} results={results} />}
+            {useLlm && <RagPanel query={submittedQuery} results={results} />}
             {results.map((r, i) => <RestaurantCard key={i} r={r} />)}
           </>
         )}

@@ -1,10 +1,15 @@
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
-.full-body-container {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  width: 100%;
+html, body {
   min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #fffaf5;
+}
+
+.full-body-container {
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   justify-content: flex-start;
   align-items: center;
@@ -311,6 +316,15 @@
   margin: 2px 0 0;
 }
 
+.menu-item-reason {
+  font-size: 0.82rem;
+  color: #7f8c8d;
+  font-family: 'Montserrat', sans-serif;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 2px 0 0;
+}
+
 /* ── Loading & empty states ──────────────────────────────────────────────── */
 
 .loading-row {
@@ -503,6 +517,45 @@
   color: #2c3e50;
   font-family: 'Montserrat', sans-serif;
   line-height: 1.5;
+}
+
+/* ── RAG explanation panel ───────────────────────────────────────────────── */
+
+.rag-panel {
+  background: #f0faf4;
+  border: 1px solid #a9dfbf;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+}
+
+.rag-panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1d6a40;
+  font-family: 'Open Sans', sans-serif;
+  margin: 0 0 0.6rem;
+}
+
+.rag-loading {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.rag-explanation {
+  font-size: 0.88rem;
+  color: #2c3e50;
+  font-family: 'Montserrat', sans-serif;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.rag-error {
+  font-size: 0.85rem;
+  color: #c0392b;
+  margin: 0;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
