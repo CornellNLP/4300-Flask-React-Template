@@ -277,6 +277,32 @@ def _tokenize_and_stem(text):
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'exercises_free_db.json')
 PROGRAMS_CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'datasets', 'programs_cleaned.csv')
+COMMON_ENGLISH_PATH = os.path.join(os.path.dirname(__file__), '..', 'data',
+                                   'google-10000-english-no-swears.txt')
+
+
+def _load_english_words(path=COMMON_ENGLISH_PATH):
+    """Load a frozenset of common English words for the spell-correction gate.
+
+    The searchers use this to decide whether a query token is likely a typo
+    (not English) or a legitimate word the user really typed. Without this
+    gate, ``_correct_token`` rewrites any non-vocab token to the nearest
+    corpus term within edit distance 2, which mangles common English words
+    that simply don't appear in the exercise corpus (e.g. "bigger" → "finger",
+    "build" → "bulk").
+
+    A missing file falls back to an empty set so the module still imports in
+    minimal environments — correction then behaves as it did before the gate
+    was added.
+    """
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return frozenset(line.strip().lower() for line in f if line.strip())
+    except OSError:
+        return frozenset()
+
+
+_ENGLISH_WORDS = _load_english_words()
 
 # ── Query expansion maps ─────────────────────────────────────────────────────
 # GOAL_TO_MUSCLES maps common fitness goal keywords to the muscle groups they
@@ -904,6 +930,19 @@ class ExerciseSearcher:
                 corrected_display.append(raw)
                 continue
             aliased = _apply_alias(raw)
+            # English-wordlist gate: if the user typed a real English word,
+            # don't spell-correct against the corpus vocab. Prevents common
+            # queries like "build bigger calves" from being rewritten to
+            # "bulk finger calves" just because "build" and "bigger" aren't
+            # in the exercise corpus. Stemming is deferred until after this
+            # check so real English words skip the Porter pass entirely.
+            if aliased in _ENGLISH_WORDS:
+                if aliased != raw:
+                    corrected_display.append(aliased)
+                    any_corrected = True
+                else:
+                    corrected_display.append(raw)
+                continue
             stemmed = _stem(aliased)
             corrected = _correct_token(stemmed, self.vocab_by_length)
             if corrected != stemmed:
@@ -1198,6 +1237,13 @@ class ProgramSearcher:
                 corrected_display.append(raw)
                 continue
             aliased = _apply_alias(raw)
+            if aliased in _ENGLISH_WORDS:
+                if aliased != raw:
+                    corrected_display.append(aliased)
+                    any_corrected = True
+                else:
+                    corrected_display.append(raw)
+                continue
             stemmed = _stem(aliased)
             corrected = _correct_token(stemmed, self.vocab_by_length)
             if corrected != stemmed:
