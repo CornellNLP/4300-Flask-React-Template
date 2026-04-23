@@ -112,6 +112,33 @@ def query_to_vec(query):
     # return vec / norm if norm > 0 else vec
     return query_vec
 
+# def query_to_vec(query: str) -> np.ndarray:
+#     """
+#     Following mixed embeddings structure
+#     1. TF-IDF transform
+#     2. SVD transform  
+#     3. L2-normalize
+#     4. Apply same mix weights (even though query has no episode component,
+#        we scale by alpha_show so the magnitude matches the embedding space)
+#     """
+#     mix_weights = svd_model.get('mix_weights', {'episode': 0.1, 'show': 0.9})
+#     alpha_show = mix_weights['show']
+
+#     tfidf_vec = tfidf_vectorizer.transform([query])
+#     vec = svd_model_obj.transform(tfidf_vec)[0]
+
+#     # L2-normalize (mirrors the normalize() call on show_embs before mixing)
+#     norm = np.linalg.norm(vec)
+#     vec  = vec / norm if norm > 0 else vec
+
+#     # Scale by alpha_show — a query has no episode signal, so it's 100% show-side.
+#     # Scaling keeps it in the same magnitude range as the mixed embeddings.
+#     vec = alpha_show * vec
+
+#     # Final L2-normalize (mirrors the final normalize() on new_show_embs)
+#     norm = np.linalg.norm(vec)
+#     return vec / norm if norm > 0 else vec
+
 # function for getting top k for optimize_query_vec
 def get_top_k(query_vec, embeddings, k=5):
     q = query_vec.reshape(-1)
@@ -219,22 +246,20 @@ def get_top_dimensions(embedding, k=6):
     """
     embedding = np.asarray(embedding).flatten()
     
-    # Separate positive and negative
     positive_mask = embedding > 0
-    negative_mask = embedding < 0
+    # negative_mask = embedding < 0
     
     positive_vals = embedding[positive_mask]
-    negative_vals = embedding[negative_mask]
+    # negative_vals = embedding[negative_mask]
     positive_indices = np.where(positive_mask)[0]
-    negative_indices = np.where(negative_mask)[0]
+    # negative_indices = np.where(negative_mask)[0]
     
-    # Get top k for each
     pos_top_k = min(k, len(positive_vals))
-    neg_top_k = min(k, len(negative_vals))
+    # neg_top_k = min(k, len(negative_vals))
     
-    # Sort by value (descending for positive, ascending for negative = most negative first)
+    # Sort by value
     pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]]
-    neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]]  # Most negative first
+    # neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]]  # Most negative first
     
     positive_dims = [
         {
@@ -245,18 +270,18 @@ def get_top_dimensions(embedding, k=6):
         for idx in pos_sorted_idx
     ]
     
-    negative_dims = [
-        {
-            'dimension': int(idx),
-            'value': float(embedding[idx]),
-            'label': dimension_labels.get(int(idx), f"Dim {idx}")
-        }
-        for idx in neg_sorted_idx
-    ]
+    # negative_dims = [
+    #     {
+    #         'dimension': int(idx),
+    #         'value': float(embedding[idx]),
+    #         'label': dimension_labels.get(int(idx), f"Dim {idx}")
+    #     }
+    #     for idx in neg_sorted_idx
+    # ]
     
     return {
         'positive': positive_dims,
-        'negative': negative_dims
+        # 'negative': negative_dims
     }
 
 
@@ -311,6 +336,9 @@ def json_search(query, explicit=False, genres=None, excluded_genres=None, publis
         [{'podcast': p, 'score': id_to_score.get(str(p.id), 0.0)} for p in podcasts], key=lambda x: x['score'], reverse=True
     )[:5]
     
+    # * 100 for display
+    results = [{'podcast': r['podcast'], 'score': round(float(r['score']) * 100, 4)} for r in results]
+    
     # Build result dicts with latent dimension data
     result_dicts = []
     for r in results:
@@ -335,7 +363,7 @@ def json_search(query, explicit=False, genres=None, excluded_genres=None, publis
                 if r['podcast'].avg_duration_min is not None
                 else 'No information provided'
             ),
-            'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': [], 'negative': []},
+            'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': []},
         })
     
     return result_dicts
