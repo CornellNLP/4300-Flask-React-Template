@@ -18,6 +18,7 @@ export interface Restaurant {
   popular_dish?: MenuItem;
   has_menu_items: boolean;
   distance_miles?: number;
+  svd_match_dims?: SvdConcept[];
 }
 
 export interface SvdTerm {

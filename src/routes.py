@@ -339,6 +339,36 @@ def find_matching_items(items: list, query_words: set, original_query: str = '',
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored[:max_items]]
 
+# ── SVD per-restaurant match explanation ─────────────────────────────────────
+
+def _svd_match_dims(idx, query_transformed, global_i: int, top_dims: int = 3, top_terms: int = 3) -> list:
+    """Return the top latent dimensions shared between the query and a restaurant.
+
+    Contribution of dimension k = query_svd[k] * restaurant_svd[k].
+    High positive contribution means both query and restaurant activate that
+    dimension strongly — those are the dimensions that drove the match.
+    """
+    q_vec  = query_transformed.flatten()                    # (n_components,)
+    r_vec  = idx['tfidf_svd_matrix'][global_i]              # (n_components,)
+    contribs = q_vec * r_vec                                # element-wise product
+    top_ki   = np.abs(contribs).argsort()[::-1][:top_dims]
+
+    feature_names = idx['feature_names']
+    dims = []
+    for k in top_ki:
+        component = idx['svd_model'].components_[k]
+        top_ti    = component.argsort()[::-1][:top_terms]
+        dims.append({
+            'concept_id': int(k),
+            'activation': round(float(contribs[k]), 4),
+            'top_terms':  [
+                {'term': feature_names[ti], 'weight': round(float(component[ti]), 4)}
+                for ti in top_ti
+            ],
+        })
+    return dims
+
+
 # ── Core search ───────────────────────────────────────────────────────────────
 
 def search_restaurants(
@@ -388,6 +418,7 @@ def search_restaurants(
         return {'results': [], 'meta': meta}
 
     # ── Step 1: lexical retrieval (TF-IDF or SVD) → top-K candidates ─────────
+    query_transformed = None
     if use_svd:
         query_transformed = idx['svd_model'].transform(query_vec)
         local_scores = cosine_similarity(query_transformed, idx['tfidf_svd_matrix'][filtered_indices]).flatten()
@@ -455,13 +486,13 @@ def search_restaurants(
             except (TypeError, ValueError):
                 pass
 
-        candidates.append((combined, lexical_score, row, rid, all_items, dist))
+        candidates.append((combined, lexical_score, global_i, row, rid, all_items, dist))
 
     candidates.sort(key=lambda x: x[0], reverse=True)
 
     # ── Step 4: build final results (apply price hard-filter) ─────────────────
     results = []
-    for combined, tfidf_score, row, rid, all_items, dist in candidates:
+    for combined, tfidf_score, global_i, row, rid, all_items, dist in candidates:
         if len(results) >= limit:
             break
         if price_filter and str(row.get('price_range', '')).strip() != price_filter:
@@ -492,6 +523,8 @@ def search_restaurants(
         }
         if dist is not None:
             result['distance_miles'] = dist
+        if query_transformed is not None:
+            result['svd_match_dims'] = _svd_match_dims(idx, query_transformed, global_i)
 
         results.append(result)
 

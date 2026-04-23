@@ -29,27 +29,92 @@ function StarScore({ score, isTopRated }: { score: number; isTopRated: boolean }
   return null
 }
 
+function ConceptRadar({ concepts }: { concepts: SvdConcept[] }) {
+  const cx = 90, cy = 88, r = 62, labelR = r + 22
+  const n = concepts.length
+  const maxAct = Math.max(...concepts.map(c => Math.abs(c.activation)), 0.001)
+  const angles = concepts.map((_, i) => Math.PI / 2 - (2 * Math.PI * i / n))
+
+  const pt = (dist: number, i: number) => ({
+    x: +(cx + dist * Math.cos(angles[i])).toFixed(2),
+    y: +(cy - dist * Math.sin(angles[i])).toFixed(2),
+  })
+
+  const axisEnds  = angles.map((_, i) => pt(r, i))
+  const actPoints = concepts.map((c, i) => pt(r * Math.abs(c.activation) / maxAct, i))
+  const polygon   = actPoints.map(p => `${p.x},${p.y}`).join(' ')
+
+  const textProps = (i: number): {
+    textAnchor: 'start' | 'middle' | 'end'
+    dominantBaseline: 'auto' | 'hanging' | 'middle'
+  } => {
+    const cosA = Math.cos(angles[i]), sinA = Math.sin(angles[i])
+    return {
+      textAnchor:       cosA >  0.1 ? 'start' : cosA < -0.1 ? 'end' : 'middle',
+      dominantBaseline: sinA >  0.1 ? 'hanging' : sinA < -0.1 ? 'auto' : 'middle',
+    }
+  }
+
+  return (
+    <svg className="concept-radar" viewBox="0 0 180 176" overflow="visible">
+      {[0.25, 0.5, 0.75, 1].map(t => (
+        <circle key={t} cx={cx} cy={cy} r={r * t}
+          fill="none" stroke="#a9dfbf" strokeWidth="0.8" />
+      ))}
+      {axisEnds.map((p, i) => (
+        <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y}
+          stroke="#1d6a40" strokeWidth="0.8" strokeOpacity="0.5" />
+      ))}
+      <polygon points={polygon}
+        fill="#1d6a40" fillOpacity="0.15" stroke="#1d6a40" strokeWidth="1.5" />
+      {actPoints.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#1d6a40" />
+      ))}
+      {concepts.map((c, i) => {
+        const lp = pt(labelR, i)
+        const tp = textProps(i)
+        return (
+          <text key={i} x={lp.x} y={lp.y}
+            textAnchor={tp.textAnchor} dominantBaseline={tp.dominantBaseline}
+            fontSize="8" fill="#1d6a40"
+            fontFamily="Open Sans, sans-serif" fontWeight="700">
+            {c.top_terms[0]?.term}
+          </text>
+        )
+      })}
+    </svg>
+  )
+}
+
 function ConceptPanel({ concepts }: { concepts: SvdConcept[] }) {
   if (!concepts.length) return null
   return (
     <div className="concept-panel">
       <p className="concept-panel-label">Latent dimensions activated by your query</p>
-      {concepts.map((c) => {
-        const label = c.top_terms.slice(0, 2).map((t) => t.term).join(' · ')
-        return (
-          <div key={c.concept_id} className="concept-item">
-            <span className="concept-activation">
-              {c.activation > 0 ? '+' : ''}{c.activation.toFixed(3)}
-            </span>
-            <span className="concept-terms">{label}</span>
-          </div>
-        )
-      })}
+      <div className="concept-panel-content">
+        <div className="concept-items-list">
+          {concepts.map((c) => {
+            const label = c.top_terms.slice(0, 2).map((t) => t.term).join(' · ')
+            return (
+              <div key={c.concept_id} className="concept-item">
+                <span className="concept-activation">
+                  {c.activation > 0 ? '+' : ''}{c.activation.toFixed(3)}
+                </span>
+                <span className="concept-terms">{label}</span>
+              </div>
+            )
+          })}
+        </div>
+        <ConceptRadar concepts={concepts} />
+      </div>
     </div>
   )
 }
 
 function RestaurantCard({ r }: { r: Restaurant }) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const hasDims = r.svd_match_dims && r.svd_match_dims.length > 0
+
   return (
     <div className="restaurant-card">
       <div className="card-header">
@@ -98,6 +163,35 @@ function RestaurantCard({ r }: { r: Restaurant }) {
               <p className="menu-item-desc">{r.popular_dish.description}</p>
             )}
           </div>
+        </div>
+      )}
+
+      {hasDims && (
+        <div className="card-details-row">
+          <button className="card-details-btn" onClick={() => setDetailsOpen(o => !o)}>
+            {detailsOpen ? 'Details −' : 'Details +'}
+          </button>
+          {detailsOpen && (
+            <div className="card-details">
+              <p className="card-details-label">Why this restaurant matched</p>
+              <div className="concept-panel-content">
+                <div className="concept-items-list">
+                  {r.svd_match_dims!.map((dim) => {
+                    const label = dim.top_terms.slice(0, 2).map(t => t.term).join(' · ')
+                    return (
+                      <div key={dim.concept_id} className="concept-item">
+                        <span className="concept-activation">
+                          {dim.activation > 0 ? '+' : ''}{dim.activation.toFixed(3)}
+                        </span>
+                        <span className="concept-terms">{label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <ConceptRadar concepts={r.svd_match_dims!} />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
