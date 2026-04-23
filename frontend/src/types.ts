@@ -2,6 +2,7 @@ export interface MenuItem {
   name: string;
   description: string;
   price: string;
+  match_reason?: string;
 }
 
 export interface Restaurant {
@@ -15,6 +16,7 @@ export interface Restaurant {
   similarity: number;
   matched_items: MenuItem[];
   popular_dish?: MenuItem;
+  has_menu_items: boolean;
   distance_miles?: number;
 }
 
@@ -33,6 +35,8 @@ export interface SearchMeta {
   mode: string;
   concepts: SvdConcept[];
   error?: string;
+  corrected_query?: string;
+  suggested_cities?: string[];
 }
 
 export interface SearchResponse {

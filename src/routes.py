@@ -1,12 +1,15 @@
 """
-Routes for Forkcast — natural language restaurant search via TF-IDF.
+Routes for Forkcast — natural language restaurant search via TF-IDF + embeddings + RAG.
 """
 import os
 import math
 import pickle
 import numpy as np
+from collections import defaultdict
 from flask import send_from_directory, request, jsonify
 from sklearn.metrics.pairwise import cosine_similarity
+
+USE_LLM = True
 
 # ── Index loading ─────────────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
@@ -40,64 +43,96 @@ def get_embed_model(model_name: str = 'all-MiniLM-L6-v2'):
     return _embed_model
 
 
+# ── Spell correction ──────────────────────────────────────────────────────────
+
+_spell_checker = None
+
+def _get_spell_checker():
+    global _spell_checker
+    if _spell_checker is None:
+        from spellchecker import SpellChecker
+        _spell_checker = SpellChecker(distance=1)
+    return _spell_checker
+
+
+def _correct_spelling(query: str) -> tuple:
+    """Return (corrected_query, display_string) — display is None if nothing changed."""
+    checker = _get_spell_checker()
+    tokens = query.split()
+    corrected = []
+    changed = False
+    for token in tokens:
+        clean = token.lower()
+        # Only attempt correction on purely alphabetic tokens longer than 2 chars
+        if clean.isalpha() and len(clean) > 2 and clean not in checker:
+            fix = checker.correction(clean)
+            if fix and fix != clean:
+                corrected.append(fix)
+                changed = True
+                continue
+        corrected.append(token)
+    result = ' '.join(corrected)
+    return (result, result) if changed else (query, None)
+
+
+# ── City centroid helpers ─────────────────────────────────────────────────────
+
+_city_centroids_cache: dict = {}
+
+
+def _get_city_centroids(restaurants: list) -> dict:
+    """Lazily compute and cache {city_label: (mean_lat, mean_lng)} for the loaded index."""
+    global _city_centroids_cache
+    if _city_centroids_cache:
+        return _city_centroids_cache
+    coords: dict = defaultdict(list)
+    for row in restaurants:
+        parts = [p.strip() for p in str(row.get('full_address', '')).split(',')]
+        if len(parts) >= 4:
+            city = parts[-3].strip()
+            state = parts[-2].strip()
+            if city and len(city) > 2 and not city.isdigit() and state:
+                try:
+                    lat = float(row.get('lat'))
+                    lng = float(row.get('lng'))
+                    if not math.isnan(lat) and not math.isnan(lng):
+                        coords[f"{city}, {state}"].append((lat, lng))
+                except (TypeError, ValueError):
+                    pass
+    for label, pts in coords.items():
+        lats = [p[0] for p in pts]
+        lngs = [p[1] for p in pts]
+        _city_centroids_cache[label] = (sum(lats) / len(lats), sum(lngs) / len(lngs))
+    return _city_centroids_cache
+
+
+def _nearest_cities(queried_city: str, restaurants: list, n: int = 3) -> list:
+    """Return the n city labels nearest to queried_city (excluding itself)."""
+    centroids = _get_city_centroids(restaurants)
+    target = centroids.get(queried_city)
+    if target is None:
+        return [c for c in list(centroids.keys()) if c != queried_city][:n]
+    qlat, qlng = target
+    ranked = sorted(
+        [(label, haversine_miles(qlat, qlng, lat, lng))
+         for label, (lat, lng) in centroids.items() if label != queried_city],
+        key=lambda x: x[1],
+    )
+    return [label for label, _ in ranked[:n]]
+
+
 # ── Query expansion ───────────────────────────────────────────────────────────
+# Minimal synonyms kept only where TF-IDF candidate retrieval would otherwise
+# miss relevant restaurants. Semantic similarity is handled by embeddings in ranking.
 SYNONYMS = {
-    'spicy':       ['hot', 'fiery', 'spiced', 'chili', 'pepper', 'jalapeño'],
-    'cheap':       ['inexpensive', 'affordable', 'budget', 'value', '$'],
-    'healthy':     ['fresh', 'organic', 'salad', 'vegetarian', 'vegan', 'nutritious', 'light', 'greens'],
-    'burger':      ['burgers', 'cheeseburger', 'hamburger'],
-    'pizza':       ['pizzas', 'pie', 'flatbread', 'italian'],
-    'sushi':       ['japanese', 'roll', 'maki', 'sashimi', 'nigiri'],
-    'vegetarian':  ['vegan', 'plant-based', 'meatless', 'veggie'],
-    'vegan':       ['plant-based', 'vegetarian', 'meatless', 'dairy-free'],
-    'noodles':     ['pasta', 'ramen', 'pho', 'udon', 'lo mein', 'spaghetti'],
-    'breakfast':   ['brunch', 'morning', 'eggs', 'pancakes', 'waffles', 'omelette'],
-    'dessert':     ['sweet', 'cake', 'ice cream', 'cookie', 'pastry', 'chocolate'],
-    'seafood':     ['fish', 'shrimp', 'lobster', 'crab', 'salmon', 'tuna'],
-    'mexican':     ['tacos', 'burritos', 'enchiladas', 'quesadilla', 'salsa'],
-    'chinese':     ['fried rice', 'dumplings', 'dim sum', 'noodles', 'stir fry'],
-    'indian':      ['curry', 'masala', 'biryani', 'naan', 'tikka'],
-    'thai':        ['pad thai', 'curry', 'basil', 'lemongrass', 'coconut'],
-    'bbq':         ['barbecue', 'grilled', 'smoked', 'ribs', 'brisket'],
-    'sandwich':    ['sub', 'hoagie', 'wrap', 'panini', 'hero'],
-    'salad':       ['greens', 'bowl', 'healthy', 'fresh', 'lettuce'],
-    'wings':       ['chicken wings', 'buffalo', 'hot wings'],
-
-    # ── Cuisines ──────────────────────────────────────────────────────────────
-    'korean':        ['bibimbap', 'bulgogi', 'kimchi', 'japchae', 'galbi', 'tteokbokki'],
-    'mediterranean': ['hummus', 'falafel', 'gyro', 'tzatziki', 'shawarma', 'pita', 'kebab', 'baba ganoush'],
-    'vietnamese':    ['pho', 'banh mi', 'spring rolls', 'vermicelli', 'lemongrass'],
-    'greek':         ['gyro', 'souvlaki', 'feta', 'spanakopita', 'moussaka', 'baklava'],
-    'french':        ['crepe', 'croissant', 'baguette', 'coq au vin', 'bouillabaisse', 'soufflé'],
-    'japanese':      ['ramen', 'tempura', 'teriyaki', 'miso', 'yakitori', 'tonkatsu', 'gyoza'],
-    'caribbean':     ['jerk chicken', 'plantains', 'oxtail', 'roti'],
-    'southern':      ['fried chicken', 'biscuits', 'gravy', 'grits', 'collard greens', 'hush puppies'],
-    'american':      ['burger', 'mac and cheese', 'hot dog', 'apple pie', 'fries'],
-    'ethiopian':     ['injera', 'berbere', 'doro wat', 'tibs'],
-
-    # ── Dishes ────────────────────────────────────────────────────────────────
-    'steak':         ['ribeye', 'sirloin', 'filet mignon', 't-bone', 'tenderloin', 'porterhouse', 'beef'],
-    'chicken':       ['poultry', 'breast', 'thigh', 'rotisserie', 'grilled chicken'],
-    'soup':          ['broth', 'chowder', 'bisque', 'stew', 'minestrone', 'tom yum'],
-    'poke':          ['ahi', 'hawaiian', 'tuna', 'salmon', 'poke bowl'],
-    'tacos':         ['street tacos', 'carne asada', 'al pastor', 'fish taco'],
-    'bowl':          ['grain bowl', 'rice bowl', 'burrito bowl', 'bibimbap', 'donburi', 'poke bowl'],
-    'pasta':         ['spaghetti', 'fettuccine', 'penne', 'linguine', 'carbonara', 'bolognese', 'alfredo'],
-
-    # ── Preparations ──────────────────────────────────────────────────────────
-    'grilled':       ['chargrilled', 'flame-broiled', 'wood-fired', 'barbecue'],
-    'fried':         ['deep fried', 'crispy', 'golden', 'battered', 'tempura', 'pan fried'],
-    'smoked':        ['slow-smoked', 'hickory', 'mesquite', 'wood smoked'],
-    'roasted':       ['slow-roasted', 'oven-roasted', 'rotisserie', 'wood-fired'],
-    'fresh':         ['seasonal', 'farm-to-table', 'locally sourced', 'house-made'],
-
-    # ── Ingredients ───────────────────────────────────────────────────────────
-    'avocado':       ['guacamole', 'avo', 'avocado toast'],
-    'truffle':       ['truffle oil', 'black truffle', 'fungi'],
-    'cheese':        ['cheddar', 'mozzarella', 'parmesan', 'gouda', 'brie', 'feta', 'goat cheese'],
-    'mushroom':      ['portabella', 'shiitake', 'truffle', 'cremini'],
-    'bacon':         ['pork belly', 'pancetta', 'crispy bacon'],
-    'tofu':          ['silken', 'firm tofu', 'fried tofu', 'bean curd'],
+    'spicy':       ['hot', 'chili'],
+    'sushi':       ['japanese', 'maki', 'sashimi'],
+    'noodles':     ['ramen', 'pho', 'udon'],
+    'breakfast':   ['brunch', 'eggs', 'pancakes'],
+    'bbq':         ['barbecue', 'ribs', 'brisket'],
+    'vegetarian':  ['veggie', 'meatless'],
+    'vegan':       ['plant-based', 'dairy-free'],
+    'burger':      ['burgers', 'hamburger'],
 }
 
 
@@ -111,17 +146,17 @@ def expand_query(query: str) -> str:
 
 # ── Price-intent scoring ──────────────────────────────────────────────────────
 
-_PRICE_CHEAP_WORDS  = {'cheap', 'inexpensive', 'affordable', 'budget'}
-_PRICE_PRICEY_WORDS = {'expensive', 'upscale', 'fancy', 'fine dining', 'pricey', 'high-end'}
+_PRICE_CHEAP_WORDS  = {'cheap', 'inexpensive', 'affordable', 'budget', 'value', 'low-cost', 'economical'}
+_PRICE_PRICEY_WORDS = {'expensive', 'upscale', 'fancy', 'fine dining', 'pricey', 'high-end', 'luxurious', 'splurge'}
 _PRICE_RANK = {'$': 1, '$$': 2, '$$$': 3, '$$$$': 4}
 
 def _price_intent_boost(query_tokens: set, price_range: str) -> float:
     """Return a multiplier that boosts restaurants matching the price intent in the query."""
     rank = _PRICE_RANK.get(str(price_range).strip(), 2)
     if query_tokens & _PRICE_CHEAP_WORDS:
-        return [1.4, 1.0, 0.65, 0.45][rank - 1]
+        return [1.8, 1.0, 0.45, 0.25][rank - 1]
     if query_tokens & _PRICE_PRICEY_WORDS:
-        return [0.5, 0.85, 1.1, 1.35][rank - 1]
+        return [0.3, 0.75, 1.15, 1.5][rank - 1]
     return 1.0
 
 
@@ -291,10 +326,16 @@ def find_matching_items(items: list, query_words: set, original_query: str = '',
         if not _item_passes_dietary(item, dietary or []):
             continue
         text = f"{item['name']} {item['description']}".lower()
-        score = sum(10 for p in phrases if p in text)
-        score += sum(1 for w in query_words if w in text)
+        hit_phrases = [p for p in phrases if p in text]
+        hit_words   = [w for w in query_words if w in text]
+        score = len(hit_phrases) * 10 + len(hit_words)
         if score > 0:
-            scored.append((score, item))
+            # Build a short explanation of why this item matched
+            phrase_set = set(' '.join(hit_phrases).split())
+            extra_words = [w for w in hit_words if w not in phrase_set]
+            reason_parts = hit_phrases + extra_words
+            item_with_reason = {**item, 'match_reason': ', '.join(reason_parts[:4])}
+            scored.append((score, item_with_reason))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored[:max_items]]
 
@@ -305,19 +346,13 @@ def search_restaurants(
     price_filter: str = '',
     limit: int = 10,
     use_svd: bool = False,
-    use_embeddings: bool = False,
     city: str = '',
     user_lat=None,
     user_lng=None,
     miles=None,
     dietary: list = None,
 ) -> dict:
-    if use_embeddings:
-        mode = 'embeddings'
-    elif use_svd:
-        mode = 'svd'
-    else:
-        mode = 'tfidf'
+    mode = 'svd' if use_svd else 'tfidf'
     if not query.strip():
         return {'results': [], 'meta': {'mode': mode, 'concepts': []}}
 
@@ -333,17 +368,10 @@ def search_restaurants(
             },
         }
 
-    if use_embeddings and 'embedding_matrix' not in idx:
-        return {
-            'results': [],
-            'meta': {
-                'mode': 'tfidf',
-                'concepts': [],
-                'error': 'Embedding index not found. Re-run: python src/preprocess.py',
-            },
-        }
+    has_embeddings = 'embedding_matrix' in idx
 
-    expanded = expand_query(query)
+    corrected_q, corrected_display = _correct_spelling(query)
+    expanded = expand_query(corrected_q)
     query_vec = idx['vectorizer'].transform([expanded])
     concepts = get_svd_explanation(idx, query_vec) if use_svd else []
 
@@ -352,21 +380,21 @@ def search_restaurants(
     diet_indices = _dietary_filter(idx, dietary or [])
     filtered_indices = np.intersect1d(loc_indices, diet_indices)
     if len(filtered_indices) == 0:
-        return {'results': [], 'meta': {'mode': mode, 'concepts': concepts}}
+        meta: dict = {'mode': mode, 'concepts': concepts}
+        if corrected_display:
+            meta['corrected_query'] = corrected_display
+        if city:
+            meta['suggested_cities'] = _nearest_cities(city, idx['restaurants'])
+        return {'results': [], 'meta': meta}
 
-    # Similarity against the filtered subset
-    if use_embeddings:
-        embed_model = get_embed_model(idx.get('embed_model_name', 'all-MiniLM-L6-v2'))
-        query_embedding = embed_model.encode([query], convert_to_numpy=True)
-        local_scores = cosine_similarity(query_embedding, idx['embedding_matrix'][filtered_indices]).flatten()
-    elif use_svd:
+    # ── Step 1: lexical retrieval (TF-IDF or SVD) → top-K candidates ─────────
+    if use_svd:
         query_transformed = idx['svd_model'].transform(query_vec)
         local_scores = cosine_similarity(query_transformed, idx['tfidf_svd_matrix'][filtered_indices]).flatten()
     else:
         local_scores = cosine_similarity(query_vec, idx['tfidf_matrix'][filtered_indices]).flatten()
 
-    # ── Step 1: take top-K candidates from TF-IDF/SVD ────────────────────────
-    CANDIDATE_K = min(len(filtered_indices), max(limit * 6, 60))
+    CANDIDATE_K = min(len(filtered_indices), max(limit * 10, 120))
     top_local = local_scores.argsort()[::-1][:CANDIDATE_K]
     candidate_global = filtered_indices[top_local]
     candidate_scores = local_scores[top_local]
@@ -377,24 +405,46 @@ def search_restaurants(
     candidate_scores = candidate_scores[valid]
 
     if len(candidate_global) == 0:
-        return {'results': [], 'meta': {'mode': mode, 'concepts': concepts}}
+        meta = {'mode': mode, 'concepts': concepts}
+        if corrected_display:
+            meta['corrected_query'] = corrected_display
+        return {'results': [], 'meta': meta}
 
-    # ── Step 2: rerank by item match + price intent ───────────────────────────
-    query_words  = set(expanded.lower().split())   # expanded for item matching
-    query_tokens = set(query.lower().split())       # original for price intent
+    # ── Step 2: embed similarity for candidates → hybrid score ────────────────
+    if has_embeddings:
+        embed_model = get_embed_model(idx.get('embed_model_name', 'all-MiniLM-L6-v2'))
+        query_embedding = embed_model.encode([corrected_q], convert_to_numpy=True)
+        embed_scores = cosine_similarity(
+            query_embedding, idx['embedding_matrix'][candidate_global]
+        ).flatten()
+
+        # Min-max normalize each signal independently before blending
+        def _norm(arr):
+            lo, hi = arr.min(), arr.max()
+            return (arr - lo) / (hi - lo + 1e-9)
+
+        hybrid_scores = 0.6 * _norm(candidate_scores) + 0.4 * _norm(embed_scores)
+    else:
+        hybrid_scores = candidate_scores
+
+    # ── Step 3: rerank by item match + price intent ───────────────────────────
+    query_words  = set(expanded.lower().split())        # expanded for item matching
+    query_tokens = set(corrected_q.lower().split())     # corrected for price intent
 
     use_geo = user_lat is not None and user_lng is not None and miles is not None
 
     candidates = []
-    for global_i, tfidf_score in zip(candidate_global, candidate_scores):
+    for global_i, lexical_score, hybrid_score in zip(
+        candidate_global, candidate_scores, hybrid_scores
+    ):
         row = idx['restaurants'][global_i]
         rid = str(int(float(str(row['id'])))) if str(row['id']).replace('.', '', 1).isdigit() else str(row['id'])
         all_items = idx['menu_data'].get(rid, [])
 
         item_s = _best_item_score(all_items, query_words)
         pb     = _price_intent_boost(query_tokens, row.get('price_range', ''))
-        # Combined: price intent multiplies; item match adds a bonus
-        combined = tfidf_score * pb * (1.0 + 0.5 * item_s)
+        # Price intent multiplies the hybrid score; item match adds a bonus
+        combined = hybrid_score * pb * (1.0 + 0.5 * item_s)
 
         dist = None
         if use_geo:
@@ -405,11 +455,11 @@ def search_restaurants(
             except (TypeError, ValueError):
                 pass
 
-        candidates.append((combined, tfidf_score, row, rid, all_items, dist))
+        candidates.append((combined, lexical_score, row, rid, all_items, dist))
 
     candidates.sort(key=lambda x: x[0], reverse=True)
 
-    # ── Step 3: build final results (apply price hard-filter) ─────────────────
+    # ── Step 4: build final results (apply price hard-filter) ─────────────────
     results = []
     for combined, tfidf_score, row, rid, all_items, dist in candidates:
         if len(results) >= limit:
@@ -448,7 +498,10 @@ def search_restaurants(
     # ── Step 4: surface restaurants with menu items first ─────────────────────
     results.sort(key=lambda r: (not r['has_menu_items'], -r['similarity']))
 
-    return {'results': results, 'meta': {'mode': mode, 'concepts': concepts}}
+    meta = {'mode': mode, 'concepts': concepts}
+    if corrected_display:
+        meta['corrected_query'] = corrected_display
+    return {'results': results, 'meta': meta}
 
 
 # ── Route registration ────────────────────────────────────────────────────────
@@ -463,7 +516,7 @@ def register_routes(app):
 
     @app.route('/api/config')
     def config():
-        return jsonify({'use_llm': False})
+        return jsonify({'use_llm': USE_LLM})
 
     @app.route('/api/cities')
     def get_cities():
@@ -487,7 +540,6 @@ def register_routes(app):
         price = request.args.get('price', '').strip()
         limit = min(int(request.args.get('limit', 10)), 25)
         use_svd = request.args.get('svd', '0') == '1'
-        use_embeddings = request.args.get('embeddings', '0') == '1'
         city = request.args.get('city', '').strip()
         try:
             user_lat = float(request.args['lat']) if 'lat' in request.args else None
@@ -500,10 +552,13 @@ def register_routes(app):
         try:
             data = search_restaurants(
                 query, price_filter=price, limit=limit, use_svd=use_svd,
-                use_embeddings=use_embeddings,
                 city=city, user_lat=user_lat, user_lng=user_lng, miles=miles,
                 dietary=dietary,
             )
             return jsonify(data)
         except FileNotFoundError as e:
             return jsonify({'error': str(e)}), 503
+
+    if USE_LLM:
+        from llm_routes import register_rag_route
+        register_rag_route(app)

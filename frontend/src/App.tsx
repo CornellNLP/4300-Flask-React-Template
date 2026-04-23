@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
 import { Restaurant, SvdConcept, SearchResponse } from './types'
+import RagPanel from './Chat'
 
 const PRICE_OPTIONS = ['', '$', '$$', '$$$', '$$$$']
 
@@ -32,17 +33,18 @@ function ConceptPanel({ concepts }: { concepts: SvdConcept[] }) {
   if (!concepts.length) return null
   return (
     <div className="concept-panel">
-      <p className="concept-panel-label">Semantic concepts activated by your query</p>
-      {concepts.map((c) => (
-        <div key={c.concept_id} className="concept-item">
-          <span className="concept-activation">
-            {c.activation > 0 ? '+' : ''}{c.activation.toFixed(3)}
-          </span>
-          <span className="concept-terms">
-            {c.top_terms.map((t) => t.term).join(' · ')}
-          </span>
-        </div>
-      ))}
+      <p className="concept-panel-label">Latent dimensions activated by your query</p>
+      {concepts.map((c) => {
+        const label = c.top_terms.slice(0, 2).map((t) => t.term).join(' · ')
+        return (
+          <div key={c.concept_id} className="concept-item">
+            <span className="concept-activation">
+              {c.activation > 0 ? '+' : ''}{c.activation.toFixed(3)}
+            </span>
+            <span className="concept-terms">{label}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -74,6 +76,9 @@ function RestaurantCard({ r }: { r: Restaurant }) {
               {item.description && (
                 <p className="menu-item-desc">{item.description}</p>
               )}
+              {item.match_reason && (
+                <p className="menu-item-reason">matched: {item.match_reason}</p>
+              )}
             </div>
           ))}
         </div>
@@ -104,49 +109,62 @@ function App(): JSX.Element {
   const [priceFilter, setPriceFilter] = useState('')
   const [cityFilter, setCityFilter] = useState('')
   const [dietaryFilter, setDietaryFilter] = useState<string[]>([])
-  const [searchMode, setSearchMode] = useState<'tfidf' | 'svd' | 'embeddings'>('tfidf')
+  const [searchMode, setSearchMode] = useState<'tfidf' | 'svd'>('tfidf')
 
+  const [useLlm, setUseLlm] = useState(false)
   const [cities, setCities] = useState<string[]>([])
   const [results, setResults] = useState<Restaurant[]>([])
   const [svdConcepts, setSvdConcepts] = useState<SvdConcept[]>([])
   const [svdError, setSvdError] = useState<string | null>(null)
+  const [correctedQuery, setCorrectedQuery] = useState<string | null>(null)
+  const [suggestedCities, setSuggestedCities] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Load city list once on mount
+  // Load config + city list once on mount
   useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((data) => { if (data.use_llm) setUseLlm(true) })
+      .catch(() => {})
     fetch('/api/cities')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setCities(data) })
       .catch(() => {})
   }, [])
 
-  const doSearch = async (q: string, price: string, mode: 'tfidf' | 'svd' | 'embeddings', city: string, dietary: string[]) => {
+  const doSearch = async (q: string, price: string, mode: 'tfidf' | 'svd', city: string, dietary: string[]) => {
     if (!q.trim()) {
       setResults([]); setSvdConcepts([])
       setSearched(false); setError(null); setSvdError(null)
+      setCorrectedQuery(null); setSuggestedCities([])
       return
     }
     setLoading(true); setSearched(true); setError(null); setSvdError(null)
+    setCorrectedQuery(null); setSuggestedCities([])
     try {
       const params = new URLSearchParams({ q, ...(price ? { price } : {}) })
       if (city) params.set('city', city)
       if (dietary.length) params.set('dietary', dietary.join(','))
       if (mode === 'svd') params.set('svd', '1')
-      if (mode === 'embeddings') params.set('embeddings', '1')
       const res = await fetch(`/api/search?${params}`)
-      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Server error ${res.status}`)
+      }
       const data: SearchResponse = await res.json()
       if (data.meta?.error) {
         setSvdError(data.meta.error); setResults([]); setSvdConcepts([])
       } else {
         setResults(data.results ?? [])
         setSvdConcepts(data.meta?.concepts ?? [])
+        if (data.meta?.corrected_query) setCorrectedQuery(data.meta.corrected_query)
+        if (data.meta?.suggested_cities?.length) setSuggestedCities(data.meta.suggested_cities)
       }
-    } catch {
+    } catch (err) {
       setResults([]); setSvdConcepts([])
-      setError('Something went wrong. Please try again.')
+      setError(err instanceof Error ? err.message : 'Search failed — please try again.')
     } finally {
       setLoading(false)
     }
@@ -174,11 +192,10 @@ function App(): JSX.Element {
     if (searched && query.trim()) doSearch(query, priceFilter, searchMode, cityFilter, next)
   }
 
-  const MODE_CYCLE: Array<'tfidf' | 'svd' | 'embeddings'> = ['tfidf', 'svd', 'embeddings']
-  const MODE_LABELS: Record<string, string> = { tfidf: 'TF-IDF', svd: 'SVD', embeddings: 'Embeddings' }
+  const MODE_LABELS: Record<string, string> = { tfidf: 'TF-IDF', svd: 'SVD' }
 
   const handleModeToggle = () => {
-    const next = MODE_CYCLE[(MODE_CYCLE.indexOf(searchMode) + 1) % MODE_CYCLE.length]
+    const next: 'tfidf' | 'svd' = searchMode === 'tfidf' ? 'svd' : 'tfidf'
     setSearchMode(next)
     if (searched && query.trim()) doSearch(query, priceFilter, next, cityFilter, dietaryFilter)
   }
@@ -235,7 +252,7 @@ function App(): JSX.Element {
           <button
             className={`svd-toggle-btn ${searchMode !== 'tfidf' ? 'active' : ''}`}
             onClick={handleModeToggle}
-            title="Cycle between TF-IDF, SVD, and Embeddings search"
+            title="Toggle between TF-IDF (baseline) and SVD (latent structure). Embedding similarity is always on."
           >
             <span className="svd-toggle-indicator" />
             {MODE_LABELS[searchMode]}
@@ -264,12 +281,31 @@ function App(): JSX.Element {
         )}
         {!loading && error && <p className="no-results">{error}</p>}
         {!loading && svdError && <p className="no-results svd-error">{svdError}</p>}
-        {!loading && !error && !svdError && searched && results.length === 0 && (
-          <p className="no-results">No restaurants matched your query. Try different keywords or a different city.</p>
+
+        {!loading && correctedQuery && (
+          <p className="corrected-query">Showing results for: <em>{correctedQuery}</em></p>
         )}
+
+        {!loading && !error && !svdError && searched && results.length === 0 && (
+          <>
+            <p className="no-results">No restaurants matched your query. Try different keywords or a different city.</p>
+            {suggestedCities.length > 0 && (
+              <div className="city-suggestions">
+                <span className="city-suggestions-label">Try nearby:</span>
+                {suggestedCities.map((c) => (
+                  <button key={c} className="city-suggestion-btn" onClick={() => handleCityChange(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {!loading && !error && !svdError && (
           <>
             {searchMode === 'svd' && <ConceptPanel concepts={svdConcepts} />}
+            {useLlm && <RagPanel query={searched ? query : ''} results={results} />}
             {results.map((r, i) => <RestaurantCard key={i} r={r} />)}
           </>
         )}

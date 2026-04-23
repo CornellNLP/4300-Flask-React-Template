@@ -21,7 +21,7 @@ MENUS_FULL_CSV = os.path.join(DATA_DIR, 'restaurant-menus.csv')
 MENUS_SAMPLE_CSV = os.path.join(DATA_DIR, 'restaurant-menus-sample.csv')
 OUTPUT_PATH = os.path.join(DATA_DIR, 'forkcast_index.pkl')
 
-SAMPLE_SIZE = 5000
+SAMPLE_SIZE = 5000  # override with --size N (full dataset ~50K; embeddings take ~8 min at that scale)
 MAX_MENU_ITEMS_PER_RESTAURANT = 50  # stored; only 3 shown in UI
 EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
 
@@ -175,4 +175,10 @@ def build_index(use_sample_menus=False):
 if __name__ == '__main__':
     import sys
     use_sample = '--sample' in sys.argv
+    if '--size' in sys.argv:
+        try:
+            SAMPLE_SIZE = int(sys.argv[sys.argv.index('--size') + 1])
+        except (IndexError, ValueError):
+            print("Usage: python src/preprocess.py [--size N] [--sample]")
+            sys.exit(1)
     build_index(use_sample_menus=use_sample)

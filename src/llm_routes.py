@@ -1,94 +1,128 @@
 """
-LLM chat route — only loaded when USE_LLM = True in routes.py.
-Adds a POST /api/chat endpoint that performs LLM-driven RAG.
+llm_routes.py — RAG explanation endpoint for Forkcast.
+
+POST /api/rag
+  Body:    { "query": str, "results": [ ...restaurant dicts shown to user... ] }
+  Returns: SSE stream — LLM synthesis of why the retrieved results match the query.
+
+The LLM receives ONLY the restaurants already shown to the user as context.
+It cannot access the full database and must not hallucinate.
 
 Setup:
-  1. Add API_KEY=your_key to .env
-  2. Set USE_LLM = True in routes.py
+  Add SPARK_API_KEY=your_key to .env (or set it in the environment).
 """
 import json
 import os
-import re
 import logging
 from flask import request, jsonify, Response, stream_with_context
 from infosci_spark_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_PROMPT = """\
+You are a concise restaurant recommendation assistant for Forkcast.
+You will receive a user's food search query and the exact list of restaurants our \
+search engine retrieved for them.
 
-def llm_search_decision(client, user_message):
-    """Ask the LLM whether to search the DB and which word to use."""
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You have access to a database of Keeping Up with the Kardashians episode titles, "
-                "descriptions, and IMDB ratings. Search is by a single word in the episode title. "
-                "Reply with exactly: YES followed by one space and ONE word to search (e.g. YES wedding), "
-                "or NO if the question does not need episode data."
-            ),
-        },
-        {"role": "user", "content": user_message},
-    ]
-    response = client.chat(messages)
-    content = (response.get("content") or "").strip().upper()
-    logger.info(f"LLM search decision: {content}")
-    if re.search(r"\bNO\b", content) and not re.search(r"\bYES\b", content):
-        return False, None
-    yes_match = re.search(r"\bYES\s+(\w+)", content)
-    if yes_match:
-        return True, yes_match.group(1).lower()
-    if re.search(r"\bYES\b", content):
-        return True, "Kardashian"
-    return False, None
+Your job: write 2–4 sentences explaining why these specific restaurants match \
+the query, referencing concrete menu items and descriptions from the list.
+
+Rules you must follow:
+- Only mention restaurants and dishes that appear in the provided list.
+- Never invent restaurants, menu items, prices, or any other details.
+- Be specific: name the dish and why it fits (e.g. "Dan Dan Noodles are spicy \
+noodles tossed in chili oil").
+- If multiple restaurants match well, briefly compare them.
+- If the results are a poor match for the query, say so honestly and suggest \
+the user try different keywords.
+- Do not use bullet points or headers — write flowing sentences.
+- Keep the response to 2–4 sentences maximum."""
 
 
-def register_chat_route(app, json_search):
-    """Register the /api/chat SSE endpoint. Called from routes.py."""
+def _build_context(query: str, results: list) -> str:
+    """Serialize retrieved restaurants into a compact LLM-readable context block."""
+    lines = [f'Search query: "{query}"', '', 'Retrieved restaurants:']
+    for i, r in enumerate(results, 1):
+        name     = r.get('name', 'Unknown')
+        category = r.get('category', '')
+        price    = r.get('price_range', '')
+        score    = r.get('score', '')
+        header   = f"{i}. {name}"
+        if category:
+            header += f" ({category})"
+        if price:
+            header += f" — {price}"
+        if score:
+            header += f" — ★{score}"
+        lines.append(header)
 
-    @app.route("/api/chat", methods=["POST"])
-    def chat():
-        data = request.get_json() or {}
-        user_message = (data.get("message") or "").strip()
-        if not user_message:
-            return jsonify({"error": "Message is required"}), 400
+        matched = r.get('matched_items') or []
+        popular = r.get('popular_dish')
+        dishes  = matched if matched else ([popular] if popular else [])
 
-        api_key = os.getenv("API_KEY")
+        for dish in dishes:
+            dish_name = dish.get('name', '')
+            dish_desc = dish.get('description', '').strip()
+            reason    = dish.get('match_reason', '')
+            line = f"   • {dish_name}"
+            if dish_desc:
+                line += f": {dish_desc}"
+            if reason:
+                line += f" [matched: {reason}]"
+            lines.append(line)
+
+    return '\n'.join(lines)
+
+
+def register_rag_route(app):
+    """Register POST /api/rag on the Flask app."""
+
+    @app.route('/api/rag', methods=['POST'])
+    def rag():
+        data    = request.get_json() or {}
+        query   = (data.get('query') or '').strip()
+        results = data.get('results') or []
+
+        if not query:
+            return jsonify({'error': 'query is required'}), 400
+
+        api_key = os.getenv('SPARK_API_KEY')
         if not api_key:
-            return jsonify({"error": "API_KEY not set — add it to your .env file"}), 500
+            return jsonify({'error': 'SPARK_API_KEY not set — add it to your .env file'}), 500
+
+        # Empty results: stream a graceful no-match message without calling the LLM
+        if not results:
+            def _empty():
+                msg = (
+                    'No restaurants were found for your query. '
+                    'Try broader keywords, a different city, or remove dietary filters.'
+                )
+                yield f"data: {json.dumps({'content': msg})}\n\n"
+            return Response(
+                stream_with_context(_empty()),
+                mimetype='text/event-stream',
+                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+            )
+
+        context  = _build_context(query, results)
+        messages = [
+            {'role': 'system', 'content': SYSTEM_PROMPT},
+            {'role': 'user',   'content': context},
+        ]
 
         client = LLMClient(api_key=api_key)
-        use_search, search_term = llm_search_decision(client, user_message)
-
-        if use_search:
-            episodes = json_search(search_term or "Kardashian")
-            context_text = "\n\n---\n\n".join(
-                f"Title: {ep['title']}\nDescription: {ep['descr']}\nIMDB Rating: {ep['imdb_rating']}"
-                for ep in episodes
-            ) or "No matching episodes found."
-            messages = [
-                {"role": "system", "content": "Answer questions about Keeping Up with the Kardashians using only the episode information provided."},
-                {"role": "user", "content": f"Episode information:\n\n{context_text}\n\nUser question: {user_message}"},
-            ]
-        else:
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant for Keeping Up with the Kardashians questions."},
-                {"role": "user", "content": user_message},
-            ]
 
         def generate():
-            if use_search and search_term:
-                yield f"data: {json.dumps({'search_term': search_term})}\n\n"
             try:
                 for chunk in client.chat(messages, stream=True):
-                    if chunk.get("content"):
+                    if chunk.get('content'):
                         yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
             except Exception as e:
-                logger.error(f"Streaming error: {e}")
-                yield f"data: {json.dumps({'error': 'Streaming error occurred'})}\n\n"
+                logger.error(f'RAG streaming error: {e}')
+                yield f"data: {json.dumps({'error': 'Unable to generate explanation — please try again.'})}\n\n"
 
         return Response(
             stream_with_context(generate()),
-            mimetype="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            mimetype='text/event-stream',
+            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
         )
