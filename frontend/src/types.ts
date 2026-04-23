@@ -1,5 +1,16 @@
-export interface Episode {
+export interface Song {
   title: string;
-  descr: string;
-  imdb_rating: number;
+  artist: string;
+  similarity: number;
+  cosine_score: number;
+  svd_score: number;
+  chords: string;
+  guitar_difficulty: number;
+  piano_difficulty: number;
+  difficulty: number;
+  svd_explanation: {
+    dimension: number;
+    strength: number;
+    mood_words: string[];
+  }[];
 }
