@@ -10,7 +10,7 @@ interface SingleRadarChartProps {
 
 function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): JSX.Element {
   if (!dimensions || dimensions.length === 0) {
-    return <div className="no-dimensions-single">No {title.toLowerCase()} activations</div>
+    return <div className="no-dimensions-single">No podcast categories detected</div>
   }
 
   // Find the max value for normalization
@@ -18,7 +18,7 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
   
   // Prepare data for radar chart using absolute values
   const chartData = dimensions.map(d => ({
-    dimension: `Dim ${d.dimension}`,
+    dimension: String(d.dimension),
     value: maxValue > 0 ? Math.abs(d.value) / maxValue : 0,
     rawValue: d.value,
     fullLabel: d.label,
@@ -31,8 +31,8 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
         <ResponsiveContainer width="100%" height={420}>
           <RadarChart data={chartData} margin={{ top: 24, right: 24, bottom: 24, left: 24 }}>
             <PolarGrid stroke="#afd7c4" />
-            <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 13 }} />
-            <PolarRadiusAxis angle={90} domain={[0, 1]} tick={{ fontSize: 11 }} />
+            <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 13 }} stroke="#afd7c4" />
+            <PolarRadiusAxis angle={90} domain={[0, 1]} tick={false} />
             <Radar
               name={title}
               dataKey="value"
@@ -48,10 +48,10 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
         {chartData.map((d, idx) => (
           <div key={idx} className="dimension-item-single">
             <span className="dimension-label-single" title={d.fullLabel}>
-              {`${d.dimension}: ${d.fullLabel || 'no label'}`}
+              {`${d.fullLabel}`}
             </span>
             <span className={`dimension-value-single`} style={{ color }}>
-              {Math.abs(d.rawValue).toFixed(3)}
+              {(d.rawValue * 100).toFixed(1)}%
             </span>
           </div>
         ))}
@@ -62,25 +62,25 @@ function SingleRadarChart({ dimensions, title, color }: SingleRadarChartProps): 
 
 interface DimensionRadarChartProps {
   dimensions: {
-    positive: DimensionActivation[]
+    semantic: DimensionActivation[]
   }
 }
 
 function DimensionRadarChart({ dimensions }: DimensionRadarChartProps): JSX.Element {
   if (!dimensions) {
-    return <div className="no-dimensions">Dimension data unavailable</div>
+    return <div className="no-dimensions">Podcast category data unavailable</div>
   }
 
-  const hasPositive = dimensions.positive && dimensions.positive.length > 0
+  const hasSemantic = dimensions.semantic && dimensions.semantic.length > 0
 
   return (
     <div className="dimension-radar-container">
-      <h4 className="radar-title">SVD Components (Related Topics)</h4>
+      <h4 className="radar-title">Podcast Categories</h4>
       <div className="radar-charts-grid">
-        {hasPositive && (
+        {hasSemantic && (
           <SingleRadarChart 
-            dimensions={dimensions.positive} 
-            title="Top Positive Activations" 
+            dimensions={dimensions.semantic} 
+            title="Category Match Scores" 
             color="#4e8c3b"
           />
         )}
@@ -90,3 +90,4 @@ function DimensionRadarChart({ dimensions }: DimensionRadarChartProps): JSX.Elem
 }
 
 export default DimensionRadarChart
+

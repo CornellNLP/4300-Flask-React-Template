@@ -368,22 +368,15 @@ def summarize_podcast_with_llm(podcast, user_query=None, top_dimensions=None):
         if not dimensions:
             return ""
 
-        positive = dimensions.get("positive", []) if isinstance(dimensions, dict) else []
-        negative = dimensions.get("negative", []) if isinstance(dimensions, dict) else []
+        semantic = dimensions.get("semantic", []) if isinstance(dimensions, dict) else []
         lines = []
 
-        if positive:
-            lines.append("Positive latent dimensions:")
-            for dim in positive[:3]:
+        if semantic:
+            lines.append("Top podcast categories:")
+            for dim in semantic[:6]:
+                value_pct = float(dim.get('value', 0.0)) * 100
                 lines.append(
-                    f"- {dim.get('label', 'Dim')} (value: {float(dim.get('value', 0.0)):.3f})"
-                )
-        # TODO: remove when merging with main branch cuz we will remove negative latent dimensions
-        if negative:
-            lines.append("Negative latent dimensions:")
-            for dim in negative[:3]:
-                lines.append(
-                    f"- {dim.get('label', 'Dim')} (value: {float(dim.get('value', 0.0)):.3f})"
+                    f"- {dim.get('label', 'Category')} ({value_pct:.1f}%)"
                 )
 
         return "\n".join(lines)

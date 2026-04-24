@@ -26,6 +26,14 @@ feature_names = tfidf_vectorizer.get_feature_names_out()
 LLM_CONTEXT_TOP_K = 5
 LLM_LOW_SCORE_THRESHOLD = 0.16
 
+PODCAST_CATEGORIES = {
+    'informational': [6,9,67,21,22,24,26,30,47,51,52,58,61,66,68,82],
+    'entertainment': [8,10,11,12,38,41,43,54,55,56,59,62,71,84],
+    'conversational': [28,36,75,77,78,91,97],
+    'wellness': [27,46,49,57,72,75,83,85,95,99],
+    'news': [7,13,14,23,33,34,37,44,60,70,79,88,92],
+    'culture': [5,16,31,32,63,65,67,76,80,87,93,94,99]
+}
 
 def get_dimension_label(dim_idx: int, top_words_count: int = 3) -> str:
     if dim_idx >= len(svd_model_obj.components_):
@@ -39,27 +47,57 @@ def get_dimension_label(dim_idx: int, top_words_count: int = 3) -> str:
 dimension_labels = {i: get_dimension_label(i) for i in range(len(svd_model_obj.components_))}
 
 
-def get_top_dimensions(embedding, k=6):
+def get_semantic_category_scores(embedding: np.ndarray) -> dict:
+    """
+    Score a podcast embedding against the podcast categories for values to plot on radar chart.
+    For each category, returns the maximum activation among its constituent dimensions.
+    
+    Args:
+        embedding: SVD embedding vector for a podcast
+        
+    Returns:
+        dictionary structured like:
+        {
+            'semantic': [
+                {'dimension': 'category_name', 'value': float, 'label': 'category_name'}
+            ]
+        }
+        Normalized values (btwn 0, 1) in descending order.
+    """
     if embedding is None:
-        return {'positive': []}
-
+        return {'semantic': []}
+    
     embedding = np.asarray(embedding).flatten()
-    positive_mask = embedding > 0
-
-    positive_vals = embedding[positive_mask]
-    positive_indices = np.where(positive_mask)[0]
-
-    pos_top_k = min(k, len(positive_vals))
-    pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]] if pos_top_k else []
-
+    category_scores = {}
+    
+    # For each semantic category, find the max activation among its dimensions
+    for category, dim_indices in PODCAST_CATEGORIES.items():
+        valid_indices = [d for d in dim_indices if d < len(embedding)]
+        if not valid_indices:
+            category_scores[category] = 0.0
+        else:
+            # Use the max positive activation in this category
+            max_activation = max([embedding[idx] for idx in valid_indices])
+            category_scores[category] = float(max(max_activation, 0.0))  # Clip negatives
+    
+    # Normalize scores to [0, 1] for consistent visualization
+    max_score = max(category_scores.values()) if category_scores else 1.0
+    if max_score == 0:
+        max_score = 1.0
+    
+    normalized_scores = {k: v / max_score for k, v in category_scores.items()}
+    
+    # Sort by value descending and format for API response
+    sorted_categories = sorted(normalized_scores.items(), key=lambda x: x[1], reverse=True)
+    
     return {
-        'positive': [
+        'semantic': [
             {
-                'dimension': int(idx),
-                'value': float(embedding[idx]),
-                'label': dimension_labels.get(int(idx), f'Dim {idx}'),
+                'dimension': cat_name,
+                'value': score,
+                'label': cat_name.capitalize(),
             }
-            for idx in pos_sorted_idx
+            for cat_name, score in sorted_categories
         ]
     }
 
@@ -195,7 +233,7 @@ def compute_match(user_a: dict, user_b: dict, use_llm: bool = True) -> dict:
     results = []
     for item in ranked:
         p = item['podcast']
-        dims = get_top_dimensions(embeddings[item['idx']])
+        dims = get_semantic_category_scores(embeddings[item['idx']])
         score_pct = item['combined'] * 100.0
 
         if use_llm:

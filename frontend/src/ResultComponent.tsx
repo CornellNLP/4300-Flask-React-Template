@@ -162,7 +162,7 @@ function ResultComponent({ podcasts }: ResultComponentProps): JSX.Element {
             </div>
 
             {selectedPodcast.top_dimensions && 
-              (selectedPodcast.top_dimensions.positive?.length > 0) && (
+              (selectedPodcast.top_dimensions.semantic?.length > 0) && (
               <DimensionRadarChart dimensions={selectedPodcast.top_dimensions} />
             )}
 

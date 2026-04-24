@@ -46,7 +46,7 @@ feature_names = tfidf_vectorizer.get_feature_names_out()
 
 def get_dimension_label(dim_idx, top_words_count=3):
     """
-    Create a meaningful label for an SVD dimension based on its top contributing words.
+    Labels SVD dimension by its top words.
     
     Args:
         dim_idx: Index of the SVD dimension
@@ -76,12 +76,22 @@ try:
     n_components = len(svd_model_obj.components_)
     dimension_labels = {i: get_dimension_label(i) for i in range(n_components)}
     print(f"[INFO] Precomputed {len(dimension_labels)} dimension labels")
-    # Print first 5 for verification
+    # Print dims
     for i in list(dimension_labels.keys())[:5]:
         print(f"  Dim {i}: {dimension_labels[i]}")
 except Exception as e:
     print(f"[ERROR] Failed to precompute dimension labels: {e}")
     dimension_labels = {}
+
+# Semantic category definitions for radar chart visualization
+PODCAST_CATEGORIES = {
+    'informational': [6,9,67,21,22,24,26,30,47,51,52,58,61,66,68,82],
+    'entertainment': [8,10,11,12,38,41,43,54,55,56,59,62,71,84],
+    'conversational': [28,36,75,77,78,91,97],
+    'wellness': [27,46,49,57,72,75,83,85,95,99],
+    'news': [7,13,14,23,33,34,37,44,60,70,79,88,92],
+    'culture': [5,16,31,32,63,65,67,76,80,87,93,94,99]
+}
 
 KNOWN_GENRES = [
     'Comedy',
@@ -243,53 +253,59 @@ def parse_query_negations(raw_query, known_genres=None):
     cleaned_query = re.sub(r'\s+', ' ', cleaned_query).strip()
     return cleaned_query, excluded_genres
 
-# cos sim
-def get_top_dimensions(embedding, k=6):
+# Semantic category scoring for radar visualization
+def get_semantic_category_scores(embedding):
     """
-    Extract the top k most activated dimensions, split into positive and negative.
-    Returns two lists:
-    - positive_dims: Top k positive activations
-    - negative_dims: Top k negative activations (sorted by absolute value)
-    Each item is: {'dimension': int, 'value': float, 'label': str}
-    """
-    embedding = np.asarray(embedding).flatten()
+    Score a podcast embedding against semantic categories.
+    For each category, returns the maximum activation among its constituent dimensions.
     
-    positive_mask = embedding > 0
-    # negative_mask = embedding < 0
-    
-    positive_vals = embedding[positive_mask]
-    # negative_vals = embedding[negative_mask]
-    positive_indices = np.where(positive_mask)[0]
-    # negative_indices = np.where(negative_mask)[0]
-    
-    pos_top_k = min(k, len(positive_vals))
-    # neg_top_k = min(k, len(negative_vals))
-    
-    # Sort by value
-    pos_sorted_idx = positive_indices[np.argsort(positive_vals)[-pos_top_k:][::-1]]
-    # neg_sorted_idx = negative_indices[np.argsort(negative_vals)[:neg_top_k]]  # Most negative first
-    
-    positive_dims = [
+    Args:
+        embedding: SVD embedding vector for a podcast
+        
+    Returns:
+        dict with structure:
         {
-            'dimension': int(idx),
-            'value': float(embedding[idx]),
-            'label': dimension_labels.get(int(idx), f"Dim {idx}")
+            'semantic': [
+                {'dimension': 'category_name', 'value': float, 'label': 'category_name'}
+            ]
         }
-        for idx in pos_sorted_idx
-    ]
+        Sorted by value descending, with values normalized to [0, 1].
+    """
+    if embedding is None:
+        return {'semantic': []}
     
-    # negative_dims = [
-    #     {
-    #         'dimension': int(idx),
-    #         'value': float(embedding[idx]),
-    #         'label': dimension_labels.get(int(idx), f"Dim {idx}")
-    #     }
-    #     for idx in neg_sorted_idx
-    # ]
+    embedding = np.asarray(embedding).flatten()
+    category_scores = {}
+    
+    # For each semantic category, find the max activation among its dimensions
+    for category, dim_indices in PODCAST_CATEGORIES.items():
+        valid_indices = [d for d in dim_indices if d < len(embedding)]
+        if not valid_indices:
+            category_scores[category] = 0.0
+        else:
+            # Use the max positive activation in this category
+            max_activation = max([embedding[idx] for idx in valid_indices])
+            category_scores[category] = float(max(max_activation, 0.0))  # Clip negatives
+    
+    # Normalize scores to [0, 1] for consistent visualization
+    max_score = max(category_scores.values()) if category_scores else 1.0
+    if max_score == 0:
+        max_score = 1.0
+    
+    normalized_scores = {k: v / max_score for k, v in category_scores.items()}
+    
+    # Sort by value descending and format for API response
+    sorted_categories = sorted(normalized_scores.items(), key=lambda x: x[1], reverse=True)
     
     return {
-        'positive': positive_dims,
-        # 'negative': negative_dims
+        'semantic': [
+            {
+                'dimension': cat_name,
+                'value': score,
+                'label': cat_name.capitalize(),
+            }
+            for cat_name, score in sorted_categories
+        ]
     }
 
 
@@ -438,7 +454,7 @@ def json_search(
                 if r['podcast'].avg_duration_min is not None
                 else 'No information provided'
             ),
-            'top_dimensions': get_top_dimensions(podcast_embedding, k=6) if podcast_embedding is not None else {'positive': []},
+            'top_dimensions': get_semantic_category_scores(podcast_embedding) if podcast_embedding is not None else {'semantic': []},
         })
 
         if effective_use_llm:

@@ -5,13 +5,13 @@ export interface Episode {
 }
 
 export interface DimensionActivation {
-  dimension: number;
+  dimension: string;
   value: number;
   label: string;
 }
 
 export interface DimensionGroup {
-  positive: DimensionActivation[];
+  semantic: DimensionActivation[];
 }
 
 export interface Episode {
