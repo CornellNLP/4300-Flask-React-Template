@@ -151,8 +151,6 @@ export function InputPage() {
 
   const handleGetHosting = () => {
     const q = query || "food";
-    // Preload the loading screen image so it's cached before the page mounts
-    new Image().src = imgTable2;
     navigate("/loading", {
       state: {
         dinnerPartyKeyword,
@@ -332,6 +330,7 @@ export function InputPage() {
             get hosting →
           </button>
         </div>
+        <img src={imgTable2} alt="" style={{ display: "none" }} aria-hidden="true" />
         <div className="food-decor" aria-hidden="true">
           <img src={imgFood} alt="" />
         </div>
