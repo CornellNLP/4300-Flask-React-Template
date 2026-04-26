@@ -7,6 +7,7 @@ import {
 } from './types';
 import ExerciseCard, { type PlanState } from './ExerciseCard';
 import ProgramCard from './ProgramCard';
+import MuscleGraph from './MuscleGraph';
 import './App.css';
 
 type Tab = 'exercises' | 'programs';
@@ -39,6 +40,7 @@ export default function App() {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [queryMuscles, setQueryMuscles] = useState<string[]>([]);
   const [exerciseMethod, setExerciseMethod] = useState<Method>('tfidf');
   const [exerciseView, setExerciseView] = useState<ResultsView>('ir');
   const [exerciseRag, setExerciseRag] = useState<RagState<Exercise>>(emptyExerciseRag);
@@ -75,6 +77,7 @@ export default function App() {
   const runSearch = async (query: string, overrides: SearchOverrides = {}) => {
     if (!query.trim()) {
       setExercises([]);
+      setQueryMuscles([]);
       setPlanState({ loading: false, text: '', error: null });
       return;
     }
@@ -94,11 +97,13 @@ export default function App() {
       });
       const data = await res.json();
       setExercises(data.results ?? []);
+      setQueryMuscles(Array.isArray(data.query_muscles) ? data.query_muscles : []);
       setPlanState({ loading: false, text: '', error: null });
       setExpandedCards({ 0: true });
     } catch (err) {
       console.error('search failed', err);
       setExercises([]);
+      setQueryMuscles([]);
     }
   };
 
@@ -662,6 +667,31 @@ export default function App() {
                   )}
                 </div>
               )}
+            </section>
+
+            <section className="netpanel">
+              <header className="netpanel__head">
+                <div>
+                  <div className="netpanel__label">MUSCLE NETWORK</div>
+                  <h2 className="netpanel__title">
+                    <span>exercise &amp; muscle map</span>
+                    {queryMuscles.length > 0 && (
+                      <span className="netpanel__count">
+                        · {queryMuscles.length} query muscle
+                        {queryMuscles.length === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </h2>
+                </div>
+              </header>
+              <MuscleGraph
+                queryMuscles={queryMuscles}
+                exercises={
+                  exerciseView === 'rag' && exerciseRag.results.length > 0
+                    ? exerciseRag.results
+                    : exercises
+                }
+              />
             </section>
           </div>
         ) : (
