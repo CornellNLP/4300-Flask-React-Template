@@ -1347,3 +1347,102 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 1px;
   border-color: var(--text-faint);
 }
+
+/* ── Muscle radar (relevance polar chart) ──────────────────────────────── */
+
+.muscleradar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.muscleradar--empty {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 24px 4px;
+}
+.muscleradar__svg {
+  width: 100%;
+  max-width: 760px;
+  height: auto;
+  display: block;
+  background: #0f1116;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.muscleradar__ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 0.6;
+}
+.muscleradar__axis {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+.muscleradar__tick {
+  font-family: var(--mono);
+  font-size: 8px;
+  fill: var(--text-faint);
+  pointer-events: none;
+}
+
+.muscleradar__poly--coverage {
+  fill: rgba(120, 170, 255, 0.18);
+  stroke: rgba(120, 170, 255, 0.85);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.muscleradar__poly--intent {
+  fill: oklch(0.72 0.18 40 / 0.22);
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.muscleradar__dot--coverage {
+  fill: rgba(120, 170, 255, 1);
+}
+.muscleradar__dot--intent {
+  fill: var(--accent);
+}
+
+.muscleradar__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--text-dim);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+.muscleradar__label.is-query-relevant {
+  fill: var(--accent);
+  font-weight: 600;
+}
+
+.muscleradar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.muscleradar__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.muscleradar__legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.muscleradar__legend-dot--intent {
+  background: var(--accent);
+}
+.muscleradar__legend-dot--coverage {
+  background: rgba(120, 170, 255, 1);
+}

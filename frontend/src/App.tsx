@@ -8,6 +8,7 @@ import {
 import ExerciseCard, { type PlanState } from './ExerciseCard';
 import ProgramCard from './ProgramCard';
 import MuscleGraph from './MuscleGraph';
+import MuscleRadar from './MuscleRadar';
 import './App.css';
 
 type Tab = 'exercises' | 'programs';
@@ -685,6 +686,25 @@ export default function App() {
                 </div>
               </header>
               <MuscleGraph
+                queryMuscles={queryMuscles}
+                exercises={
+                  exerciseView === 'rag' && exerciseRag.results.length > 0
+                    ? exerciseRag.results
+                    : exercises
+                }
+              />
+            </section>
+
+            <section className="netpanel">
+              <header className="netpanel__head">
+                <div>
+                  <div className="netpanel__label">MUSCLE GRAPH</div>
+                  <h2 className="netpanel__title">
+                    <span>relevance per muscle</span>
+                  </h2>
+                </div>
+              </header>
+              <MuscleRadar
                 queryMuscles={queryMuscles}
                 exercises={
                   exerciseView === 'rag' && exerciseRag.results.length > 0
