@@ -512,7 +512,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Results ──────────────────────────────────────────────────────────── */
 
-.results { display: flex; flex-direction: column; gap: 20px; min-width: 0; overflow-y: auto; padding: 28px 0 64px; }
+.results { display: flex; flex-direction: column; gap: 20px; min-width: 0; overflow-y: auto; padding: 0 0 64px; }
 .results::-webkit-scrollbar { display: none; }
 .results { scrollbar-width: none; }
 .results__head {
@@ -520,8 +520,12 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: space-between;
   align-items: flex-end;
   gap: 20px;
-  padding-bottom: 18px;
+  padding: 28px 0 18px;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
 }
 .results__label {
   font-family: var(--mono);
