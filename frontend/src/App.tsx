@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { Exercise, FormCue, Program } from './types';
 import {
   EQUIPMENT_OPTIONS,
@@ -894,14 +895,12 @@ export default function App() {
               <button className="viz-modal__close" onClick={() => setPlanModalOpen(false)}>✕</button>
             </div>
             <div className="viz-modal__body">
-              {planState.loading && (
-                <div className="loading">
-                  <div className="loading__spinner" />
-                  <p>Building session…</p>
+              {planState.error && <p className="plan-panel__error">{planState.error}</p>}
+              {planState.text && (
+                <div className="plan-panel__text">
+                  <ReactMarkdown>{planState.text}</ReactMarkdown>
                 </div>
               )}
-              {planState.error && <p className="plan-panel__error">{planState.error}</p>}
-              {planState.text && <pre className="plan-panel__text">{planState.text}</pre>}
             </div>
           </div>
         </div>
