@@ -53,6 +53,7 @@ export default function App() {
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({ 0: true });
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number>(0);
   const [planState, setPlanState] = useState<PlanState>({ loading: false, text: '', error: null });
+  const [vizModal, setVizModal] = useState<'map' | 'network' | 'radar' | null>(null);
 
   const [programSearchTerm, setProgramSearchTerm] = useState<string>('');
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -672,7 +673,7 @@ export default function App() {
             </section>
 
             <div className="vizcol">
-              <aside className="bodypanel">
+              <aside className="bodypanel bodypanel--clickable" onClick={() => setVizModal('map')}>
                 <div className="bodypanel__head">
                   <div>
                     <div className="bodypanel__label">MUSCLE MAP</div>
@@ -680,6 +681,7 @@ export default function App() {
                       {selectedExercise ? selectedExercise.name : 'Select an exercise'}
                     </div>
                   </div>
+                  <span className="expand-hint">expand ↗</span>
                 </div>
                 <MuscleMap
                   primaryMuscles={selectedExercise?.primaryMuscles ?? []}
@@ -687,7 +689,7 @@ export default function App() {
                 />
               </aside>
 
-              <section className="netpanel">
+              <section className="netpanel netpanel--clickable" onClick={() => setVizModal('network')}>
                 <header className="netpanel__head">
                   <div>
                     <div className="netpanel__label">MUSCLE NETWORK</div>
@@ -701,6 +703,7 @@ export default function App() {
                       )}
                     </h2>
                   </div>
+                  <span className="expand-hint">expand ↗</span>
                 </header>
                 <MuscleGraph
                   queryMuscles={queryMuscles}
@@ -712,7 +715,7 @@ export default function App() {
                 />
               </section>
 
-              <section className="netpanel">
+              <section className="netpanel netpanel--clickable" onClick={() => setVizModal('radar')}>
                 <header className="netpanel__head">
                   <div>
                     <div className="netpanel__label">MUSCLE GRAPH</div>
@@ -720,6 +723,7 @@ export default function App() {
                       <span>relevance per muscle</span>
                     </h2>
                   </div>
+                  <span className="expand-hint">expand ↗</span>
                 </header>
                 <MuscleRadar
                   queryMuscles={queryMuscles}
@@ -853,6 +857,39 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {vizModal && (
+        <div className="viz-modal-overlay" onClick={() => setVizModal(null)}>
+          <div className={`viz-modal viz-modal--${vizModal}`} onClick={(e) => e.stopPropagation()}>
+            <div className="viz-modal__head">
+              <span className="viz-modal__label">
+                {vizModal === 'map' ? 'MUSCLE MAP' : vizModal === 'network' ? 'MUSCLE NETWORK' : 'MUSCLE GRAPH'}
+              </span>
+              <button className="viz-modal__close" onClick={() => setVizModal(null)}>✕</button>
+            </div>
+            <div className="viz-modal__body">
+              {vizModal === 'map' && (
+                <MuscleMap
+                  primaryMuscles={selectedExercise?.primaryMuscles ?? []}
+                  secondaryMuscles={selectedExercise?.secondaryMuscles ?? []}
+                />
+              )}
+              {vizModal === 'network' && (
+                <MuscleGraph
+                  queryMuscles={queryMuscles}
+                  exercises={exerciseView === 'rag' && exerciseRag.results.length > 0 ? exerciseRag.results : exercises}
+                />
+              )}
+              {vizModal === 'radar' && (
+                <MuscleRadar
+                  queryMuscles={queryMuscles}
+                  exercises={exerciseView === 'rag' && exerciseRag.results.length > 0 ? exerciseRag.results : exercises}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

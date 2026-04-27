@@ -1206,6 +1206,93 @@ button { font-family: inherit; cursor: pointer; }
   .vizcol, .results { overflow-y: visible; padding: 20px 0 40px; }
 }
 
+/* ── Viz modal ─────────────────────────────────────────────────────────── */
+
+.bodypanel--clickable,
+.netpanel--clickable {
+  cursor: pointer;
+  transition: border-color 160ms;
+}
+.bodypanel--clickable:hover { border-color: var(--accent-soft); }
+.netpanel--clickable:hover { border-color: var(--accent-soft); }
+
+.expand-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transition: opacity 160ms;
+}
+.bodypanel--clickable:hover .expand-hint,
+.netpanel--clickable:hover .expand-hint { opacity: 1; }
+
+.viz-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.viz-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: min(90vw, 900px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.viz-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.viz-modal__label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+.viz-modal__close {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 150ms, color 150ms;
+}
+.viz-modal__close:hover { border-color: var(--text-faint); color: var(--text); }
+
+.viz-modal__body {
+  overflow-y: auto;
+  padding: 24px;
+  flex: 1;
+}
+
+.viz-modal--radar {
+  max-height: fit-content;
+}
+.viz-modal--radar .viz-modal__body {
+  overflow: hidden;
+}
+
 /* ── Network panel (muscle graph wrapper) ──────────────────────────────── */
 
 .netpanel {
