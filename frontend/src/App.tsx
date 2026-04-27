@@ -559,20 +559,66 @@ export default function App() {
       <main className="main">
         {activeTab === 'exercises' ? (
           <div className="workspace workspace--exercises">
-            <aside className="bodypanel">
-              <div className="bodypanel__head">
-                <div>
-                  <div className="bodypanel__label">MUSCLE MAP</div>
-                  <div className="bodypanel__sub">
-                    {selectedExercise ? selectedExercise.name : 'Select an exercise'}
+            <div className="vizcol">
+              <aside className="bodypanel">
+                <div className="bodypanel__head">
+                  <div>
+                    <div className="bodypanel__label">MUSCLE MAP</div>
+                    <div className="bodypanel__sub">
+                      {selectedExercise ? selectedExercise.name : 'Select an exercise'}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <MuscleMap
-                primaryMuscles={selectedExercise?.primaryMuscles ?? []}
-                secondaryMuscles={selectedExercise?.secondaryMuscles ?? []}
-              />
-            </aside>
+                <MuscleMap
+                  primaryMuscles={selectedExercise?.primaryMuscles ?? []}
+                  secondaryMuscles={selectedExercise?.secondaryMuscles ?? []}
+                />
+              </aside>
+
+              <section className="netpanel">
+                <header className="netpanel__head">
+                  <div>
+                    <div className="netpanel__label">MUSCLE NETWORK</div>
+                    <h2 className="netpanel__title">
+                      <span>exercise &amp; muscle map</span>
+                      {queryMuscles.length > 0 && (
+                        <span className="netpanel__count">
+                          · {queryMuscles.length} query muscle
+                          {queryMuscles.length === 1 ? '' : 's'}
+                        </span>
+                      )}
+                    </h2>
+                  </div>
+                </header>
+                <MuscleGraph
+                  queryMuscles={queryMuscles}
+                  exercises={
+                    exerciseView === 'rag' && exerciseRag.results.length > 0
+                      ? exerciseRag.results
+                      : exercises
+                  }
+                />
+              </section>
+
+              <section className="netpanel">
+                <header className="netpanel__head">
+                  <div>
+                    <div className="netpanel__label">MUSCLE GRAPH</div>
+                    <h2 className="netpanel__title">
+                      <span>relevance per muscle</span>
+                    </h2>
+                  </div>
+                </header>
+                <MuscleRadar
+                  queryMuscles={queryMuscles}
+                  exercises={
+                    exerciseView === 'rag' && exerciseRag.results.length > 0
+                      ? exerciseRag.results
+                      : exercises
+                  }
+                />
+              </section>
+            </div>
 
             <section className="results">
               <header className="results__head">
@@ -684,50 +730,6 @@ export default function App() {
                   )}
                 </div>
               )}
-            </section>
-
-            <section className="netpanel">
-              <header className="netpanel__head">
-                <div>
-                  <div className="netpanel__label">MUSCLE NETWORK</div>
-                  <h2 className="netpanel__title">
-                    <span>exercise &amp; muscle map</span>
-                    {queryMuscles.length > 0 && (
-                      <span className="netpanel__count">
-                        · {queryMuscles.length} query muscle
-                        {queryMuscles.length === 1 ? '' : 's'}
-                      </span>
-                    )}
-                  </h2>
-                </div>
-              </header>
-              <MuscleGraph
-                queryMuscles={queryMuscles}
-                exercises={
-                  exerciseView === 'rag' && exerciseRag.results.length > 0
-                    ? exerciseRag.results
-                    : exercises
-                }
-              />
-            </section>
-
-            <section className="netpanel">
-              <header className="netpanel__head">
-                <div>
-                  <div className="netpanel__label">MUSCLE GRAPH</div>
-                  <h2 className="netpanel__title">
-                    <span>relevance per muscle</span>
-                  </h2>
-                </div>
-              </header>
-              <MuscleRadar
-                queryMuscles={queryMuscles}
-                exercises={
-                  exerciseView === 'rag' && exerciseRag.results.length > 0
-                    ? exerciseRag.results
-                    : exercises
-                }
-              />
             </section>
           </div>
         ) : (

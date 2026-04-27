@@ -340,16 +340,21 @@ button { font-family: inherit; cursor: pointer; }
 
 .workspace { display: grid; gap: 28px; }
 .workspace--exercises {
-  grid-template-columns: minmax(440px, 520px) 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
 }
 .workspace--programs { grid-template-columns: 1fr; }
 
+.vizcol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
 /* ── Body panel ───────────────────────────────────────────────────────── */
 
 .bodypanel {
-  position: sticky;
-  top: 28px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1183,7 +1188,6 @@ button { font-family: inherit; cursor: pointer; }
 
 @media (max-width: 1200px) {
   .workspace--exercises { grid-template-columns: 1fr; }
-  .bodypanel { position: static; }
 }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -1194,14 +1198,13 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Network panel (muscle graph wrapper) ──────────────────────────────── */
 
 .netpanel {
-  grid-column: 1 / -1;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 20px 24px 24px;
-  margin-top: 8px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 12px;
 }
 .netpanel__head {
