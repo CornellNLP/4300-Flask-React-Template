@@ -260,6 +260,7 @@ export default function App() {
   const handleGeneratePlan = async (exercise: Exercise) => {
     setPlanState({ loading: true, text: '', error: null });
     setPlanModalOpen(true);
+    const pool = displayedExercises.filter(e => e.name !== exercise.name);
     try {
       const res = await fetch('/api/enrich_exercise', {
         method: 'POST',
@@ -270,6 +271,11 @@ export default function App() {
           secondaryMuscles: exercise.secondaryMuscles,
           equipment: exercise.equipment,
           instructions: exercise.instructions,
+          pool: pool.map(e => ({
+            name: e.name,
+            primaryMuscles: e.primaryMuscles,
+            equipment: e.equipment,
+          })),
         }),
       });
       if (!res.ok || !res.body) {

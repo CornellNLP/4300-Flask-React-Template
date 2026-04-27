@@ -151,15 +151,23 @@ def register_enrichment_routes(app):
             f"Instructions:\n" + "\n".join(f"- {step}" for step in instructions[:8])
         )
 
-        # Retrieve 20 candidates from the database to ground the plan in real exercises.
-        muscles = list(primary) + list(secondary)
-        seed_query = " ".join(muscles) if muscles else name
-        equip_filter = [equipment] if equipment and equipment != "other" else None
-        ir_payload = retrieval_search(seed_query, k=20, equipment=equip_filter)
-        candidates = [
-            r for r in (ir_payload.get("results") or [])
-            if r.get("name", "").strip().lower() != name.strip().lower()
-        ]
+        # Use the exercises currently shown on the user's viewport as the candidate pool.
+        # Fall back to IR retrieval only if the frontend sent nothing.
+        raw_pool = data.get("pool") or []
+        if raw_pool:
+            candidates = [
+                r for r in raw_pool
+                if isinstance(r, dict) and r.get("name", "").strip().lower() != name.strip().lower()
+            ]
+        else:
+            muscles = list(primary) + list(secondary)
+            seed_query = " ".join(muscles) if muscles else name
+            equip_filter = [equipment] if equipment and equipment != "other" else None
+            ir_payload = retrieval_search(seed_query, k=20, equipment=equip_filter)
+            candidates = [
+                r for r in (ir_payload.get("results") or [])
+                if r.get("name", "").strip().lower() != name.strip().lower()
+            ]
         candidate_lines = "\n".join(
             f"- {r['name']} (muscles: {', '.join(r.get('primaryMuscles') or [])}; "
             f"equipment: {r.get('equipment') or 'unspecified'})"
