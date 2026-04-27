@@ -550,6 +550,45 @@ export default function App() {
           </>
         )}
 
+        {useLlm && activeTab === 'exercises' && (
+          <div className="rail__section">
+            <div className="rail__section-label">SESSION PLAN</div>
+            <button
+              type="button"
+              className="run-btn"
+              onClick={() => selectedExercise && handleGeneratePlan(selectedExercise)}
+              disabled={!selectedExercise || planState.loading}
+            >
+              <span>
+                {planState.loading
+                  ? 'Building session…'
+                  : planState.text
+                    ? 'Regenerate session'
+                    : "Generate today's session"}
+              </span>
+              <span className="run-btn__arrow">→</span>
+            </button>
+            {(planState.text || planState.error) && (
+              <div className="plan-panel">
+                <div className="plan-panel__head">
+                  <span className="plan-panel__label">
+                    {selectedExercise?.name ?? 'EXERCISE'}
+                  </span>
+                  <span className="plan-panel__status">
+                    {planState.loading ? 'streaming…' : 'ready'}
+                  </span>
+                </div>
+                {planState.error && (
+                  <p className="plan-panel__error">{planState.error}</p>
+                )}
+                {planState.text && (
+                  <pre className="plan-panel__text">{planState.text}</pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="rail__foot">
           <span>v1.0</span>
           <span>CS 4300</span>
@@ -629,9 +668,6 @@ export default function App() {
                       isSelected={selectedExerciseIndex === i}
                       onToggleExpand={() => toggleCard(i)}
                       onSelectCard={() => setSelectedExerciseIndex(i)}
-                      onGeneratePlan={handleGeneratePlan}
-                      planState={planState}
-                      useLlm={useLlm}
                     />
                   ))}
                   {exercises.length === 0 && (
@@ -657,9 +693,6 @@ export default function App() {
                       isSelected={selectedExerciseIndex === i}
                       onToggleExpand={() => toggleCard(i)}
                       onSelectCard={() => setSelectedExerciseIndex(i)}
-                      onGeneratePlan={handleGeneratePlan}
-                      planState={planState}
-                      useLlm={useLlm}
                     />
                   ))}
                   {exerciseRag.results.length === 0 && !exerciseRag.error && (

@@ -1,7 +1,3 @@
-// ExerciseCard — extracted from App.tsx.
-// This component is pure presentation over an existing Exercise type.
-// Keep the Exercise shape identical to what App already passes in.
-
 import type { Exercise } from './types';
 
 const QUALITY_COPY: Record<string, string> = {
@@ -18,14 +14,11 @@ export type PlanState = {
 
 export interface ExerciseCardProps {
   exercise: Exercise;
-  rank: number;                                  // 1-based
+  rank: number;
   expanded: boolean;
   isSelected: boolean;
   onToggleExpand: () => void;
   onSelectCard: () => void;
-  onGeneratePlan: (exercise: Exercise) => void;  // top card only
-  planState: PlanState;                          // top card only
-  useLlm: boolean;
 }
 
 function RankNumeral({ n }: { n: number }) {
@@ -49,9 +42,6 @@ export default function ExerciseCard({
   isSelected,
   onToggleExpand,
   onSelectCard,
-  onGeneratePlan,
-  planState,
-  useLlm,
 }: ExerciseCardProps) {
   const isTop = rank === 1;
 
@@ -119,24 +109,10 @@ export default function ExerciseCard({
       )}
 
       <div className="ex-card__actions">
-        <button type="button" className="btn-ghost" onClick={onToggleExpand}>
+        <button type="button" className="btn-ghost" onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}>
           {expanded ? 'Hide instructions' : 'Show instructions'}
           <span className={`chev ${expanded ? 'chev--up' : ''}`}>↓</span>
         </button>
-        {isTop && useLlm && (
-          <button
-            type="button"
-            className="btn-accent"
-            onClick={() => onGeneratePlan(exercise)}
-            disabled={planState.loading}
-          >
-            {planState.loading
-              ? 'Building session…'
-              : planState.text
-                ? 'Regenerate session'
-                : "Generate today's session"}
-          </button>
-        )}
       </div>
 
       {expanded && exercise.instructions && (
@@ -148,23 +124,6 @@ export default function ExerciseCard({
             </li>
           ))}
         </ol>
-      )}
-
-      {isTop && useLlm && (planState.text || planState.error) && (
-        <div className="plan-panel">
-          <div className="plan-panel__head">
-            <span className="plan-panel__label">AI SESSION PLAN</span>
-            <span className="plan-panel__status">
-              {planState.loading ? 'streaming…' : 'ready'}
-            </span>
-          </div>
-          {planState.error && (
-            <p className="plan-panel__error">{planState.error}</p>
-          )}
-          {planState.text && (
-            <pre className="plan-panel__text">{planState.text}</pre>
-          )}
-        </div>
       )}
     </article>
   );
