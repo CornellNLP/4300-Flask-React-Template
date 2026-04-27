@@ -809,7 +809,7 @@ export default function App() {
                     <h2 className="netpanel__title">
                       <span>muscle coverage across results</span>
                     </h2>
-                    <div className="netpanel__desc">Outer = better coverage in the top results. Orange = muscles your query asked for.</div>
+                    <div className="netpanel__desc">Outer = better coverage in the top results.</div>
                   </div>
                   <span className="expand-hint">expand ↗</span>
                 </header>
