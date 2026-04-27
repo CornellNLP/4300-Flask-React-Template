@@ -1293,6 +1293,34 @@ button { font-family: inherit; cursor: pointer; }
   overflow: hidden;
 }
 
+.viz-modal--plan {
+  width: min(90vw, 680px);
+}
+.viz-modal--plan .viz-modal__body {
+  overflow-y: auto;
+}
+.viz-modal--plan .plan-panel__text {
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.view-plan-btn {
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 8px 12px;
+  border-radius: 2px;
+  text-align: left;
+  transition: background 150ms, border-color 150ms;
+}
+.view-plan-btn:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
 /* ── Network panel (muscle graph wrapper) ──────────────────────────────── */
 
 .netpanel {

@@ -54,6 +54,7 @@ export default function App() {
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number>(0);
   const [planState, setPlanState] = useState<PlanState>({ loading: false, text: '', error: null });
   const [vizModal, setVizModal] = useState<'map' | 'network' | 'radar' | null>(null);
+  const [planModalOpen, setPlanModalOpen] = useState<boolean>(false);
 
   const [programSearchTerm, setProgramSearchTerm] = useState<string>('');
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -257,6 +258,7 @@ export default function App() {
 
   const handleGeneratePlan = async (exercise: Exercise) => {
     setPlanState({ loading: true, text: '', error: null });
+    setPlanModalOpen(true);
     try {
       const res = await fetch('/api/enrich_exercise', {
         method: 'POST',
@@ -568,23 +570,14 @@ export default function App() {
               </span>
               <span className="run-btn__arrow">→</span>
             </button>
-            {(planState.text || planState.error) && (
-              <div className="plan-panel">
-                <div className="plan-panel__head">
-                  <span className="plan-panel__label">
-                    {selectedExercise?.name ?? 'EXERCISE'}
-                  </span>
-                  <span className="plan-panel__status">
-                    {planState.loading ? 'streaming…' : 'ready'}
-                  </span>
-                </div>
-                {planState.error && (
-                  <p className="plan-panel__error">{planState.error}</p>
-                )}
-                {planState.text && (
-                  <pre className="plan-panel__text">{planState.text}</pre>
-                )}
-              </div>
+            {planState.text && !planState.loading && (
+              <button
+                type="button"
+                className="view-plan-btn"
+                onClick={() => setPlanModalOpen(true)}
+              >
+                View plan ↗
+              </button>
             )}
           </div>
         )}
@@ -890,6 +883,29 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {planModalOpen && (
+        <div className="viz-modal-overlay" onClick={() => setPlanModalOpen(false)}>
+          <div className="viz-modal viz-modal--plan" onClick={(e) => e.stopPropagation()}>
+            <div className="viz-modal__head">
+              <span className="viz-modal__label">
+                SESSION PLAN — {selectedExercise?.name ?? 'EXERCISE'}
+              </span>
+              <button className="viz-modal__close" onClick={() => setPlanModalOpen(false)}>✕</button>
+            </div>
+            <div className="viz-modal__body">
+              {planState.loading && (
+                <div className="loading">
+                  <div className="loading__spinner" />
+                  <p>Building session…</p>
+                </div>
+              )}
+              {planState.error && <p className="plan-panel__error">{planState.error}</p>}
+              {planState.text && <pre className="plan-panel__text">{planState.text}</pre>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {vizModal && (
         <div className="viz-modal-overlay" onClick={() => setVizModal(null)}>
