@@ -78,6 +78,24 @@ export interface FormCue {
   safety: string;
 }
 
+export interface MuscleGraphNode {
+  id: string;
+  label: string;
+  type: 'muscle' | 'exercise';
+  isQueryRelevant?: boolean;
+}
+
+export interface MuscleGraphEdge {
+  source: string;
+  target: string;
+  type: 'exercise-muscle' | 'muscle-cooccurrence';
+}
+
+export interface MuscleGraphData {
+  nodes: MuscleGraphNode[];
+  edges: MuscleGraphEdge[];
+}
+
 export const MUSCLE_OPTIONS: string[] = [
   'abdominals',
   'abductors',

@@ -855,6 +855,16 @@ class ExerciseSearcher:
         with open(DATA_PATH, 'r', encoding='utf-8') as f:
             self.exercises = json.load(f)
 
+        # Canonical muscle vocabulary, harvested from the dataset itself so
+        # query→muscle mapping stays in sync with whatever the corpus uses.
+        muscle_set = set()
+        for ex in self.exercises:
+            for m in ex.get("primaryMuscles") or []:
+                muscle_set.add(m.lower())
+            for m in ex.get("secondaryMuscles") or []:
+                muscle_set.add(m.lower())
+        self.all_muscles = muscle_set
+
         docs = [_build_weighted_doc(ex) for ex in self.exercises]
         # stop_words=None because _tokenize_and_stem already filters them;
         # passing stop_words='english' with a custom tokenizer triggers a
@@ -887,6 +897,30 @@ class ExerciseSearcher:
         self.vocab_by_length = {}
         for term in self.vectorizer.vocabulary_:
             self.vocab_by_length.setdefault(len(term), []).append(term)
+
+    def _query_muscles(self, query):
+        """Muscles the query is *about*, for the muscle-graph visualization.
+
+        Combines two signals already used by the ranker:
+          - GOAL_TO_MUSCLES expansion (e.g. "vertical jump" → quads/glutes/...)
+          - direct mentions of any muscle name in the corpus vocabulary
+        Returned in insertion order, deduplicated, lowercased.
+        """
+        q = (query or "").lower()
+        out = []
+        seen = set()
+        for goal, muscles in sorted(GOAL_TO_MUSCLES.items(), key=lambda x: -len(x[0])):
+            if goal in q:
+                for m in muscles:
+                    ml = m.lower()
+                    if ml not in seen:
+                        seen.add(ml)
+                        out.append(ml)
+        for m in self.all_muscles:
+            if m in q and m not in seen:
+                seen.add(m)
+                out.append(m)
+        return out
 
     def search(self, query, k=5, equipment=None, max_level=None, injured_muscles=None, method="tfidf"):
         """Rank exercises against a natural-language query.
@@ -1026,6 +1060,7 @@ class ExerciseSearcher:
         return {
             "results": results,
             "corrected_query": corrected_query if any_corrected else None,
+            "query_muscles": self._query_muscles(corrected_query or query),
         }
 
 
