@@ -9,6 +9,7 @@ import ExerciseCard, { type PlanState } from './ExerciseCard';
 import ProgramCard from './ProgramCard';
 import MuscleGraph from './MuscleGraph';
 import MuscleRadar from './MuscleRadar';
+import MuscleMap from './MuscleMap';
 import './App.css';
 
 type Tab = 'exercises' | 'programs';
@@ -50,6 +51,7 @@ export default function App() {
   const [injuries, setInjuries] = useState<string[]>([]);
   const [showInjuries, setShowInjuries] = useState<boolean>(false);
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({ 0: true });
+  const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number>(0);
   const [planState, setPlanState] = useState<PlanState>({ loading: false, text: '', error: null });
 
   const [programSearchTerm, setProgramSearchTerm] = useState<string>('');
@@ -101,6 +103,7 @@ export default function App() {
       setQueryMuscles(Array.isArray(data.query_muscles) ? data.query_muscles : []);
       setPlanState({ loading: false, text: '', error: null });
       setExpandedCards({ 0: true });
+      setSelectedExerciseIndex(0);
     } catch (err) {
       console.error('search failed', err);
       setExercises([]);
@@ -205,6 +208,7 @@ export default function App() {
         loading: false,
         error: null,
       });
+      setSelectedExerciseIndex(0);
     } catch (err) {
       console.error('rag search failed', err);
       setExerciseRag({
@@ -351,6 +355,7 @@ export default function App() {
   const changeView = (v: ResultsView) => {
     if (activeTab === 'exercises') {
       setExerciseView(v);
+      setSelectedExerciseIndex(0);
       if (v === 'rag' && useLlm && searchTerm.trim() &&
           exerciseRag.results.length === 0 && !exerciseRag.loading) {
         runRagSearch(searchTerm);
@@ -369,6 +374,9 @@ export default function App() {
   };
 
   const currentMethod = activeTab === 'exercises' ? exerciseMethod : programMethod;
+
+  const displayedExercises = exerciseView === 'rag' ? exerciseRag.results : exercises;
+  const selectedExercise = displayedExercises[selectedExerciseIndex] ?? null;
 
   return (
     <div className="app">
@@ -555,9 +563,15 @@ export default function App() {
               <div className="bodypanel__head">
                 <div>
                   <div className="bodypanel__label">MUSCLE MAP</div>
-                  <div className="bodypanel__sub">Coming soon</div>
+                  <div className="bodypanel__sub">
+                    {selectedExercise ? selectedExercise.name : 'Select an exercise'}
+                  </div>
                 </div>
               </div>
+              <MuscleMap
+                primaryMuscles={selectedExercise?.primaryMuscles ?? []}
+                secondaryMuscles={selectedExercise?.secondaryMuscles ?? []}
+              />
             </aside>
 
             <section className="results">
@@ -626,8 +640,9 @@ export default function App() {
                       exercise={ex}
                       rank={i + 1}
                       expanded={!!expandedCards[i]}
+                      isSelected={selectedExerciseIndex === i}
                       onToggleExpand={() => toggleCard(i)}
-                      onHoverMuscles={() => { /* muscle map disabled */ }}
+                      onSelectCard={() => setSelectedExerciseIndex(i)}
                       onGeneratePlan={handleGeneratePlan}
                       planState={planState}
                       useLlm={useLlm}
@@ -653,8 +668,9 @@ export default function App() {
                       exercise={ex}
                       rank={i + 1}
                       expanded={!!expandedCards[i]}
+                      isSelected={selectedExerciseIndex === i}
                       onToggleExpand={() => toggleCard(i)}
-                      onHoverMuscles={() => { /* muscle map disabled */ }}
+                      onSelectCard={() => setSelectedExerciseIndex(i)}
                       onGeneratePlan={handleGeneratePlan}
                       planState={planState}
                       useLlm={useLlm}
