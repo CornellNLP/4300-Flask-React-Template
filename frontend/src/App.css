@@ -517,15 +517,20 @@ button { font-family: inherit; cursor: pointer; }
 .results { scrollbar-width: none; }
 .results__head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 20px;
+  flex-direction: column;
+  gap: 14px;
   padding: 28px 0 18px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   background: var(--bg);
   z-index: 10;
+}
+.results__head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
 }
 .results__label {
   font-family: var(--mono);
@@ -576,13 +581,13 @@ button { font-family: inherit; cursor: pointer; }
 /* ── IR / IR+RAG view sub-tabs ────────────────────────────────────────── */
 .viewtabs {
   display: inline-flex;
+  align-self: flex-start;
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
-  margin: 0 0 14px 0;
-  align-self: flex-start;
 }
 .viewtab {
+  min-width: 80px;
   padding: 8px 18px;
   background: var(--bg);
   border: none;
@@ -590,6 +595,7 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--display);
   font-size: 11px;
   letter-spacing: 0.14em;
+  text-align: center;
   border-right: 1px solid var(--border);
   cursor: pointer;
   transition: background 150ms, color 150ms;

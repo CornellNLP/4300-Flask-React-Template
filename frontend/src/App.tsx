@@ -595,25 +595,24 @@ export default function App() {
           <div className="workspace workspace--exercises">
             <section className="results">
               <header className="results__head">
-                <div>
-                  <div className="results__label">RESULTS</div>
-                  <h2 className="results__title">
-                    <span className="results__count">
-                      {exerciseView === 'rag' ? exerciseRag.results.length : exercises.length}
-                    </span>
-                    <span>exercises ranked by</span>
-                    <span className="results__method">
-                      {exerciseMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
-                    </span>
-                  </h2>
+                <div className="results__head-row">
+                  <div>
+                    <div className="results__label">RESULTS</div>
+                    <h2 className="results__title">
+                      <span className="results__count">
+                        {exerciseView === 'rag' ? exerciseRag.results.length : exercises.length}
+                      </span>
+                      <span>exercises ranked by</span>
+                      <span className="results__method">
+                        {exerciseMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
+                      </span>
+                    </h2>
+                  </div>
+                  <div className="results__query">
+                    <span className="results__query-label">QUERY</span>
+                    <span className="results__query-text">"{searchTerm}"</span>
+                  </div>
                 </div>
-                <div className="results__query">
-                  <span className="results__query-label">QUERY</span>
-                  <span className="results__query-text">"{searchTerm}"</span>
-                </div>
-              </header>
-
-              {useLlm && (
                 <div className="viewtabs">
                   <button
                     type="button"
@@ -630,7 +629,7 @@ export default function App() {
                     IR + RAG
                   </button>
                 </div>
-              )}
+              </header>
 
               {exerciseView === 'rag' && useLlm && (exerciseRag.refinedQuery || exerciseRag.loading || exerciseRag.error) && (
                 <div className="refined-query">
@@ -767,25 +766,24 @@ export default function App() {
           <div className="workspace workspace--programs">
             <section className="results results--full">
               <header className="results__head">
-                <div>
-                  <div className="results__label">PROGRAMS</div>
-                  <h2 className="results__title">
-                    <span className="results__count">
-                      {programView === 'rag' ? programRag.results.length : programs.length}
-                    </span>
-                    <span>programs ranked by</span>
-                    <span className="results__method">
-                      {programMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
-                    </span>
-                  </h2>
+                <div className="results__head-row">
+                  <div>
+                    <div className="results__label">PROGRAMS</div>
+                    <h2 className="results__title">
+                      <span className="results__count">
+                        {programView === 'rag' ? programRag.results.length : programs.length}
+                      </span>
+                      <span>programs ranked by</span>
+                      <span className="results__method">
+                        {programMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
+                      </span>
+                    </h2>
+                  </div>
+                  <div className="results__query">
+                    <span className="results__query-label">QUERY</span>
+                    <span className="results__query-text">"{programSearchTerm}"</span>
+                  </div>
                 </div>
-                <div className="results__query">
-                  <span className="results__query-label">QUERY</span>
-                  <span className="results__query-text">"{programSearchTerm}"</span>
-                </div>
-              </header>
-
-              {useLlm && (
                 <div className="viewtabs">
                   <button
                     type="button"
@@ -802,7 +800,7 @@ export default function App() {
                     IR + RAG
                   </button>
                 </div>
-              )}
+              </header>
 
               {programView === 'rag' && useLlm && (programRag.refinedQuery || programRag.loading || programRag.error) && (
                 <div className="refined-query">

@@ -16,6 +16,7 @@ import re
 import logging
 from flask import request, jsonify, Response, stream_with_context
 from infosci_spark_client import LLMClient
+from retrieval import search as retrieval_search
 
 logger = logging.getLogger(__name__)
 
@@ -150,22 +151,44 @@ def register_enrichment_routes(app):
             f"Instructions:\n" + "\n".join(f"- {step}" for step in instructions[:8])
         )
 
+        # Retrieve 20 candidates from the database to ground the plan in real exercises.
+        muscles = list(primary) + list(secondary)
+        seed_query = " ".join(muscles) if muscles else name
+        equip_filter = [equipment] if equipment and equipment != "other" else None
+        ir_payload = retrieval_search(seed_query, k=20, equipment=equip_filter)
+        candidates = [
+            r for r in (ir_payload.get("results") or [])
+            if r.get("name", "").strip().lower() != name.strip().lower()
+        ]
+        candidate_lines = "\n".join(
+            f"- {r['name']} (muscles: {', '.join(r.get('primaryMuscles') or [])}; "
+            f"equipment: {r.get('equipment') or 'unspecified'})"
+            for r in candidates
+        )
+
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "You are a strength-and-conditioning coach. Given a centerpiece exercise, "
-                    "output a full complementary workout plan for the day. Include: a brief warmup, "
-                    "3-4 accessory exercises that target complementary muscle groups or movement "
-                    "patterns, a finisher, and a cooldown. Match the available equipment. Keep tone "
-                    "direct and practical. Use markdown headings and bullet lists. Do not restate "
-                    "the full instructions for the centerpiece exercise — the user already has them. "
+                    "You are a strength-and-conditioning coach. Given a centerpiece exercise and a "
+                    "pool of available exercises retrieved from the database, output a full "
+                    "complementary workout plan for the day. Include: a brief warmup, 3-4 accessory "
+                    "exercises that target complementary muscle groups or movement patterns, a "
+                    "finisher, and a cooldown. You MUST select all accessory exercises and the "
+                    "finisher exclusively from the provided exercise pool — do not invent exercises "
+                    "not on the list. Match the available equipment. Keep tone direct and practical. "
+                    "Use markdown headings and bullet lists. Do not restate the full instructions "
+                    "for the centerpiece exercise — the user already has them. "
                     "For any exercise prescribed for hypertrophy, use a rep range of 8-12."
                 ),
             },
             {
                 "role": "user",
-                "content": f"Centerpiece exercise:\n\n{exercise_block}\n\nWrite the workout plan.",
+                "content": (
+                    f"Centerpiece exercise:\n\n{exercise_block}\n\n"
+                    f"Available exercise pool (choose from these only):\n{candidate_lines}\n\n"
+                    "Write the workout plan."
+                ),
             },
         ]
 
