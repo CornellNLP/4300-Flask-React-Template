@@ -173,6 +173,40 @@ def _rerank_candidates(client, original_query, refined_query, candidates,
     return picked[:k]
 
 
+def _summarize_picks(client, original_query, refined_query, picks, line_builder, domain="exercise"):
+    """Generate a 2-3 sentence prose summary helping the user pick from top-k results.
+
+    Returns empty string on any failure so the UI can hide the block gracefully.
+    """
+    if not picks:
+        return ""
+    domain_label = "programs" if domain == "program" else "exercises"
+    lines = [line_builder(i + 1, p) for i, p in enumerate(picks)]
+    listing = "\n".join(lines)
+    system = (
+        f"You write a 2-3 sentence summary helping a user pick from a ranked "
+        f"list of fitness {domain_label}. State which top result fits best and "
+        "why, then briefly note 1-2 alternatives and what they would be "
+        "preferred for. Plain prose, no markdown, no lists, no quotes."
+    )
+    user = (
+        f"Original query: {original_query}\n"
+        f"Refined query: {refined_query}\n\n"
+        f"Top results:\n{listing}"
+    )
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    try:
+        response = client.chat(messages, stream=False)
+        content = response.get("content") if isinstance(response, dict) else None
+        return (content or "").strip()
+    except Exception as e:
+        logger.warning(f"summarize_picks failed: {e}")
+        return ""
+
+
 def register_rag_routes(app):
     """Register the two RAG endpoints. Called from routes.py."""
 
@@ -221,12 +255,15 @@ def register_rag_routes(app):
         picks = _rerank_candidates(client, query, refined, candidates,
                                    _exercise_candidate_line)
         final = [candidates[i] for i in picks]
+        summary = _summarize_picks(client, query, refined, final,
+                                   _exercise_candidate_line, domain="exercise")
 
         return jsonify({
             "results": final,
             "corrected_query": ir_payload.get("corrected_query"),
             "refined_query": refined,
             "original_query": query,
+            "summary": summary,
         })
 
     @app.route("/api/rag_search_programs", methods=["POST"])
@@ -253,10 +290,13 @@ def register_rag_routes(app):
         picks = _rerank_candidates(client, query, refined, candidates,
                                    _program_candidate_line)
         final = [candidates[i] for i in picks]
+        summary = _summarize_picks(client, query, refined, final,
+                                   _program_candidate_line, domain="program")
 
         return jsonify({
             "results": final,
             "corrected_query": ir_payload.get("corrected_query"),
             "refined_query": refined,
             "original_query": query,
+            "summary": summary,
         })

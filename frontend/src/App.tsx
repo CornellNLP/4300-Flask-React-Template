@@ -20,6 +20,7 @@ type ResultsView = 'ir' | 'rag';
 type RagState<T> = {
   results: T[];
   refinedQuery: string;
+  summary: string;
   loading: boolean;
   error: string | null;
 };
@@ -27,12 +28,14 @@ type RagState<T> = {
 const emptyExerciseRag: RagState<Exercise> = {
   results: [],
   refinedQuery: '',
+  summary: '',
   loading: false,
   error: null,
 };
 const emptyProgramRag: RagState<Program> = {
   results: [],
   refinedQuery: '',
+  summary: '',
   loading: false,
   error: null,
 };
@@ -51,6 +54,7 @@ export default function App() {
   const [difficulty, setDifficulty] = useState<string>('');
   const [injuries, setInjuries] = useState<string[]>([]);
   const [showInjuries, setShowInjuries] = useState<boolean>(false);
+  const [showEquipment, setShowEquipment] = useState<boolean>(false);
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({ 0: true });
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number>(0);
   const [planState, setPlanState] = useState<PlanState>({ loading: false, text: '', error: null });
@@ -199,7 +203,7 @@ export default function App() {
       });
       if (!res.ok) {
         setExerciseRag({
-          results: [], refinedQuery: '', loading: false,
+          results: [], refinedQuery: '', summary: '', loading: false,
           error: res.status === 503 ? 'LLM not configured' : `Request failed (${res.status})`,
         });
         return;
@@ -208,6 +212,7 @@ export default function App() {
       setExerciseRag({
         results: data.results ?? [],
         refinedQuery: data.refined_query ?? '',
+        summary: data.summary ?? '',
         loading: false,
         error: null,
       });
@@ -215,7 +220,7 @@ export default function App() {
     } catch (err) {
       console.error('rag search failed', err);
       setExerciseRag({
-        results: [], refinedQuery: '', loading: false,
+        results: [], refinedQuery: '', summary: '', loading: false,
         error: err instanceof Error ? err.message : 'RAG search failed',
       });
     }
@@ -236,7 +241,7 @@ export default function App() {
       });
       if (!res.ok) {
         setProgramRag({
-          results: [], refinedQuery: '', loading: false,
+          results: [], refinedQuery: '', summary: '', loading: false,
           error: res.status === 503 ? 'LLM not configured' : `Request failed (${res.status})`,
         });
         return;
@@ -245,13 +250,14 @@ export default function App() {
       setProgramRag({
         results: data.results ?? [],
         refinedQuery: data.refined_query ?? '',
+        summary: data.summary ?? '',
         loading: false,
         error: null,
       });
     } catch (err) {
       console.error('rag program search failed', err);
       setProgramRag({
-        results: [], refinedQuery: '', loading: false,
+        results: [], refinedQuery: '', summary: '', loading: false,
         error: err instanceof Error ? err.message : 'RAG search failed',
       });
     }
@@ -388,6 +394,26 @@ export default function App() {
   const displayedExercises = exerciseView === 'rag' ? exerciseRag.results : exercises;
   const selectedExercise = displayedExercises[selectedExerciseIndex] ?? null;
 
+  const welcomeCard = (
+    <div className="welcome-card">
+      <div className="welcome-card__title">ATHLETIC TRAINING FINDER</div>
+      <div className="welcome-card__rule" />
+      <p className="welcome-card__body">
+        Describe a fitness goal and we&apos;ll return the top{' '}
+        <strong>{activeTab === 'exercises' ? 'exercises' : 'workout programs'}</strong>{' '}
+        ranked by relevance to your query.
+      </p>
+      <ul className="welcome-card__hints">
+        <li>Switch <strong>KEYWORD ↔ SEMANTIC</strong> to compare retrieval methods</li>
+        {useLlm && <li>Use <strong>IR + RAG</strong> for LLM-assisted reranking</li>}
+        {activeTab === 'exercises' && <li>Filter by equipment, difficulty, or injuries</li>}
+      </ul>
+      <div className="welcome-card__try">
+        Try: &ldquo;{activeTab === 'exercises' ? 'improve vertical jump' : '8 week hypertrophy'}&rdquo;
+      </div>
+    </div>
+  );
+
   return (
     <div className="app">
       {/* ─── LEFT RAIL ──────────────────────────────────────────────── */}
@@ -447,20 +473,26 @@ export default function App() {
               <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.75" />
               <path d="M11 11 L15 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
             </svg>
-            <input
-              type="text"
+            <textarea
+              rows={2}
               value={activeTab === 'exercises' ? searchTerm : programSearchTerm}
               placeholder={
                 activeTab === 'exercises'
-                  ? 'e.g. build chest for basketball'
+                  ? 'e.g. improve vertical jump'
                   : 'e.g. 8 week hypertrophy'
               }
               onChange={(e) => {
                 if (activeTab === 'exercises') setSearchTerm(e.target.value);
                 else setProgramSearchTerm(e.target.value);
               }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 'px';
+              }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
                   if (activeTab === 'exercises') triggerExerciseSearch(searchTerm);
                   else triggerProgramSearch(programSearchTerm);
                 }
@@ -484,23 +516,8 @@ export default function App() {
         {activeTab === 'exercises' && (
           <>
             <div className="rail__section">
-              <div className="rail__section-label">EQUIPMENT</div>
-              <div className="chip-grid">
-                {EQUIPMENT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    className={`chip ${selectedEquipment.includes(opt) ? 'is-active' : ''}`}
-                    onClick={() => toggleEquipment(opt)}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rail__section">
-              <div className="rail__section-label">DIFFICULTY</div>
+              <div className="rail__section-label">FILTERS</div>
+              <div className="filters__sub-label">DIFFICULTY</div>
               <div className="diff-toggle">
                 <button
                   type="button"
@@ -520,6 +537,31 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowEquipment((s) => !s)}
+              >
+                <span className="filter-toggle__label">EQUIPMENT</span>
+                {selectedEquipment.length > 0 && (
+                  <span className="filter-toggle__count">{selectedEquipment.length}</span>
+                )}
+                <span className={`chev ${showEquipment ? 'chev--up' : ''}`}>↓</span>
+              </button>
+              {showEquipment && (
+                <div className="chip-grid">
+                  {EQUIPMENT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={`chip ${selectedEquipment.includes(opt) ? 'is-active' : ''}`}
+                      onClick={() => toggleEquipment(opt)}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="rail__section">
@@ -656,6 +698,13 @@ export default function App() {
                 </div>
               )}
 
+              {exerciseView === 'rag' && useLlm && !exerciseRag.loading && exerciseRag.summary && (
+                <div className="rag-summary">
+                  <span className="rag-summary__label">AI SUMMARY</span>
+                  <p className="rag-summary__text">{exerciseRag.summary}</p>
+                </div>
+              )}
+
               {exerciseView === 'ir' ? (
                 <div className="results__list">
                   {exercises.map((ex, i) => (
@@ -670,10 +719,12 @@ export default function App() {
                     />
                   ))}
                   {exercises.length === 0 && (
-                    <div className="empty">
-                      <div className="empty__icon">◎</div>
-                      <p>No results. Try broadening your filters or query.</p>
-                    </div>
+                    searchTerm.trim() ? (
+                      <div className="empty">
+                        <div className="empty__icon">◎</div>
+                        <p>No results. Try broadening your filters or query.</p>
+                      </div>
+                    ) : welcomeCard
                   )}
                 </div>
               ) : exerciseRag.loading ? (
@@ -695,10 +746,12 @@ export default function App() {
                     />
                   ))}
                   {exerciseRag.results.length === 0 && !exerciseRag.error && (
-                    <div className="empty">
-                      <div className="empty__icon">◎</div>
-                      <p>Run a search to see IR + RAG results.</p>
-                    </div>
+                    searchTerm.trim() ? (
+                      <div className="empty">
+                        <div className="empty__icon">◎</div>
+                        <p>Run a search to see IR + RAG results.</p>
+                      </div>
+                    ) : welcomeCard
                   )}
                 </div>
               )}
@@ -712,6 +765,7 @@ export default function App() {
                     <div className="bodypanel__sub">
                       {selectedExercise ? selectedExercise.name : 'Select an exercise'}
                     </div>
+                    <div className="bodypanel__desc">Primary and secondary muscles worked by the selected exercise. Click any result to update.</div>
                   </div>
                   <span className="expand-hint">expand ↗</span>
                 </div>
@@ -726,7 +780,7 @@ export default function App() {
                   <div>
                     <div className="netpanel__label">MUSCLE NETWORK</div>
                     <h2 className="netpanel__title">
-                      <span>exercise &amp; muscle map</span>
+                      <span>how results connect to muscles</span>
                       {queryMuscles.length > 0 && (
                         <span className="netpanel__count">
                           · {queryMuscles.length} query muscle
@@ -734,6 +788,7 @@ export default function App() {
                         </span>
                       )}
                     </h2>
+                    <div className="netpanel__desc">Hover an exercise or muscle to see its connections across all results.</div>
                   </div>
                   <span className="expand-hint">expand ↗</span>
                 </header>
@@ -750,10 +805,11 @@ export default function App() {
               <section className="netpanel netpanel--clickable" onClick={() => setVizModal('radar')}>
                 <header className="netpanel__head">
                   <div>
-                    <div className="netpanel__label">MUSCLE GRAPH</div>
+                    <div className="netpanel__label">MUSCLE COVERAGE</div>
                     <h2 className="netpanel__title">
-                      <span>relevance per muscle</span>
+                      <span>muscle coverage across results</span>
                     </h2>
+                    <div className="netpanel__desc">Outer = better coverage in the top results. Orange = muscles your query asked for.</div>
                   </div>
                   <span className="expand-hint">expand ↗</span>
                 </header>
@@ -827,6 +883,13 @@ export default function App() {
                 </div>
               )}
 
+              {programView === 'rag' && useLlm && !programRag.loading && programRag.summary && (
+                <div className="rag-summary">
+                  <span className="rag-summary__label">AI SUMMARY</span>
+                  <p className="rag-summary__text">{programRag.summary}</p>
+                </div>
+              )}
+
               {programView === 'ir' && programsLoading ? (
                 <div className="loading">
                   <div className="loading__spinner" />
@@ -856,10 +919,12 @@ export default function App() {
                     />
                   ))}
                   {programs.length === 0 && (
-                    <div className="empty">
-                      <div className="empty__icon">◎</div>
-                      <p>No results. Try a different query.</p>
-                    </div>
+                    programSearchTerm.trim() ? (
+                      <div className="empty">
+                        <div className="empty__icon">◎</div>
+                        <p>No results. Try a different query.</p>
+                      </div>
+                    ) : welcomeCard
                   )}
                 </div>
               ) : (
@@ -877,10 +942,12 @@ export default function App() {
                     />
                   ))}
                   {programRag.results.length === 0 && !programRag.error && (
-                    <div className="empty">
-                      <div className="empty__icon">◎</div>
-                      <p>Run a search to see IR + RAG results.</p>
-                    </div>
+                    programSearchTerm.trim() ? (
+                      <div className="empty">
+                        <div className="empty__icon">◎</div>
+                        <p>Run a search to see IR + RAG results.</p>
+                      </div>
+                    ) : welcomeCard
                   )}
                 </div>
               )}
@@ -915,7 +982,7 @@ export default function App() {
           <div className={`viz-modal viz-modal--${vizModal}`} onClick={(e) => e.stopPropagation()}>
             <div className="viz-modal__head">
               <span className="viz-modal__label">
-                {vizModal === 'map' ? 'MUSCLE MAP' : vizModal === 'network' ? 'MUSCLE NETWORK' : 'MUSCLE GRAPH'}
+                {vizModal === 'map' ? 'MUSCLE MAP' : vizModal === 'network' ? 'MUSCLE NETWORK' : 'MUSCLE COVERAGE'}
               </span>
               <button className="viz-modal__close" onClick={() => setVizModal(null)}>✕</button>
             </div>

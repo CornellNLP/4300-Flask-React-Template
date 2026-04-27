@@ -39,7 +39,7 @@ export interface ProgramCardProps {
 export default function ProgramCard({
   program, rank, isTop, useLlm, openCueKey, setOpenCueKey, cues,
 }: ProgramCardProps) {
-  const [schedOpen, setSchedOpen] = useState<boolean>(isTop);
+  const [schedOpen, setSchedOpen] = useState<boolean>(false);
   const grouped = groupScheduleByWeekDay(program.schedule);
   const totalSessions = new Set(
     program.schedule.map((s) => `${s.week}-${s.day}`),

@@ -114,11 +114,19 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Rail sections ────────────────────────────────────────────────────── */
 
 .rail__section { display: flex; flex-direction: column; gap: 10px; }
+.filters__sub-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: -4px;
+}
 .rail__section-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
-  color: var(--text-dim);
+  color: var(--text);
   text-transform: uppercase;
 }
 
@@ -195,7 +203,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .search-box {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -204,8 +212,9 @@ button { font-family: inherit; cursor: pointer; }
   transition: border 150ms;
 }
 .search-box:focus-within { border-color: var(--accent); }
-.search-box__icon { color: var(--text-dim); flex-shrink: 0; }
-.search-box input {
+.search-box__icon { color: var(--text-dim); flex-shrink: 0; margin-top: 3px; }
+.search-box input,
+.search-box textarea {
   background: transparent;
   border: none;
   outline: none;
@@ -213,8 +222,14 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 13px;
   width: 100%;
   font-family: var(--body);
+  resize: none;
+  overflow-y: hidden;
+  max-height: 220px;
+  line-height: 1.5;
 }
-.search-box input::placeholder { color: var(--text-faint); }
+.search-box textarea { overflow-y: auto; }
+.search-box input::placeholder,
+.search-box textarea::placeholder { color: var(--text-faint); }
 
 .run-btn {
   display: flex;
@@ -326,6 +341,29 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1.5;
 }
 
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: left;
+  width: 100%;
+}
+.filter-toggle__label { flex: 1; }
+.filter-toggle__count {
+  padding: 2px 7px;
+  background: var(--accent);
+  color: #0a0b0d;
+  border-radius: 2px;
+  font-size: 10px;
+}
+
 .rail__foot {
   margin-top: auto;
   padding-top: 20px;
@@ -377,7 +415,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .bodypanel__label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 0.2em;
 }
@@ -642,6 +680,86 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--accent);
 }
 
+/* ── AI summary block (RAG view) ──────────────────────────────────────── */
+.rag-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  margin: 0 0 16px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.rag-summary__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+}
+.rag-summary__text {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.55;
+  margin: 0;
+  font-family: var(--body);
+}
+
+/* ── Welcome / onboarding card ────────────────────────────────────────── */
+
+.welcome-card {
+  padding: 48px 40px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.welcome-card__title {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.welcome-card__rule {
+  width: 40px;
+  height: 2px;
+  background: var(--accent);
+  margin: -4px 0 0;
+}
+.welcome-card__body {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+}
+.welcome-card__hints {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.welcome-card__hints li::before {
+  content: '·  ';
+  color: var(--accent);
+}
+.welcome-card__try {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  padding-top: 4px;
+}
+
 /* ── Exercise card ────────────────────────────────────────────────────── */
 
 .ex-card {
@@ -659,13 +777,13 @@ button { font-family: inherit; cursor: pointer; }
 
 .ex-card--top {
   background: linear-gradient(180deg, var(--bg-card-hi), var(--bg-card));
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
   padding: 26px 28px;
-  box-shadow: 0 0 0 1px var(--accent-dim), 0 24px 60px -30px rgba(255, 108, 40, 0.4);
 }
-.ex-card--selected:not(.ex-card--top) {
-  border-color: var(--accent-soft);
-  box-shadow: 0 0 0 1px var(--accent-dim);
+.ex-card--selected {
+  border-color: var(--accent);
+  border-width: 1.5px;
+  box-shadow: inset 4px 0 0 var(--accent);
 }
 .figure svg rect,
 .figure svg ellipse,
@@ -968,9 +1086,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 .pg-card--top {
   background: linear-gradient(180deg, var(--bg-card-hi), var(--bg-card));
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
   padding: 26px 28px;
-  box-shadow: 0 0 0 1px var(--accent-dim);
 }
 .pg-card--top::before {
   content: 'TOP RESULT';
@@ -1364,16 +1481,16 @@ button { font-family: inherit; cursor: pointer; }
 }
 .netpanel__label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 0.2em;
 }
 .netpanel__title {
-  font-family: var(--display);
-  font-size: 18px;
+  font-family: var(--mono);
+  font-size: 13px;
   margin: 4px 0 0;
-  letter-spacing: -0.01em;
-  color: var(--text);
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
   display: flex;
   gap: 10px;
   align-items: baseline;
@@ -1382,6 +1499,14 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-dim);
+}
+.netpanel__desc,
+.bodypanel__desc {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 4px 0 0;
 }
 
 /* ── Muscle graph ──────────────────────────────────────────────────────── */
@@ -1456,20 +1581,20 @@ button { font-family: inherit; cursor: pointer; }
 
 .musclegraph__label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
   fill: var(--text);
   letter-spacing: 0.04em;
   pointer-events: none;
 }
 .musclegraph__node--exercise .musclegraph__label {
-  font-size: 9px;
+  font-size: 11px;
   fill: var(--text-dim);
 }
 .musclegraph__node--exercise:hover .musclegraph__label {
   fill: var(--text);
 }
 .musclegraph__node--muscle.is-query-relevant .musclegraph__label {
-  font-size: 11px;
+  font-size: 13px;
   fill: var(--accent);
   font-weight: 600;
 }
@@ -1545,7 +1670,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .muscleradar__tick {
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 10px;
   fill: var(--text-faint);
   pointer-events: none;
 }
@@ -1572,13 +1697,14 @@ button { font-family: inherit; cursor: pointer; }
 
 .muscleradar__label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
   fill: var(--text-dim);
   letter-spacing: 0.04em;
   pointer-events: none;
 }
 .muscleradar__label.is-query-relevant {
   fill: var(--accent);
+  font-size: 12px;
   font-weight: 600;
 }
 
