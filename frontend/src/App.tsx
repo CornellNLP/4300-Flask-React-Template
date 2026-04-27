@@ -630,7 +630,7 @@ export default function App() {
                     </span>
                     <span>exercises ranked by</span>
                     <span className="results__method">
-                      {exerciseMethod === 'tfidf' ? 'KEYWORD' : 'SEMANTIC'}
+                      {exerciseMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
                     </span>
                   </h2>
                 </div>
@@ -744,7 +744,7 @@ export default function App() {
                     </span>
                     <span>programs ranked by</span>
                     <span className="results__method">
-                      {programMethod === 'tfidf' ? 'KEYWORD' : 'SEMANTIC'}
+                      {programMethod === 'tfidf' ? 'KEYWORD RETRIEVAL' : 'SEMANTIC RETRIEVAL'}
                     </span>
                   </h2>
                 </div>
