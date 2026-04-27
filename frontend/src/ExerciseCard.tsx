@@ -20,8 +20,9 @@ export interface ExerciseCardProps {
   exercise: Exercise;
   rank: number;                                  // 1-based
   expanded: boolean;
+  isSelected: boolean;
   onToggleExpand: () => void;
-  onHoverMuscles: (muscles: string[]) => void;   // preview on MuscleMap
+  onSelectCard: () => void;
   onGeneratePlan: (exercise: Exercise) => void;  // top card only
   planState: PlanState;                          // top card only
   useLlm: boolean;
@@ -45,8 +46,9 @@ export default function ExerciseCard({
   exercise,
   rank,
   expanded,
+  isSelected,
   onToggleExpand,
-  onHoverMuscles,
+  onSelectCard,
   onGeneratePlan,
   planState,
   useLlm,
@@ -55,14 +57,8 @@ export default function ExerciseCard({
 
   return (
     <article
-      className={`ex-card ${isTop ? 'ex-card--top' : ''} ${expanded ? 'ex-card--open' : ''}`}
-      onMouseEnter={() =>
-        onHoverMuscles([
-          ...(exercise.primaryMuscles || []),
-          ...(exercise.secondaryMuscles || []),
-        ])
-      }
-      onMouseLeave={() => onHoverMuscles([])}
+      className={`ex-card ${isTop ? 'ex-card--top' : ''} ${expanded ? 'ex-card--open' : ''} ${isSelected ? 'ex-card--selected' : ''}`}
+      onClick={onSelectCard}
     >
       <header className="ex-card__head">
         <RankNumeral n={rank} />

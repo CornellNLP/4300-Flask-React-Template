@@ -643,6 +643,14 @@ button { font-family: inherit; cursor: pointer; }
   padding: 26px 28px;
   box-shadow: 0 0 0 1px var(--accent-dim), 0 24px 60px -30px rgba(255, 108, 40, 0.4);
 }
+.ex-card--selected:not(.ex-card--top) {
+  border-color: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+.figure svg rect,
+.figure svg ellipse {
+  transition: fill 200ms ease;
+}
 .ex-card--top::before {
   content: 'TOP RESULT';
   position: absolute;
